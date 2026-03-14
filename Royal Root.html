@@ -1,0 +1,699 @@
+"use client";
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { Crown, ScrollText, Target, Shuffle, Users, Heart, Spade, Diamond, Clover, Info, RefreshCw, HandMetal, Zap, Shield, Coins, ArrowLeft, Trophy, Clock } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useToast } from '@/hooks/use-toast';
+// --- TYPES & CONSTANTS ---
+export type Suit = '♠' | '♥' | '♦' | '♣';
+export type Rank = '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K' | 'A' | 'JKR';
+export const SUITS: Suit[] = ['♠', '♥', '♦', '♣'];
+export const RANKS: Rank[] = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+export const RANK_VAL: Record<Rank, number> = {
+  '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14, 'JKR': 15
+};
+export const SUIT_NAMES: Record<Suit, string> = {
+  '♠': 'Spades', '♥': 'Hearts', '♦': 'Diamonds', '♣': 'Clover'
+};
+export interface Card {
+  rank: Rank;
+  suit: Suit;
+  id: string;
+  wild?: boolean;
+}
+export interface Player {
+  pidx: number;
+  name: string;
+  emoji: string;
+  hand: Card[];
+  isHuman: boolean;
+  score: number;
+  wins: number;
+  chips?: number;
+}
+export type GameMode = 'solo' | 'ffa' | 'duos';
+export interface GameState {
+  mode: GameMode;
+  numPlayers: number;
+  deck: Card[];
+  discard: Card[];
+  faceCard: Card | null;
+  players: Player[];
+  cur: number;
+  dir: 1 | -1;
+  sel: string[];
+  phase: 'play' | 'ended' | 'ace' | 'joker_effect' | 'roots_pick' | 'even_steven' | 'eight_suit' | 'king_tax' | 'queen_suit' | 'jack_flush' | 'house_party' | 'cascade_house' | 'root_out' | 'war' | 'joker_heart' | 'joker_spade' | 'joker_diamond' | 'joker_clover' | 'flush_effect';
+  turnPhase: 'playing' | 'done';
+  freeDrewId: string | null;
+  extraTurns: number;
+  remainingActions: number;
+  totalActions: number;
+  matchesTo: number;
+  pot: number;
+  minBet: number;
+  lockedSuit: Suit | null;
+  lockedSuitTurns: number;
+  limitNext: number;
+  queenBonus: number;
+  wildPlays: number;
+  log: { msg: string; hi: boolean; time: string }[];
+  styles: { flush: boolean; money: boolean; points: boolean; ancestors: boolean };
+  styleLabel: string;
+  pendingEffects: string[];
+}
+// --- ENGINE LOGIC ---
+export function shuffle<T>(a: T[]): T[] {
+  const arr = [...a];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+export function rv(r: Rank) { return RANK_VAL[r] || 0; }
+export function answersFC(card: Card, faceCard: Card | null, isWild: boolean = false, lockedSuit: Suit | null = null): boolean {
+  if (isWild) return true;
+  if (lockedSuit) return card.suit === lockedSuit;
+  if (!faceCard) return true;
+  if (card.rank === 'JKR' || card.rank === 'K') return true;
+  if (card.rank === 'Q') return faceCard.rank !== 'K';
+  if (card.rank === 'J') return !['K', 'Q'].includes(faceCard.rank);
+  return card.suit === faceCard.suit || card.rank === faceCard.rank;
+}
+export interface EvalResult {
+  valid: boolean;
+  name?: string;
+  pts?: number;
+  tier?: string;
+  effects: string[];
+  actionCount?: number;
+  reason?: string;
+  hint?: string;
+  extraTurns?: number;
+  matchWin?: boolean;
+  gameOver?: boolean;
+}
+function R(name: string, pts: number, tier: string, effects: string[] = [], actionCount: number = 0, hint: string = '', extraTurns: number = 0): EvalResult {
+  return { valid: true, name, pts, tier, effects, actionCount, hint, extraTurns };
+}
+export function evalCombo(cards: Card[], faceCard: Card | null, isWild: boolean = false, lockedSuit: Suit | null = null): EvalResult {
+  if (!cards || cards.length === 0) return { valid: false, effects: [], hint: "Select cards to build your combo!" };
+  const n = cards.length;
+  const jokers = cards.filter(c => c.rank === 'JKR');
+  const nonJ = cards.filter(c => c.rank !== 'JKR');
+  const jCount = jokers.length;
+  if (!isWild && faceCard) {
+    const hasAnswer = cards.some(c => answersFC(c, faceCard, false, lockedSuit));
+    if (!hasAnswer) return { valid: false, effects: [], reason: 'Invalid Lead Card', hint: lockedSuit ? `Must match locked suit: ${SUIT_NAMES[lockedSuit]}!` : "At least one card must match the Face Card or be a Royal!" };
+  }
+  // Dead Man Check (8 & A of Spades/Clover + Joker)
+  const js = cards.filter(c => c.rank === 'JKR' && (c.suit === '♠' || c.suit === '♣'));
+  const s8 = cards.filter(c => c.rank === '8' && (c.suit === '♠' || c.suit === '♣')).length === 2;
+  const sA = cards.filter(c => c.rank === 'A' && (c.suit === '♠' || c.suit === '♣')).length === 2;
+  if (s8 && sA && js.length > 0) {
+    if (cards.every(c => c.suit === cards[0].suit)) return { ...R("Royal Dead Man", 999, 'MYTHICAL', [], 0), gameOver: true };
+    return { ...R("Dead Man's Hand", 666, 'MYTHICAL', [], 0), matchWin: true };
+  }
+  if (n >= 5) {
+    // Royal Flush
+    if (n === 5 && isSequential(cards) && allSameSuit(cards)) {
+      const ranks = cards.filter(c => c.rank !== 'JKR').map(c => c.rank);
+      if (ranks.every(r => ['10', 'J', 'Q', 'K', 'A'].includes(r))) return applyFacePenalty(R('Royal Flush 👑', 500, 'MYTHICAL', ['round_win'], 0), cards);
+    }
+    // Straight
+    if (isSequential(cards)) {
+      const pts = 15 + (n - 5) * 3; // Corrected bonus
+      return applyFacePenalty(R(`Straight (${n})`, pts, 'RARE', ['draw_2_others'], 1), cards);
+    }
+    // Flush
+    if (allSameSuit(cards)) {
+      const pts = 20 + (n - 5) * 1;
+      return applyFacePenalty(R(`Flush (${n})`, pts, 'RARE', ['flush_effect'], 1), cards);
+    }
+    // Full House
+    const counts: Record<string, number> = {};
+    cards.forEach(c => { if (c.rank !== 'JKR') counts[c.rank] = (counts[c.rank] || 0) + 1; });
+    const vals = Object.values(counts) as number[];
+    if ((vals.includes(3) && vals.includes(2)) || (vals.length === 1 && jCount > 0)) return R('Full House', 25, 'RARE', ['house_party'], 1);
+  }
+  if (nonJ.length > 0 && nonJ.every(c => c.rank === nonJ[0].rank)) {
+    const rank = nonJ[0].rank;
+    const res = evalSets(rank, n, jCount);
+    if (res.valid) {
+      if (jCount > 0) {
+        jokers.forEach(j => res.effects.push(getJokerEffect(j.suit)));
+        const jBonus = jCount === 2 ? 7 : jCount === 3 ? 15 : 0; // Adjusted for Double/Triple
+        res.pts = (res.pts || 0) + jBonus;
+        res.name = `${res.name} (+Jokers)`;
+      }
+      return res;
+    }
+  }
+  if (jCount > 0 && nonJ.length === 0) {
+    let pts = 5;
+    if (jCount === 2) pts = 12;
+    else if (jCount === 3) pts = 25;
+    else if (jCount === 4) pts = 400;
+    let effects = jokers.map(j => getJokerEffect(j.suit));
+    if (jCount === 4) effects.push('joker_cascade');
+    return R(`${jCount}x Jokers`, pts, 'EPIC', effects, 1);
+  }
+  if (n === 1) {
+    const r = cards[0].rank;
+    if (['J', 'Q', 'K'].includes(r)) return R(`${r} Power`, 4, 'COMMON', [getRoyalEffect(r)], 1);
+    if (r === 'JKR') return R(`${SUIT_NAMES[cards[0].suit]} Joker`, 5, 'RARE', [getJokerEffect(cards[0].suit)], 1);
+    return R('Single Card', 0, 'COMMON', [], 0, "Single 2-10 cards award 0 points.");
+  }
+  return { valid: false, effects: [], reason: 'Invalid Combo', hint: "Try a Pair, Straight, or Flush!" };
+}
+function evalSets(r: Rank, n: number, jCount: number): EvalResult {
+  const total = n;
+  const label = `${total}x ${r}s`;
+  const isRoyal = ['J', 'Q', 'K'].includes(r);
+
+  if (r === '2') {
+    const pts = total === 2 ? 8 : total === 3 ? 12 : 35;
+    return R(label, pts, 'RARE', ['power_2', 'skip_1'], 0, `Next draws ${total} & skipped!`);
+  }
+  if (r === '7') {
+    if (total === 2) return R(label, 8, 'RARE', ['skip_1'], 0);
+    if (total === 3) return R(label, 12, 'RARE', ['skip_2'], 0);
+    if (total >= 4) return R(label, 35, 'RARE', ['skip_all'], 0, 'Skip all, play again!', 1);
+  }
+  if (r === '8') {
+    if (total === 2) return R(label, 8, 'RARE', ['eight_suit'], 1);
+    if (total === 3) return R(label, 12, 'RARE', ['eight_suit', 'limit_next_1'], 1);
+    if (total >= 4) return R(label, 35, 'RARE', ['eight_suit', 'flush_effect'], 1);
+  }
+  if (r === '9') {
+    if (total === 2) return R(label, 8, 'RARE', ['reverse'], 0);
+    if (total === 3) return R(label, 12, 'RARE', ['reverse'], 0, 'Play again!', 1);
+    if (total >= 4) return R(label, 35, 'RARE', ['reverse'], 0, 'Double reverse!', 2);
+  }
+  if (r === 'A') {
+    if (total === 2) return R(label, 10, 'EPIC', ['ace'], 1);
+    if (total === 3) return R(label, 25, 'EPIC', ['ace'], 2, 'Play again!', 1);
+    if (total >= 4) return R(label, 60, 'EPIC', ['ace'], 3, 'Play again!', 1);
+  }
+  if (isRoyal) {
+    const pts = total === 1 ? 4 : total === 2 ? 9 : total === 3 ? 15 : 40;
+    return R(label, pts, 'RARE', [getRoyalEffect(r)], 1);
+  }
+  if (total === 2) return R(label, 5, 'COMMON');
+  if (total === 3) return R(label, 18, 'COMMON');
+  if (total === 4) return R(label, 30, 'RARE');
+  return { valid: false, effects: [], reason: 'Invalid Set' };
+}
+function getJokerEffect(s: Suit): string {
+  const map: Record<string, string> = { '♠': 'joker_spade', '♦': 'joker_diamond', '♣': 'joker_clover', '♥': 'joker_heart' };
+  return map[s] || 'joker_generic';
+}
+function getRoyalEffect(r: Rank): string {
+  if (r === 'K') return 'king_tax';
+  if (r === 'Q') return 'queen_suit';
+  if (r === 'J') return 'jack_flush';
+  return 'single';
+}
+function applyFacePenalty(res: EvalResult, cards: Card[]): EvalResult {
+  const hasFace = cards.some(c => ['J', 'Q', 'K'].includes(c.rank));
+  if (hasFace) {
+    let penalty = 5;
+    if (res.name?.includes('Royal Flush')) penalty = 300;
+    res.pts = Math.max(0, (res.pts || 0) - penalty);
+    res.hint = "Royals negate powers & penalty applied!";
+  }
+  return res;
+}
+function isSequential(cards: Card[]): boolean {
+  const jokers = cards.filter(c => c.rank === 'JKR').length;
+  const nonJ = cards.filter(c => c.rank !== 'JKR').map(c => rv(c.rank)).sort((a, b) => a - b);
+  if (nonJ.length === 0) return true;
+  let gaps = 0;
+  for (let i = 0; i < nonJ.length - 1; i++) {
+    if (nonJ[i] === nonJ[i+1]) return false;
+    gaps += (nonJ[i+1] - nonJ[i] - 1);
+  }
+  return gaps <= jokers;
+}
+function allSameSuit(cards: Card[]): boolean {
+  const nonJ = cards.filter(c => c.rank !== 'JKR');
+  if (nonJ.length === 0) return true;
+  const s = nonJ[0].suit;
+  return nonJ.every(c => s === c.suit);
+}
+// --- COMPONENTS ---
+const CardComp: React.FC<{ card: Card; onClick?: () => void; selected?: boolean; playable?: boolean; freeDrew?: boolean; unplayable?: boolean; mini?: boolean; back?: boolean }> = ({ card, onClick, selected, playable, freeDrew, unplayable, mini, back }) => {
+  if (back) {
+    return <div className={cn("relative rounded-lg shadow-xl shrink-0 select-none bg-gradient-to-br from-[#1a052a] to-[#2a0a4a] border-2 border-[#F0C040]/40", mini ? "w-10 h-14" : "w-14 h-20")}>
+      <div className="absolute inset-2 border border-[#F0C040]/10 rounded-sm opacity-20 bg-pattern" />
+    </div>;
+  }
+  const isRed = card.suit === '♥' || card.suit === '♦';
+  const colorClass = isRed ? 'text-[#c0392b]' : 'text-[#1a1a1a]';
+  const baseClasses = cn("relative rounded-lg shadow-xl transition-all duration-200 flex flex-col items-center justify-center shrink-0 select-none", mini ? "w-12 h-16" : "w-[62px] h-[88px]", selected && "-translate-y-4 border-[#f0c040] border-[3px] shadow-[0_0_25px_rgba(240,192,64,0.6)] z-20", playable && "cursor-pointer border-primary/50 hover:border-primary", unplayable && "opacity-30 grayscale-[0.8] scale-95 cursor-not-allowed", freeDrew && "ring-2 ring-primary shadow-[0_0_15px_rgba(201,162,39,0.5)]");
+  if (card.rank === 'JKR') {
+    return <div onClick={unplayable ? undefined : onClick} className={cn(baseClasses, "bg-gradient-to-br from-[#1a0e00] to-[#2d1800] border-2 border-primary")}>
+      <div className="absolute top-1 left-1.5 text-[7px] font-bold leading-tight text-primary-foreground/80">JKR<br />{card.suit}</div>
+      <div className={cn("text-2xl", mini && "text-xl")}>🃏</div>
+      <div className="text-[8px] text-primary-foreground/80 text-center leading-tight">{SUIT_NAMES[card.suit]}<br />Joker</div>
+    </div>;
+  }
+  return <div onClick={unplayable ? undefined : onClick} className={cn(baseClasses, "bg-[#f5f0e8] border-2 border-[#bbb]", colorClass)}>
+    <div className="absolute top-1 left-1.5 text-[9px] font-bold leading-tight">{card.rank}<br />{card.suit}</div>
+    <div className={cn("font-bold leading-none", mini ? "text-lg" : "text-xl", card.rank === '10' && "text-sm")}>{card.rank}</div>
+    <div className={cn("leading-none", mini ? "text-base" : "text-xl")}>{card.suit}</div>
+  </div>;
+};
+// --- SETUP FLOW ---
+const SetupFlow: React.FC<{ onComplete: (setup: any) => void; onCancel: () => void }> = ({ onComplete, onCancel }) => {
+  const [step, setStep] = useState(1);
+  const [setup, setSetup] = useState({
+    mode: null as GameMode | null,
+    numPlayers: 2,
+    styles: new Set<string>([]),
+    ancestors: false,
+    chips: 100,
+    minBet: 10,
+    matchesTo: 3
+  });
+  const modes = [
+    { id: 'solo', name: 'SOLO DUEL', desc: 'Face Kenzo 1v1', icon: <Users className="w-8 h-8" /> },
+    { id: 'ffa', name: 'ROYAL BRAWL', desc: '3-Way Free-For-All', icon: <Shield className="w-8 h-8" /> },
+    { id: 'duos', name: 'REGAL DUOS', desc: '2v2 Team Battle', icon: <Zap className="w-8 h-8" /> },
+  ];
+  const stylesList = [
+    { id: 'flush', name: 'HAND FLUSHER', icon: <Zap className="w-4 h-4" /> },
+    { id: 'points', name: 'POINT LORD', icon: <Target className="w-4 h-4" /> },
+    { id: 'money', name: 'MONEY MASTER', icon: <Coins className="w-4 h-4" /> },
+  ];
+  return (
+    <div className="max-w-2xl w-full mx-auto px-12 py-16 bg-[#1a052a] rounded-[3.5rem] border-4 border-[#F0C040] shadow-[0_0_80px_rgba(240,192,64,0.3)] mt-12 text-center relative overflow-hidden">
+      <div className="absolute inset-0 bg-pattern opacity-10 pointer-events-none" />
+      {step === 1 && (
+        <div className="space-y-10 relative z-10">
+          <h2 className="font-headline text-5xl text-[#F0C040] uppercase tracking-[8px]">CHOOSE MODE</h2>
+          <div className="grid gap-6 mt-12">
+            {modes.map((m) => (
+              <button key={m.id} onClick={() => { setSetup({ ...setup, mode: m.id as any, numPlayers: m.id === 'solo' ? 2 : (m.id === 'ffa' ? 3 : 4) }); setStep(2); }} className={cn("group flex items-center gap-10 p-7 border-4 border-[#F0C040] rounded-[2rem] font-bold uppercase tracking-widest hover:scale-[1.04] transition-all shadow-2xl", setup.mode === m.id ? "bg-[#F0C040] text-[#1a052a]" : "text-[#F0C040] bg-transparent")}>
+                <div className={cn("p-5 rounded-2xl", setup.mode === m.id ? "bg-[#1a052a] text-[#F0C040]" : "bg-[#F0C040] text-[#1a052a]")}>{m.icon}</div>
+                <div className="text-left">
+                  <div className="text-3xl font-headline tracking-[4px]">{m.name}</div>
+                  <div className="text-[11px] opacity-70 font-serif italic mt-1">{m.desc}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {step === 2 && (
+        <div className="space-y-10 relative z-10">
+          <h2 className="font-headline text-5xl text-[#F0C040] uppercase tracking-[8px]">GAME STYLE</h2>
+          <div className="grid gap-5 mt-12">
+            {stylesList.map(s => (
+              <button key={s.id} onClick={() => {
+                const next = new Set(setup.styles);
+                if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
+                setSetup({ ...setup, styles: next, ancestors: false });
+              }} className={cn("p-7 border-4 rounded-[2rem] font-headline text-2xl tracking-[6px] transition-all uppercase", setup.styles.has(s.id) ? "bg-[#F0C040] text-[#1a052a] border-[#F0C040]" : "border-[#F0C040] text-[#F0C040] hover:bg-[#F0C040]/10")}>{s.name}</button>
+            ))}
+            <button onClick={() => { const isAnc = !setup.ancestors; setSetup({ ...setup, ancestors: isAnc, styles: isAnc ? new Set(['flush', 'points', 'money']) : new Set([]) }); }} className={cn("w-full p-10 border-4 rounded-[2.5rem] font-headline text-3xl tracking-[8px] transition-all", setup.ancestors ? "bg-gradient-to-r from-[#8b6914] via-[#f0c040] to-[#8b6914] text-[#1a052a] border-[#F0C040]" : "border-[#F0C040] text-[#F0C040] hover:bg-[#F0C040]/10")}>👑 ANCESTORS RULE</button>
+          </div>
+          <Button className="w-full mt-12 bg-[#F0C040] text-[#1a052a] font-headline h-24 text-3xl tracking-[6px] rounded-[2rem]" disabled={setup.styles.size === 0 && !setup.ancestors} onClick={() => onComplete(setup)}>START MATCH</Button>
+        </div>
+      )}
+      <button onClick={() => step === 1 ? onCancel() : setStep(1)} className="mt-12 text-[#F0C040] font-headline text-lg tracking-[6px] opacity-40 hover:opacity-100 flex items-center justify-center gap-4 mx-auto"><ArrowLeft className="w-6 h-6" /> BACK</button>
+    </div>
+  );
+};
+// --- MAIN PAGE ---
+export default function RoyalRoots() {
+  const [view, setView] = useState<'home' | 'setup' | 'game'>('home');
+  const [game, setGame] = useState<GameState | null>(null);
+  const { toast } = useToast();
+  const addLog = useCallback((msg: string, hi: boolean = false) => {
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setGame(prev => prev ? { ...prev, log: [{ msg, hi, time }, ...prev.log].slice(0, 50) } : null);
+  }, []);
+  const handleSetupComplete = (setup: any) => {
+    const players: Player[] = [
+      { pidx: 0, name: 'YOU', emoji: '👤', hand: [], isHuman: true, score: 0, wins: 0, chips: setup.chips ?? 100 },
+      { pidx: 1, name: 'Kenzo', emoji: '🃏', hand: [], isHuman: false, score: 0, wins: 0, chips: setup.chips ?? 100 },
+      { pidx: 2, name: 'Zairis', emoji: '♠️', hand: [], isHuman: false, score: 0, wins: 0, chips: setup.chips ?? 100 },
+      { pidx: 3, name: 'Xylos', emoji: '🛡️', hand: [], isHuman: false, score: 0, wins: 0, chips: setup.chips ?? 100 },
+    ].slice(0, setup.numPlayers);
+    let deck: Card[] = [];
+    for (let d = 0; d < 2; d++) {
+      for (const s of SUITS) {
+        for (const r of RANKS) deck.push({ rank: r, suit: s, id: `${r}${s}${d}` });
+      }
+    }
+    SUITS.forEach(s => deck.push({ rank: 'JKR', suit: s, id: `JKR${s}` }));
+    deck = shuffle(deck);
+    let fc = deck.pop()!;
+    while (fc.rank === 'JKR') { deck.unshift(fc); fc = deck.pop()!; }
+    players.forEach(p => { for (let i = 0; i < 10; i++) p.hand.push(deck.pop()!); });
+    setGame({
+      mode: setup.mode || 'solo', numPlayers: setup.numPlayers, deck, discard: [fc], faceCard: fc, players, cur: 0, dir: 1, sel: [], phase: 'play', turnPhase: 'playing', freeDrewId: null, extraTurns: 0, remainingActions: 0, totalActions: 0, matchesTo: setup.matchesTo, pot: setup.chips ? setup.numPlayers * (setup.minBet || 10) : 0, minBet: setup.minBet || 10, lockedSuit: null, lockedSuitTurns: 0, limitNext: 0, queenBonus: 0, wildPlays: 0, log: [{ msg: `Match Started — ${setup.ancestors ? "Ancestors Rule" : "Custom Style"}`, hi: true, time: new Date().toLocaleTimeString() }], styles: { flush: setup.ancestors || setup.styles.has('flush'), money: setup.ancestors || setup.styles.has('money'), points: setup.ancestors || setup.styles.has('points'), ancestors: setup.ancestors }, styleLabel: setup.ancestors ? "Ancestors Rule" : Array.from(setup.styles).join(' + ') || "Standard", pendingEffects: [],
+    });
+    setView('game');
+  };
+  const nextTurn = useCallback(() => {
+    setGame(prev => {
+      if (!prev) return null;
+      const p = prev.players[prev.cur];
+      const newDeck = [...prev.deck];
+      let updatedHand = [...p.hand];
+      if (prev.turnPhase !== 'done' && prev.cur === 0) {
+         if (newDeck.length > 0) updatedHand.push(newDeck.pop()!);
+      }
+      let nextIdx = (prev.cur + prev.dir + prev.numPlayers) % prev.numPlayers;
+      let extraTurns = prev.extraTurns;
+      if (extraTurns > 0) { nextIdx = prev.cur; extraTurns -= 1; }
+      const nextName = prev.players[nextIdx].name;
+      return { ...prev, players: prev.players.map((pl, i) => i === prev.cur ? { ...pl, hand: updatedHand } : pl), cur: nextIdx, extraTurns, turnPhase: 'playing', freeDrewId: null, sel: [], phase: 'play', remainingActions: 0, totalActions: 0, pendingEffects: [], deck: newDeck, log: [{ msg: `Turn ended. ${nextName}'s turn next.`, hi: false, time: new Date().toLocaleTimeString() }, ...prev.log] };
+    });
+  }, []);
+  const handlePlay = (cards: Card[]) => {
+    if (!game) return;
+    const ev = evalCombo(cards, game.faceCard, game.wildPlays > 0, game.lockedSuit);
+    if (!ev.valid) { toast({ title: "Invalid", description: ev.reason || "Try a different combo.", variant: "destructive" }); return; }
+
+    setGame(prev => {
+      if (!prev) return null;
+      const p = prev.players[prev.cur];
+      const ids = new Set(cards.map(c => c.id));
+      const updatedHand = p.hand.filter(c => !ids.has(c.id));
+      const discard = [...prev.discard, ...cards];
+      const faceCard = cards[cards.length - 1];
+      const newScore = p.score + (ev.pts || 0);
+      let dir = prev.dir;
+      let extraTurns = prev.extraTurns + (ev.extraTurns || 0);
+      const effects = [...ev.effects];
+      let players = prev.players.map((pl, i) => i === prev.cur ? { ...pl, hand: updatedHand, score: newScore } : pl);
+      const newDeck = [...prev.deck];
+      let nextIdx = (prev.cur + dir + prev.numPlayers) % prev.numPlayers;
+      let newLimitNext = 0;
+      if (effects.includes('reverse')) { dir = (dir === 1 ? -1 : 1) as 1 | -1; nextIdx = (prev.cur + dir + prev.numPlayers) % prev.numPlayers; }
+      if (effects.includes('skip_1')) nextIdx = (nextIdx + dir + prev.numPlayers) % prev.numPlayers;
+      else if (effects.includes('skip_2')) nextIdx = (nextIdx + 2 * dir + prev.numPlayers) % prev.numPlayers;
+      else if (effects.includes('skip_all')) { nextIdx = prev.cur; extraTurns += 1; }
+
+      if (effects.includes('draw_2_others')) {
+        players = players.map((pl, i) => i !== prev.cur ? { ...pl, hand: [...pl.hand, ...newDeck.splice(-2)] } : pl);
+      }
+      if (effects.includes('limit_next_1')) newLimitNext = 1;
+      const log = [{ msg: `${p.name} played ${ev.name} (+${ev.pts}pts)`, hi: true, time: new Date().toLocaleTimeString() }, ...prev.log];
+      if (updatedHand.length === 0) return { ...prev, players, phase: 'ended', log: [{ msg: `${p.name} wins the Match!`, hi: true, time: new Date().toLocaleTimeString() }, ...log] };
+      let nextPhase: any = 'play';
+      let rem = 0;
+      let nextPending = [...effects].filter(e => !['skip_1', 'skip_2', 'skip_all', 'reverse', 'limit_next_1', 'power_2', 'draw_2_others', 'joker_cascade'].includes(e));
+      if (nextPending.length > 0) {
+        const first = nextPending.shift()!;
+        nextPhase = first;
+        rem = 1;
+        if (first === 'jack_flush' || first === 'flush_effect') rem = ev.actionCount || 1;
+      }
+
+      const isAgain = extraTurns > 0 || nextIdx === prev.cur || ['joker_heart', 'joker_clover'].some(e => effects.includes(e));
+      return { ...prev, players, discard, faceCard, dir, cur: (nextPhase !== 'play') ? prev.cur : (isAgain ? prev.cur : nextIdx), sel: [], phase: nextPhase, extraTurns, remainingActions: rem, totalActions: ev.actionCount || 0, pendingEffects: nextPending, turnPhase: (nextPhase === 'play' && !isAgain) ? 'done' : 'playing', log: log.slice(0, 100), queenBonus: (nextPhase === 'queen_suit') ? ev.actionCount || 1 : 0, wildPlays: (nextPhase === 'joker_clover') ? 2 : prev.wildPlays, limitNext: newLimitNext, deck: newDeck };
+    });
+  };
+  const handleToggleSelect = (id: string) => {
+    setGame(prev => {
+      if (!prev) return null;
+      if (['jack_flush', 'flush_effect'].includes(prev.phase) && prev.cur === 0) {
+        if (!prev.sel.includes(id)) return { ...prev, sel: [...prev.sel, id] };
+        if (prev.players[0].hand.length <= 2) { toast({ title: "Royal Law", description: "Cannot flush past 2 cards!" }); return { ...prev, sel: [] }; }
+        const card = prev.players[0].hand.find(c => c.id === id)!;
+        let rem = prev.remainingActions - 1;
+        let nextPhase = prev.phase;
+        let nextPending = [...prev.pendingEffects];
+        if (rem <= 0) { if (nextPending.length > 0) { const next = nextPending.shift()!; nextPhase = next as any; rem = 1; } else nextPhase = 'play'; }
+        return { ...prev, players: prev.players.map((p, i) => i === 0 ? { ...p, hand: p.hand.filter(c => c.id !== id) } : p), discard: [...prev.discard, card], remainingActions: rem, phase: nextPhase, pendingEffects: nextPending, sel: [], turnPhase: nextPhase === 'play' ? 'done' : 'playing', log: [{ msg: `You flushed ${card.rank}${card.suit}`, hi: false, time: new Date().toLocaleTimeString() }, ...prev.log] };
+      }
+      return { ...prev, sel: prev.sel.includes(id) ? prev.sel.filter(x => x !== id) : [...prev.sel, id] };
+    });
+  };
+  const resolvePhase = (data?: any) => {
+    setGame(prev => {
+      if (!prev) return null;
+      let nextPhase: any = 'play';
+      let rem = 0;
+      let nextPending = [...prev.pendingEffects];
+      let players = [...prev.players];
+      let deck = [...prev.deck];
+      let lockedSuit = prev.lockedSuit;
+      let wildPlays = prev.wildPlays;
+      let extraTurns = prev.extraTurns;
+      let logMsg = "";
+      if (prev.phase === 'joker_heart') {
+        const targetIdx = data?.targetIdx ?? (prev.cur === 0 ? 1 : 0);
+        const stolen = players[targetIdx].hand.splice(Math.floor(Math.random() * players[targetIdx].hand.length), 2);
+        players[prev.cur].hand.push(...stolen);
+        players[targetIdx].hand.push(...deck.splice(-2));
+        extraTurns += 1;
+        logMsg = `${players[prev.cur].name} stole 2 cards from ${players[targetIdx].name}!`;
+      } else if (prev.phase === 'joker_spade') {
+        if (data?.action === 'swap') {
+          const targetIdx = data?.targetIdx ?? 1;
+          const targetCardIdx = Math.floor(Math.random() * players[targetIdx].hand.length);
+          const myCardIdx = Math.floor(Math.random() * players[prev.cur].hand.length);
+          const temp = players[prev.cur].hand[myCardIdx];
+          players[prev.cur].hand[myCardIdx] = players[targetIdx].hand[targetCardIdx];
+          players[targetIdx].hand[targetCardIdx] = temp;
+          logMsg = `${players[prev.cur].name} swapped a card with ${players[targetIdx].name}!`;
+        } else {
+          players[prev.cur].hand.push(prev.discard.pop()!);
+          logMsg = `${players[prev.cur].name} pulled from discard pile!`;
+        }
+      } else if (prev.phase === 'joker_diamond') {
+        players = players.map((p, i) => i !== prev.cur ? { ...p, score: Math.max(0, p.score - 10) } : { ...p, score: p.score + (prev.numPlayers - 1) * 10 });
+        logMsg = `${players[prev.cur].name} collected points from everyone!`;
+      } else if (prev.phase === 'queen_suit' || prev.phase === 'eight_suit') {
+        lockedSuit = data?.suit ?? SUITS[Math.floor(Math.random() * 4)];
+        logMsg = `${players[prev.cur].name} locked suit to ${SUIT_NAMES[lockedSuit!]}`;
+      } else if (prev.phase === 'king_tax') {
+        const targetIdx = data?.targetIdx ?? (prev.cur === 0 ? 1 : 0);
+        players = players.map((p, i) => i === targetIdx ? { ...p, score: Math.max(0, p.score - 10) } : (i === prev.cur ? { ...p, score: p.score + 10 } : p));
+        logMsg = `${players[prev.cur].name} taxed ${players[targetIdx].name} 10 points!`;
+      }
+      if (nextPending.length > 0) { const next = nextPending.shift()!; nextPhase = next as any; rem = 1; }
+      const newLog = logMsg ? [{ msg: logMsg, hi: false, time: new Date().toLocaleTimeString() }, ...prev.log] : prev.log;
+      return { ...prev, players, deck, phase: nextPhase, pendingEffects: nextPending, remainingActions: rem, lockedSuit, wildPlays, extraTurns, turnPhase: nextPhase === 'play' ? 'done' : 'playing', log: newLog };
+    });
+  };
+  useEffect(() => {
+    if (!game || game.players[game.cur].isHuman) return;
+    const timer = setTimeout(() => {
+      setGame(prev => {
+        if (!prev) return null;
+        if (prev.phase === 'play') {
+          let playCards: Card[] = [];
+          const ai = prev.players[prev.cur];
+          for (let size = 4; size >= 1; size--) {
+            const ranks: Record<string, Card[]> = {};
+            ai.hand.forEach(c => { if(!ranks[c.rank]) ranks[c.rank] = []; ranks[c.rank].push(c); });
+            for(const r in ranks) if(ranks[r].length >= size && evalCombo(ranks[r].slice(0, size), prev.faceCard, prev.wildPlays > 0, prev.lockedSuit).valid) { playCards = ranks[r].slice(0, size); break; }
+            if(playCards.length) break;
+          }
+          if (playCards.length) handlePlay(playCards);
+          else return { ...prev, turnPhase: 'done' };
+        } else resolvePhase();
+        return prev;
+      });
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [game?.cur, game?.phase, game?.turnPhase]);
+  useEffect(() => { if(game?.turnPhase === 'done') { const t = setTimeout(() => nextTurn(), 800); return () => clearTimeout(t); } }, [game?.turnPhase, nextTurn]);
+  // Table positions for players
+  const playerPositions = useMemo(() => {
+    if (!game) return [];
+    if (game.numPlayers === 2) return [{ x: 50, y: 15 }];
+    if (game.numPlayers === 3) return [{ x: 20, y: 20 }, { x: 80, y: 20 }];
+    return [{ x: 15, y: 35 }, { x: 50, y: 15 }, { x: 85, y: 35 }];
+  }, [game?.numPlayers]);
+  return (
+    <div className="min-h-screen bg-[#0f051a] text-foreground relative overflow-hidden flex flex-col">
+      {view === 'home' && (
+        <div className="h-screen flex items-center justify-center bg-pattern relative">
+          <div className="text-center z-10 space-y-8 animate-in fade-in zoom-in duration-700">
+            <span className="text-8xl block animate-float">👑</span>
+            <h1 className="font-headline text-7xl tracking-[8px] royal-gradient-text uppercase drop-shadow-2xl">Royal Roots™</h1>
+            <p className="font-serif text-sm tracking-[10px] text-[#F0C040]/60 uppercase">Elegance • Strategy • Power</p>
+            <button onClick={() => setView('setup')} className="group relative w-72 h-20 overflow-hidden rounded-xl border-2 border-[#F0C040] bg-[#F0C040]/5 transition-all hover:bg-[#F0C040] shadow-[0_0_30px_rgba(240,192,64,0.3)]">
+              <span className="relative z-10 text-[#F0C040] font-headline text-xl tracking-widest group-hover:text-background uppercase">Begin Journey</span>
+              <div className="absolute inset-0 bg-[#F0C040] translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+            </button>
+          </div>
+        </div>
+      )}
+      {view === 'setup' && <SetupFlow onComplete={handleSetupComplete} onCancel={() => setView('home')} />}
+      {view === 'game' && game && (
+        <div className="flex-1 flex flex-col overflow-hidden relative">
+          {/* HEADER */}
+          <header className="flex items-center justify-between px-6 py-3 bg-black/80 border-b border-[#F0C040]/30 z-50">
+             <div className="flex items-center gap-6">
+                <div className="font-headline text-[#F0C040] text-lg tracking-widest uppercase">Royal Roots™</div>
+                <Badge variant="outline" className="text-[10px] border-[#F0C040]/40 text-[#F0C040] px-3 py-1 bg-[#F0C040]/5">{game.styleLabel}</Badge>
+             </div>
+             <div className="flex items-center gap-6">
+                <div className="flex items-center gap-3 text-[#F0C040] bg-black/40 px-5 py-2 rounded-xl border border-[#F0C040]/20 shadow-lg">
+                  <Crown className="w-5 h-5" />
+                  <span className="text-xs opacity-60 font-headline uppercase">Your Score:</span>
+                  <span className="font-bold text-xl">{game.players[0].score}</span>
+                </div>
+                <Button variant="outline" size="sm" className="border-[#F0C040]/50 text-[#F0C040] hover:bg-[#F0C040] hover:text-black transition-all" onClick={() => setView('home')}>EXIT</Button>
+             </div>
+          </header>
+          {/* THE TABLE AREA */}
+          <main className="flex-1 relative bg-pattern flex items-center justify-center p-8 overflow-hidden">
+            {/* POWER MODAL OVERLAY */}
+            {game.phase !== 'play' && game.cur === 0 && !['jack_flush', 'flush_effect'].includes(game.phase) && (
+              <div className="absolute inset-0 flex items-center justify-center z-[100] bg-black/85 backdrop-blur-md animate-in fade-in duration-300">
+                <div className="bg-[#1a052a] border-4 border-[#F0C040] p-12 rounded-[2.5rem] shadow-[0_0_100px_rgba(240,192,64,0.4)] text-center max-w-lg w-full scale-110">
+                   <h2 className="font-headline text-3xl text-[#F0C040] uppercase mb-6 tracking-widest drop-shadow-md">{game.phase.replace('_', ' ')}!</h2>
+                   <div className="space-y-4">
+                     {game.phase === 'joker_heart' && game.players.slice(1).map(opp => <Button key={opp.pidx} className="h-16 w-full bg-[#F0C040] text-black font-headline tracking-widest text-lg rounded-xl hover:scale-105" onClick={() => resolvePhase({ targetIdx: opp.pidx })}>STEAL FROM {opp.name.toUpperCase()}</Button>)}
+                     {game.phase === 'joker_spade' && (
+                       <div className="grid gap-3">
+                         {game.players.slice(1).map(opp => <Button key={opp.pidx} className="h-14 bg-[#F0C040] text-black font-headline rounded-xl" onClick={() => resolvePhase({ action: 'swap', targetIdx: opp.pidx })}>SWAP WITH {opp.name.toUpperCase()}</Button>)}
+                         <Button variant="outline" className="h-14 border-2 border-[#F0C040] text-[#F0C040] font-headline rounded-xl" onClick={() => resolvePhase({ action: 'discard' })}>PULL FROM DISCARD</Button>
+                       </div>
+                     )}
+                     {(game.phase === 'queen_suit' || game.phase === 'eight_suit') && (
+                       <div className="grid grid-cols-2 gap-4">
+                         {SUITS.map(s => <Button key={s} variant="outline" className="h-16 border-2 border-[#F0C040] text-[#F0C040] text-3xl hover:bg-[#F0C040] hover:text-black" onClick={() => resolvePhase({ suit: s })}>{s}</Button>)}
+                       </div>
+                     )}
+                     {game.phase === 'king_tax' && game.players.slice(1).map(opp => <Button key={opp.pidx} className="h-16 w-full bg-[#F0C040] text-black font-headline text-lg rounded-xl" onClick={() => resolvePhase({ targetIdx: opp.pidx })}>TAX {opp.name.toUpperCase()}</Button>)}
+                     {game.phase === 'joker_diamond' && <Button className="h-20 w-full bg-[#F0C040] text-black font-headline text-xl rounded-2xl animate-pulse" onClick={() => resolvePhase()}>COLLECT ALL POINTS</Button>}
+                   </div>
+                   <Button variant="ghost" className="mt-8 text-[#F0C040]/30 hover:text-[#F0C040] transition-colors" onClick={() => resolvePhase()}>SKIP ABILITY</Button>
+                </div>
+              </div>
+            )}
+            {/* THE OVAL TABLE */}
+            <div className="relative w-full max-w-5xl aspect-[2/1] bg-gradient-to-b from-[#1a1a4a] to-[#0a0a2a] rounded-[300px] border-[12px] border-[#2a2a6a] shadow-[0_0_120px_rgba(0,0,0,0.8),inset_0_0_80px_rgba(0,0,0,0.6)] flex items-center justify-center">
+               <div className="absolute inset-8 border-4 border-[#ffffff05] rounded-[280px]" />
+
+               {/* OPPONENTS AROUND TABLE */}
+               {game.players.slice(1).map((p, idx) => {
+                 const pos = playerPositions[idx];
+                 return (
+                   <div key={p.pidx} className="absolute flex flex-col items-center gap-3 transition-all duration-500 z-10" style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}>
+                      <div className={cn("w-20 h-20 rounded-full border-4 flex items-center justify-center text-4xl shadow-2xl transition-all", game.cur === p.pidx ? "border-[#F0C040] scale-125 bg-black/40 ring-4 ring-[#F0C040]/30" : "border-[#F0C040]/10 bg-black/20 opacity-60")}>
+                        {p.emoji}
+                      </div>
+                      <div className="bg-black/80 px-4 py-1.5 rounded-full border border-[#F0C040]/20 flex flex-col items-center gap-0.5">
+                        <span className="text-[12px] font-headline text-[#F0C040] uppercase tracking-widest">{p.name}</span>
+                        <div className="flex gap-3 text-[10px] text-[#F0C040]/70 font-mono">
+                          <span>{p.hand.length} CARDS</span>
+                          <span className="opacity-30">|</span>
+                          <span>{p.score} PTS</span>
+                        </div>
+                      </div>
+                      {/* AI Cards Representation - Fixed to show full count */}
+                      <div className="flex -space-x-5 mt-2 opacity-80 scale-[0.6]">
+                         {p.hand.map((_, i) => <CardComp key={i} card={p.hand[0]} back mini />)}
+                      </div>
+                   </div>
+                 );
+               })}
+               {/* CENTRAL BOARD */}
+               <div className="flex flex-col items-center gap-8 relative z-20">
+                  <div className="font-serif italic text-white/5 text-4xl uppercase tracking-[15px] select-none">Royal Roots</div>
+                  <div className="flex gap-16 items-center">
+                    {/* DECK */}
+                    <div className="relative group cursor-pointer" onClick={() => { if(game.cur === 0 && game.turnPhase === 'playing') nextTurn(); }}>
+                       <div className="absolute -inset-2 bg-[#F0C040]/10 rounded-xl blur-xl group-hover:bg-[#F0C040]/20 transition-all" />
+                       <div className="w-20 h-28 bg-[#1a052a] rounded-xl border-4 border-[#F0C040] flex items-center justify-center font-headline text-5xl text-[#F0C040] shadow-2xl relative">
+                          {game.deck.length}
+                       </div>
+                       <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-[#F0C040]/40 font-headline tracking-[3px] uppercase">Deck</div>
+                    </div>
+                    {/* DISCARD PILE */}
+                    <div className="relative">
+                       {game.lockedSuit && (
+                         <div className="absolute -top-12 left-1/2 -translate-x-1/2 text-5xl text-[#F0C040] animate-pulse drop-shadow-[0_0_15px_rgba(240,192,64,0.8)] z-30">{game.lockedSuit}</div>
+                       )}
+                       <div className="relative transform rotate-1">
+                          {game.discard.slice(-2, -1).map(c => <div key={c.id} className="absolute inset-0 -rotate-6 scale-95 opacity-40"><CardComp card={c} unplayable /></div>)}
+                          <CardComp card={game.faceCard!} className="scale-125 shadow-[0_0_40px_rgba(0,0,0,0.5)]" />
+                       </div>
+                       <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-[10px] text-[#F0C040]/40 font-headline tracking-[3px] uppercase">Discard</div>
+                    </div>
+                  </div>
+               </div>
+            </div>
+            {/* DATA LOG (BOTTOM RIGHT) */}
+            <div className="absolute bottom-8 right-8 w-80 h-64 bg-black/85 backdrop-blur-md rounded-2xl border-2 border-[#F0C040]/20 shadow-2xl flex flex-col z-[80]">
+               <div className="px-4 py-3 border-b border-[#F0C040]/10 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-[#F0C040] font-headline text-xs tracking-widest uppercase">
+                    <ScrollText className="w-4 h-4" /> Action Log
+                  </div>
+                  <Badge variant="outline" className="text-[9px] border-[#F0C040]/20 text-[#F0C040]/40 uppercase">Live</Badge>
+               </div>
+               <ScrollArea className="flex-1 p-2">
+                  <div className="flex flex-col gap-2">
+                    {game.log.map((entry, idx) => (
+                      <div key={idx} className={cn("text-[10px] p-2 rounded-lg leading-relaxed", entry.hi ? "bg-[#F0C040]/10 text-[#F0C040] font-bold border-l-2 border-[#F0C040]" : "text-[#F0C040]/70")}>
+                        <div className="flex justify-between items-center mb-1 opacity-40 text-[8px] font-mono">
+                           <span className="uppercase">Royal Notice</span>
+                           <span>{entry.time}</span>
+                        </div>
+                        {entry.msg}
+                      </div>
+                    ))}
+                  </div>
+               </ScrollArea>
+               <div className="px-4 py-2 bg-black/40 rounded-b-2xl border-t border-[#F0C040]/10">
+                  <div className="flex items-center gap-2 text-[#F0C040] text-[9px] font-headline tracking-[2px] uppercase animate-pulse">
+                    <Clock className="w-3 h-3" /> Next: {game.players[(game.cur + game.dir + game.numPlayers) % game.numPlayers].name.toUpperCase()}
+                  </div>
+               </div>
+            </div>
+          </main>
+          {/* PLAYER HAND & CONTROLS */}
+          <footer className="bg-black/95 border-t-4 border-[#F0C040]/40 p-8 z-50">
+            <div className="flex items-end gap-16 max-w-7xl mx-auto">
+              <div className="flex-1 flex justify-center gap-3 flex-wrap min-h-[140px] items-center">
+                {game.players[0].hand.map(c => (
+                  <CardComp
+                    key={c.id}
+                    card={c}
+                    selected={game.sel.includes(c.id)}
+                    playable={game.cur === 0}
+                    unplayable={game.cur !== 0}
+                    onClick={() => handleToggleSelect(c.id)}
+                  />
+                ))}
+              </div>
+              <div className="flex flex-col gap-4 min-w-[280px]">
+                <div className="text-[10px] text-[#F0C040]/60 font-headline text-center uppercase tracking-widest mb-2">
+                   {game.cur === 0 ? (['jack_flush', 'flush_effect'].includes(game.phase) ? `FLUSH REMAINING: ${game.remainingActions}` : "Build Your Combo") : `Waiting for ${game.players[game.cur].name}...`}
+                </div>
+                <Button
+                  className="h-16 bg-[#F0C040] text-black font-headline text-xl tracking-[4px] shadow-[0_0_20px_rgba(240,192,64,0.3)] hover:scale-105 active:scale-95 transition-all"
+                  disabled={game.cur !== 0 || game.turnPhase === 'done' || !evalCombo(game.sel.map(id => game.players[0].hand.find(cc => cc.id === id)!), game.faceCard, game.wildPlays > 0, game.lockedSuit).valid}
+                  onClick={() => handlePlay(game.sel.map(id => game.players[0].hand.find(cc => cc.id === id)!))}
+                >
+                  PLAY COMBO
+                </Button>
+                <Button
+                  variant="outline"
+                  className={cn("h-16 border-2 font-headline text-lg tracking-[3px] transition-all", (game.cur === 0 && (game.turnPhase === 'done' || game.sel.length === 0)) ? "border-[#F0C040] text-[#F0C040] bg-[#F0C040]/5" : "border-[#F0C040]/10 text-[#F0C040]/10 cursor-not-allowed")}
+                  disabled={game.cur !== 0 || (game.turnPhase !== 'done' && game.sel.length > 0)}
+                  onClick={nextTurn}
+                >
+                  END TURN
+                </Button>
+              </div>
+            </div>
+          </footer>
+        </div>
+      )}
+    </div>
+  );
+}
