@@ -692,6 +692,15 @@ button{cursor:pointer;font-family:inherit}
 </style>
 </head>
 <body>
+<!-- ========== ROYAL ROOTS AUDIO SYSTEM ========== -->
+<audio id="home-music" loop preload="auto">
+  <source src="https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/The Wind.mp3" type="audio/mpeg">
+</audio>
+<audio id="ingame-music" preload="auto">
+  <source id="ingame-src" src="" type="audio/mpeg">
+</audio>
+<!-- ================================================ -->
+
 
 <!-- ══ WHO GOES FIRST — DRAFT SCREEN ══════════════════════════════ -->
 <div id="draft-screen" class="screen">
@@ -858,7 +867,7 @@ button{cursor:pointer;font-family:inherit}
         <span class="score-box-label">Your Score</span>
         <span class="score-box-val" id="headerScore">0</span>
       </div>
-      <button class="exit-btn" onclick="showScreen('home')">EXIT</button>
+      <button id="muteBtn" onclick="toggleMute()" style="background:none;border:1px solid rgba(240,192,64,.4);color:var(--gold);height:28px;padding:0 10px;border-radius:8px;font-size:14px;cursor:pointer;margin-right:8px;transition:all .2s;">🔊</button><button class="exit-btn" onclick="showScreen('home')">EXIT</button>
     </div>
   </div>
 
@@ -5912,6 +5921,129 @@ function showRules() {
   const rm2 = document.getElementById('rulesModal'); rm2.style.display='flex'; rm2.style.flexDirection='column'; rm2.style.alignItems='center'; rm2.style.justifyContent='center';
 }
  
+
+// ========== ROYAL ROOTS AUDIO SYSTEM ==========
+const HOME_TRACK = "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/The Wind.mp3";
+const INGAME_TRACKS = [
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/Midwest Drill.mp3",
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/Real Fros.mp3",
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/Roll Down.mp3",
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/Swagger Myers.mp3",
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/Window Vibration.mp3",
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/A NuLand.mp3",
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/On The Flow.mp3",
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/Real Hop.mp3"
+];
+
+const homeAudio   = document.getElementById('home-music');
+const ingameAudio = document.getElementById('ingame-music');
+homeAudio.volume   = 0.65;
+ingameAudio.volume = 0.65;
+
+let ingameTrackIdx = 0;
+let ingamePlaying  = false;
+let audioUnlocked  = false;
+let isMuted        = false;
+
+// Unlock audio on first user interaction (browser autoplay policy)
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  homeAudio.play().then(() => { if (!homeAudio.dataset.shouldPlay) homeAudio.pause(); }).catch(()=>{});
+}
+document.addEventListener('click', unlockAudio, { once: true });
+
+function fadeAudio(audio, targetVol, duration, onDone) {
+  const steps    = 20;
+  const interval = duration / steps;
+  const startVol = audio.volume;
+  const step     = (targetVol - startVol) / steps;
+  let count = 0;
+  const timer = setInterval(() => {
+    count++;
+    audio.volume = Math.max(0, Math.min(1, audio.volume + step));
+    if (count >= steps) {
+      clearInterval(timer);
+      audio.volume = targetVol;
+      if (onDone) onDone();
+    }
+  }, interval);
+}
+
+function playHomeMusic() {
+  if (ingamePlaying) {
+    ingamePlaying = false;
+    fadeAudio(ingameAudio, 0, 800, () => ingameAudio.pause());
+  }
+  homeAudio.dataset.shouldPlay = 'true';
+  homeAudio.volume = 0;
+  homeAudio.play().catch(() => {});
+  fadeAudio(homeAudio, isMuted ? 0 : 0.65, 1200);
+}
+
+function stopHomeMusic(onDone) {
+  delete homeAudio.dataset.shouldPlay;
+  fadeAudio(homeAudio, 0, 1000, () => {
+    homeAudio.pause();
+    if (onDone) onDone();
+  });
+}
+
+function playIngameMusic() {
+  if (ingamePlaying) return;
+  ingamePlaying = true;
+  stopHomeMusic(() => {
+    ingameTrackIdx = Math.floor(Math.random() * INGAME_TRACKS.length);
+    loadAndPlayIngameTrack();
+  });
+}
+
+function loadAndPlayIngameTrack() {
+  if (!ingamePlaying) return;
+  const src = document.getElementById('ingame-src');
+  src.src = INGAME_TRACKS[ingameTrackIdx];
+  ingameAudio.load();
+  ingameAudio.volume = 0;
+  ingameAudio.play().catch(() => {});
+  fadeAudio(ingameAudio, isMuted ? 0 : 0.65, 1200);
+}
+
+// Auto-advance to next track when one ends
+ingameAudio.addEventListener('ended', () => {
+  if (!ingamePlaying) return;
+  ingameTrackIdx = (ingameTrackIdx + 1) % INGAME_TRACKS.length;
+  loadAndPlayIngameTrack();
+});
+
+function toggleMute() {
+  isMuted = !isMuted;
+  homeAudio.muted   = isMuted;
+  ingameAudio.muted = isMuted;
+  const btn = document.getElementById('muteBtn');
+  if (btn) btn.textContent = isMuted ? '🔇' : '🔊';
+}
+
+// Hook showScreen: home/setup screens = home music, game = nothing (startGame triggers ingame)
+const _rrOrigShowScreen = showScreen;
+showScreen = function(id) {
+  _rrOrigShowScreen(id);
+  const homeScreens = ['home', 'mode-select', 'style-select', 'stakes-select', 'match-pick'];
+  if (homeScreens.includes(id)) {
+    playHomeMusic();
+  } else if (id === 'draft-screen') {
+    // Draft screen: keep home music playing softly
+    playHomeMusic();
+  }
+};
+
+// Start in-game music when the actual match begins (after draft + betting)
+const _rrOrigStartHumanTurn = startHumanTurn;
+startHumanTurn = function() {
+  if (!ingamePlaying) playIngameMusic();
+  _rrOrigStartHumanTurn.apply(this, arguments);
+};
+// ========== END AUDIO SYSTEM ==========
+
 showScreen('home');
 </script>
 <!-- RULES MODAL (body-level so it works from any screen) -->
