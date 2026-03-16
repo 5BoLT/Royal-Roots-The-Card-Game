@@ -811,7 +811,7 @@ button{cursor:pointer;font-family:inherit}
       </button>
       <button class="setup-option" id="styleBtn_money" onclick="toggleStyle('money')">
         <div class="setup-option-icon">💰</div>
-        <div><div class="setup-option-name">MONEY MASTER</div><div class="setup-option-desc">Control the chips — raise, call, bluff.</div></div>
+        <div><div class="setup-option-name">MONEY MASTER</div><div class="setup-option-desc">Control the chips — raise, call, or Fold and miss out.</div></div>
         <div class="style-check" id="styleCheck_money">✓</div>
       </button>
       <button class="ancestors-btn" id="styleBtn_ancestors" onclick="selectAncestors()">
@@ -1304,11 +1304,11 @@ function cardEl(card, classes='') {
   if (card.rank === 'JKR') {
     return `<div class="card joker-card ${classes}" data-id="${card.id}"
       style="background:linear-gradient(145deg,#1a1a2e,#0d0d1a);border-color:${sc.border};
-             box-shadow:0 0 12px ${sc.glow},0 4px 16px rgba(0,0,0,.8)">
+             box-shadow:0 0 12px ${sc.glow},0 4px 16px rgba(0,0,0,.8);
+             display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:16px">
       <div class="corner tl" style="color:${sc.color};font-size:7px;font-weight:700">JKR<br>${card.suit}</div>
-      <div style="font-size:24px">🃏</div>
+      <div style="font-size:26px;margin-top:6px">🃏</div>
       <div style="font-size:${SUIT_NAMES[card.suit].length>6?'7px':'8px'};color:${sc.color};text-align:center;line-height:1.2;font-weight:700;letter-spacing:0.5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px">${JOKER_SUIT_NAMES[card.suit]||SUIT_NAMES[card.suit]}</div>
-      <div class="corner br" style="color:${sc.color};font-size:7px;font-weight:700">JKR<br>${card.suit}</div>
     </div>`;
   }
 
@@ -2985,36 +2985,48 @@ function openWarSpectatorModal() {
     `${G.players[w.attackerIdx].name} vs ${G.players[w.defenderIdx].name}`;
   document.getElementById('warSub').textContent = 'AI vs AI — Watch Only';
   document.getElementById('warResult').textContent = '⚔️ Resolving...';
-  // Relabel slots
+  // Label both slots with actual AI names (not "YOU")
+  const pnameEl = document.querySelector('#warModal .war-player:first-child .war-pname');
+  if (pnameEl) pnameEl.textContent = G.players[w.attackerIdx].name.toUpperCase();
+  document.getElementById('warEnemyName').textContent = G.players[w.defenderIdx].name.toUpperCase();
   const slotY = document.getElementById('warSlotYou');
   const slotE = document.getElementById('warSlotEnemy');
   slotY.innerHTML = '<span style="color:#888;font-size:10px">?</span>';
   slotE.innerHTML = '<span style="color:#888;font-size:10px">?</span>';
   modal.style.display = 'flex';
-  // Auto-resolve after short delay so player can see it happening
   setTimeout(() => autoResolveAIWar(), 900);
 }
 
 function showAIWarOkayBtn() {
-  // Show OKAY button so player can dismiss the AI war screen and continue
   const btn = document.getElementById('warActionBtn');
-  if (btn) {
-    btn.style.display = 'block';
-    btn.textContent = '✅ OKAY — CONTINUE';
-    btn.disabled = false;
-    btn.onclick = () => {
-      const w = G.war;
-      if (!w) return;
-      document.getElementById('warModal').style.display = 'none';
-      const winIdx = w.attackerIdx; // already settled above
-      G.war = null; G.pendingWar = null; G.phase = 'play';
-      G.cur = nxt(w.defenderIdx);
-      G.turnPhase = 'playing'; G.freeDrewId = null;
-      renderGame(); renderLog();
-      if (G.cur === 0) { startHumanTurn(); }
-      else { addLog(G.players[G.cur].name + "'s turn..."); setTimeout(()=>aiTurn(G.cur), 800); }
-    };
-  }
+  if (!btn) return;
+  // Snapshot winner info NOW while G.war is still alive
+  const w = G.war;
+  const defIdx = w ? w.defenderIdx : 0;
+  btn.style.display = 'block';
+  btn.textContent = '✅ OKAY — CONTINUE';
+  btn.disabled = false;
+  // Remove the default warAction onclick and replace with our handler
+  btn.setAttribute('onclick', '');
+  btn.onclick = function() {
+    btn.onclick = null;
+    btn.setAttribute('onclick', 'warAction()'); // restore for next war
+    document.getElementById('warModal').style.display = 'none';
+    // Restore attacker slot label back to "YOU" for next human war
+    const pnameEl = document.querySelector('#warModal .war-player:first-child .war-pname');
+    if (pnameEl) pnameEl.textContent = 'YOU';
+    G.war = null; G.pendingWar = null; G.phase = 'play';
+    G.cur = nxt(defIdx);
+    G.turnPhase = 'playing'; G.freeDrewId = null;
+    G.sel = [];
+    renderGame(); renderLog();
+    if (G.cur === 0) {
+      startHumanTurn();
+    } else {
+      addLog(G.players[G.cur].name + "'s turn...");
+      setTimeout(() => aiTurn(G.cur), 800);
+    }
+  };
 }
 
 function autoResolveAIWar() {
@@ -6818,4 +6830,4 @@ showScreen('home');
       </div>
     </div>
 </body>
-          </html>
+  </html>
