@@ -347,7 +347,8 @@ button{cursor:pointer;font-family:inherit}
   background:rgba(0,0,0,.97);border-top:2px solid rgba(240,192,64,.4);
   padding:4px 0 6px;z-index:50;flex-shrink:0;
   max-height:40vh;overflow:visible;
-  display:flex;flex-direction:column
+  display:flex;flex-direction:column;
+  isolation:isolate
 }
 .player-footer-inner{
   display:flex;align-items:flex-end;gap:8px;
@@ -358,7 +359,8 @@ button{cursor:pointer;font-family:inherit}
   flex:1;display:flex;flex-wrap:wrap;justify-content:center;
   gap:4px;align-items:center;
   max-height:calc(40vh - 80px);overflow-y:auto;overflow-x:visible;
-  padding:20px 2px 4px 2px
+  padding:20px 2px 4px 2px;
+  position:relative;z-index:60
 }
 .controls-zone{display:flex;flex-direction:column;gap:4px;width:clamp(130px,38vw,220px);flex-shrink:0}
 .combo-status{font-size:9px;color:rgba(240,192,64,.6);text-align:center;text-transform:uppercase;letter-spacing:2px;margin-bottom:2px;min-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1144,7 +1146,7 @@ button{cursor:pointer;font-family:inherit}
 
   <!-- PLAYER FOOTER -->
   <div class="player-footer">
-    <div id="playerInfoBar" style="display:flex;justify-content:space-between;align-items:center;padding:2px 12px;font-family:Cinzel,serif;font-size:10px;color:rgba(240,192,64,.8);letter-spacing:1px;border-bottom:1px solid rgba(240,192,64,.12);flex-shrink:0;line-height:1.8"><span id="playerPtsBar">⭐ 0 pts</span><span id="playerChipsBar"></span></div><div class="player-footer-inner">
+    <div id="playerInfoBar" style="display:flex;justify-content:space-between;align-items:center;padding:2px 12px;font-family:Cinzel,serif;font-size:10px;color:rgba(240,192,64,.8);letter-spacing:1px;border-bottom:1px solid rgba(240,192,64,.12);flex-shrink:0;line-height:1.8;position:relative;z-index:10"><span id="playerPtsBar">⭐ 0 pts</span><span id="playerChipsBar"></span></div><div class="player-footer-inner">
       <div class="player-hand-zone" id="playerHand"></div>
       <div class="controls-zone">
         <div class="combo-status" id="turnStatus">YOUR TURN ▶</div>
@@ -2891,6 +2893,7 @@ function removeWarCounterFromHand(pidx, key) {
  
 function startWar(attackerIdx, defenderIdx, pw) {
   const initialPile = [...(pw.triggerCards || []), ...(pw.counterCards || [])];
+  const humanInvolved = attackerIdx === 0 || defenderIdx === 0;
   G.war = {
     attackerIdx,
     defenderIdx,
@@ -2902,6 +2905,7 @@ function startWar(attackerIdx, defenderIdx, pw) {
     cardsPlayed:   initialPile.length,
     humanIsAttacker: attackerIdx === 0,
     humanIsDefender: defenderIdx === 0,
+    humanInvolved,
     humanCard: null,
     aiCard:    null,
     warPile:   initialPile,
@@ -2911,12 +2915,88 @@ function startWar(attackerIdx, defenderIdx, pw) {
   };
   G.phase = 'war';
   G.pendingWar = null;
- 
-  // Original play pts were already awarded in doPlayCards — reverse them since war voids the play
+
   G.pts[attackerIdx] = Math.max(0, (G.pts[attackerIdx]||0) - (pw.triggerPts||0));
-  addLog(`⚔️ WAR! ${G.players[attackerIdx].name} vs ${G.players[defenderIdx].name} — original effect VOIDED. 1v1, no partner assists!`, true);
- 
-  openWarModal();
+  addLog(`⚔️ WAR! ${G.players[attackerIdx].name} vs ${G.players[defenderIdx].name} — original effect VOIDED. 1v1!`, true);
+
+  if (!humanInvolved) {
+    // AI vs AI — show spectator view then auto-resolve
+    openWarSpectatorModal();
+  } else {
+    openWarModal();
+  }
+}
+
+function openWarSpectatorModal() {
+  const w = G.war;
+  const modal = document.getElementById('warModal');
+  // Show modal in spectator/watch mode — no interactive buttons
+  document.getElementById('warEnemyName').textContent =
+    G.players[w.defenderIdx].name.toUpperCase();
+  document.getElementById('warDiceSection').style.display = 'none';
+  document.getElementById('warPickZone').style.display = 'none';
+  document.getElementById('warContinueBtn').style.display = 'none';
+  document.getElementById('warActionBtn').style.display = 'none'; // hidden — human can't act
+  document.getElementById('warRoundInfo').textContent =
+    `${G.players[w.attackerIdx].name} vs ${G.players[w.defenderIdx].name}`;
+  document.getElementById('warSub').textContent = 'AI vs AI — Watch Only';
+  document.getElementById('warResult').textContent = '⚔️ Resolving...';
+  // Relabel slots
+  const slotY = document.getElementById('warSlotYou');
+  const slotE = document.getElementById('warSlotEnemy');
+  slotY.innerHTML = '<span style="color:#888;font-size:10px">?</span>';
+  slotE.innerHTML = '<span style="color:#888;font-size:10px">?</span>';
+  modal.style.display = 'flex';
+  // Auto-resolve after short delay so player can see it happening
+  setTimeout(() => autoResolveAIWar(), 900);
+}
+
+function autoResolveAIWar() {
+  const w = G.war;
+  if (!w || w.humanInvolved) return;
+  // Both sides draw a card
+  const aHand = G.players[w.attackerIdx].hand;
+  const dHand = G.players[w.defenderIdx].hand;
+  if (aHand.length === 0) { warForfeit(w.attackerIdx); return; }
+  if (dHand.length === 0) { warForfeit(w.defenderIdx); return; }
+  // Pick highest card
+  aHand.sort((a,b)=>(RANK_VAL[b.rank]||0)-(RANK_VAL[a.rank]||0));
+  dHand.sort((a,b)=>(RANK_VAL[b.rank]||0)-(RANK_VAL[a.rank]||0));
+  const aCard = aHand.shift();
+  const dCard = dHand.shift();
+  w.warPile.push(aCard, dCard);
+  w.cardsPlayed += 2;
+  // Show cards briefly
+  const slotY = document.getElementById('warSlotYou');
+  const slotE = document.getElementById('warSlotEnemy');
+  slotY.innerHTML = cardEl(aCard, '');
+  slotE.innerHTML = cardEl(dCard, '');
+  document.getElementById('warRoundInfo').textContent =
+    `Cards in pot: ${w.cardsPlayed} • ${G.players[w.attackerIdx].name} vs ${G.players[w.defenderIdx].name}`;
+  const aVal = RANK_VAL[aCard.rank] || 0;
+  const dVal = RANK_VAL[dCard.rank] || 0;
+  setTimeout(() => {
+    if (aVal > dVal) {
+      document.getElementById('warResult').textContent =
+        `${G.players[w.attackerIdx].name} wins War! (+${w.cardsPlayed} cards)`;
+      addLog(`⚔️ ${G.players[w.attackerIdx].name} wins War vs ${G.players[w.defenderIdx].name}! Gains ${w.cardsPlayed} cards.`, true);
+      G.players[w.attackerIdx].hand.push(...w.warPile);
+      closeWarModal(false);
+    } else if (dVal > aVal) {
+      document.getElementById('warResult').textContent =
+        `${G.players[w.defenderIdx].name} wins War! (+${w.cardsPlayed} cards)`;
+      addLog(`⚔️ ${G.players[w.defenderIdx].name} wins War vs ${G.players[w.attackerIdx].name}! Gains ${w.cardsPlayed} cards.`, true);
+      G.players[w.defenderIdx].hand.push(...w.warPile);
+      closeWarModal(false);
+    } else {
+      // Tie — another round
+      w.round++;
+      document.getElementById('warSub').textContent = `Tied! Round ${w.round}...`;
+      document.getElementById('warResult').textContent = '🔁 Tied — another round!';
+      addLog(`⚔️ War tied! Round ${w.round}...`, false);
+      setTimeout(() => autoResolveAIWar(), 1200);
+    }
+  }, 1000);
 }
  
 function openWarModal() {
@@ -6586,4 +6666,4 @@ showScreen('home');
       </div>
     </div>
 </body>
-                                                 </html>
+    </html>
