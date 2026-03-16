@@ -255,6 +255,15 @@
 </style>
 </head>
 <body>
+<!-- ========== ROYAL ROOTS AUDIO SYSTEM ========== -->
+<audio id="home-music" loop preload="auto">
+  <source src="https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/The Wind.mp3" type="audio/mpeg">
+</audio>
+<audio id="ingame-music" preload="auto">
+  <source id="ingame-src" src="" type="audio/mpeg">
+</audio>
+<!-- ================================================ -->
+
 
 <!-- HOME -->
 <div id="home" class="screen active">
@@ -465,7 +474,7 @@
     <div class="game-header">
       <div class="game-title-small">👑 ROYAL ROOTS™</div>
       <div class="score-display" id="scoreDisplay"></div>
-      <button class="home-btn" onclick="showScreen('home')">⬅ MENU</button>
+      <button id="muteBtn" onclick="toggleMute()" style="background:none;border:1px solid var(--gold-dark);color:var(--gold);padding:5px 10px;font-size:14px;cursor:pointer;margin-right:6px;transition:all .3s;">🔊</button><button class="home-btn" onclick="showScreen('home')">⬅ MENU</button>
     </div>
     <div id="opponentsArea"></div>
     <div class="center-area">
@@ -3722,6 +3731,126 @@ function showRules() {
     null
   );
 }
+
+
+// ========== ROYAL ROOTS AUDIO SYSTEM ==========
+const HOME_TRACK = "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/The Wind.mp3";
+const INGAME_TRACKS = [
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/Midwest Drill.mp3",
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/Real Fros.mp3",
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/Roll Down.mp3",
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/Swagger Myers.mp3",
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/Window Vibration.mp3",
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/A NuLand.mp3",
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/On The Flow.mp3",
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/Real Hop.mp3"
+];
+
+const homeAudio   = document.getElementById('home-music');
+const ingameAudio = document.getElementById('ingame-music');
+homeAudio.volume   = 0.65;
+ingameAudio.volume = 0.65;
+
+let ingameTrackIdx = 0;
+let ingamePlaying  = false;
+let audioUnlocked  = false;
+
+// Unlock audio on first user interaction (browser autoplay policy)
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  homeAudio.play().then(() => { if (!homeAudio.dataset.shouldPlay) homeAudio.pause(); }).catch(()=>{});
+}
+document.addEventListener('click', unlockAudio, { once: true });
+
+function fadeAudio(audio, targetVol, duration, onDone) {
+  const steps    = 20;
+  const interval = duration / steps;
+  const startVol = audio.volume;
+  const step     = (targetVol - startVol) / steps;
+  let count = 0;
+  const timer = setInterval(() => {
+    count++;
+    audio.volume = Math.max(0, Math.min(1, audio.volume + step));
+    if (count >= steps) {
+      clearInterval(timer);
+      audio.volume = targetVol;
+      if (onDone) onDone();
+    }
+  }, interval);
+}
+
+function playHomeMusic() {
+  ingamePlaying = false;
+  ingameAudio.pause();
+  homeAudio.dataset.shouldPlay = 'true';
+  homeAudio.currentTime = homeAudio.currentTime || 0;
+  homeAudio.volume = 0;
+  homeAudio.play().catch(() => {});
+  fadeAudio(homeAudio, 0.65, 1200);
+}
+
+function stopHomeMusic(onDone) {
+  delete homeAudio.dataset.shouldPlay;
+  fadeAudio(homeAudio, 0, 1000, () => {
+    homeAudio.pause();
+    if (onDone) onDone();
+  });
+}
+
+function playIngameMusic() {
+  if (ingamePlaying) return;
+  ingamePlaying = true;
+  ingameTrackIdx = Math.floor(Math.random() * INGAME_TRACKS.length);
+  loadAndPlayIngameTrack();
+}
+
+function loadAndPlayIngameTrack() {
+  const src = document.getElementById('ingame-src');
+  src.src = INGAME_TRACKS[ingameTrackIdx];
+  ingameAudio.load();
+  ingameAudio.volume = 0;
+  ingameAudio.play().catch(() => {});
+  fadeAudio(ingameAudio, 0.65, 1200);
+}
+
+// Auto-advance to next track when one ends
+ingameAudio.addEventListener('ended', () => {
+  if (!ingamePlaying) return;
+  ingameTrackIdx = (ingameTrackIdx + 1) % INGAME_TRACKS.length;
+  loadAndPlayIngameTrack();
+});
+
+// Volume / mute toggle
+let isMuted = false;
+function toggleMute() {
+  isMuted = !isMuted;
+  homeAudio.muted   = isMuted;
+  ingameAudio.muted = isMuted;
+  const btn = document.getElementById('muteBtn');
+  if (btn) btn.textContent = isMuted ? '🔇' : '🔊';
+}
+
+// Hook into showScreen
+const _origShowScreen = showScreen;
+showScreen = function(id) {
+  _origShowScreen(id);
+  if (id === 'home' || id === 'mode-select' || id === 'style-select' || id === 'match-select') {
+    if (ingamePlaying) {
+      ingamePlaying = false;
+      fadeAudio(ingameAudio, 0, 800, () => ingameAudio.pause());
+    }
+    playHomeMusic();
+  }
+};
+
+// Start in-game music when WAR draw begins (startGame triggers the table)
+const _origStartGame = startGame;
+startGame = function() {
+  _origStartGame.apply(this, arguments);
+  stopHomeMusic(() => playIngameMusic());
+};
+// ========== END AUDIO SYSTEM ==========
 
 showScreen('home');
 </script>
