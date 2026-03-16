@@ -3320,6 +3320,7 @@ function warFinish(winnerIdx, loserIdx) {
   renderLog();
  
   if (G.cur === 0) {
+    G.sel = []; // clear stale selection before human turn
     startHumanTurn();
   } else {
     addLog(`${G.players[G.cur].name}'s turn...`);
@@ -4867,7 +4868,8 @@ function aiTurn(pidx) {
       if (G.deck.length>0) player.hand.push(G.deck.pop());
     }
  
-    if (G.phase !== 'play') { renderGame(); return; }
+    G.sel = []; // always clear selection before advancing turn
+  if (G.phase !== 'play') { renderGame(); return; }
  
     if (G.extraTurns > 0 || G.extraTurn) {
       if (G.extraTurns > 0) G.extraTurns--;
@@ -5042,9 +5044,11 @@ function updateComboInfo() {
   const ci = document.getElementById('comboInfo');
   if (G.sel.length === 0) {
     const phase = G.turnPhase;
-    if (phase === 'done') ci.textContent = 'Click END TURN to draw & pass';
-    else ci.textContent = 'Select cards to play — or FREE DRAW first';
-    ci.className = 'combo-info'; return;
+    if (phase === 'done') { ci.textContent = 'Click END TURN to draw & pass'; }
+    else { ci.textContent = 'Select cards to play — or FREE DRAW first'; }
+    ci.className = 'combo-info';
+    ci.style.color = '';
+    return;
   }
   const cards = G.sel.map(id=>G.players[0].hand.find(c=>c.id===id)).filter(Boolean);
   const ev = evalCombo(cards);
@@ -5462,8 +5466,11 @@ function renderHand() {
   const isMyTurn = G.cur===0 && G.phase==='play';
   const canSelect = isMyTurn && G.turnPhase !== 'done';
   const player = G.players[0];
- 
-  // Build current selected cards for combo extension check
+
+  // Safety: not the player's interactive turn — wipe stale selection
+  if (!canSelect) G.sel = [];
+
+  // Build current selected cards for combo extension check (always fresh)
   const selCards = G.sel.map(id => player.hand.find(c => c.id === id)).filter(Boolean);
 
   ph.innerHTML=player.hand.map((card,i)=>{
@@ -6811,4 +6818,4 @@ showScreen('home');
       </div>
     </div>
 </body>
-  </html>
+          </html>
