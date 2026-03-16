@@ -6426,20 +6426,22 @@ function fadeAudio(audio, targetVol, duration, onDone, which) {
 
 // ── HOME MUSIC ──────────────────────────────────────────────
 function playHomeMusic() {
-  // Stop ingame first
+  // Stop ingame first if it was running
   if (ingamePlaying) {
     ingamePlaying = false;
     _clearFade('ingame');
     ingameAudio.pause();
     ingameAudio.src = '';
   }
+  // If already playing and healthy, do nothing — don't restart/refade
+  if (!homeAudio.paused && homeAudio.dataset.shouldPlay) return;
+
   homeAudio.dataset.shouldPlay = 'true';
   _clearFade('home');
   homeAudio.volume = 0;
+  // Attempt play — if blocked, _unlockOnce will retry on first interaction
   homeAudio.play().catch(() => {
-    // Autoplay blocked — retry on next click
-    const retry = () => { if (homeAudio.dataset.shouldPlay) homeAudio.play().catch(()=>{}); };
-    document.addEventListener('click', retry, { once: true });
+    // Autoplay blocked — _unlockOnce will handle it on first touch/click
   });
   fadeAudio(homeAudio, isMuted ? 0 : 0.65, 1200, null, 'home');
 }
@@ -6511,14 +6513,20 @@ function toggleMute() {
 }
 
 // ── SCREEN ROUTING ───────────────────────────────────────────
-// Prime audio on first user interaction so later plays aren't blocked
-document.addEventListener('click', function _firstClick() {
-  document.removeEventListener('click', _firstClick);
-  homeAudio.play().then(()=>homeAudio.pause()).catch(()=>{});
-  const primer = new Audio(INGAME_TRACKS[0]);
-  primer.volume = 0;
-  primer.play().then(()=>primer.pause()).catch(()=>{});
-}, { once: false, capture: true });
+// One-time audio unlock on first user interaction.
+// Uses { once: true } so it NEVER fires again after the first tap.
+// Does NOT pause anything — just unlocks the audio context.
+let _audioUnlocked = false;
+function _unlockOnce() {
+  if (_audioUnlocked) return;
+  _audioUnlocked = true;
+  // If home music hasn't started yet, start it now
+  if (homeAudio.paused && homeAudio.dataset.shouldPlay) {
+    homeAudio.play().catch(() => {});
+  }
+}
+document.addEventListener('touchstart', _unlockOnce, { once: true, passive: true, capture: false });
+document.addEventListener('click',      _unlockOnce, { once: true, capture: false });
 
 const HOME_SCREENS = new Set([
   'home', 'mode-select', 'style-select', 'stakes-select', 'match-pick', 'draft-screen'
@@ -6586,4 +6594,4 @@ showScreen('home');
       </div>
     </div>
 </body>
-  </html>
+                                                                     </html>
