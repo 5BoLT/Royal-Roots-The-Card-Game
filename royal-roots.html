@@ -346,18 +346,19 @@ button{cursor:pointer;font-family:inherit}
 .player-footer{
   background:rgba(0,0,0,.97);border-top:2px solid rgba(240,192,64,.4);
   padding:4px 0 6px;z-index:50;flex-shrink:0;
-  max-height:40vh;overflow:hidden;
+  max-height:40vh;overflow:visible;
   display:flex;flex-direction:column
 }
 .player-footer-inner{
   display:flex;align-items:flex-end;gap:8px;
-  max-width:1200px;margin:0 auto;flex:1;padding:0 12px;min-height:0
+  max-width:1200px;margin:0 auto;flex:1;padding:0 12px;min-height:0;
+  overflow:visible
 }
 .player-hand-zone{
   flex:1;display:flex;flex-wrap:wrap;justify-content:center;
   gap:4px;align-items:center;
-  max-height:calc(40vh - 80px);overflow-y:auto;
-  padding:4px 2px
+  max-height:calc(40vh - 80px);overflow-y:auto;overflow-x:visible;
+  padding:20px 2px 4px 2px
 }
 .controls-zone{display:flex;flex-direction:column;gap:4px;width:clamp(130px,38vw,220px);flex-shrink:0}
 .combo-status{font-size:9px;color:rgba(240,192,64,.6);text-align:center;text-transform:uppercase;letter-spacing:2px;margin-bottom:2px;min-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -421,7 +422,7 @@ button{cursor:pointer;font-family:inherit}
 .card.red .rank,.card.red .suit,.card.red .corner{color:var(--red)}
 .card.joker{background:linear-gradient(135deg,var(--bg2),#2d1800);border-color:var(--gold);border-width:2px;color:var(--gold)}
 .card.joker .jkr-suit{font-size:8px;color:rgba(240,192,64,.8);margin-top:2px;text-align:center;line-height:1.2}
-.card.selected{transform:translateY(-16px)!important;border:3px solid var(--gold)!important;box-shadow:0 0 25px rgba(240,192,64,.6)!important;z-index:20}
+.card.selected{transform:translateY(-18px)!important;border:3px solid var(--gold)!important;box-shadow:0 0 25px rgba(240,192,64,.6)!important;z-index:200!important;position:relative!important}
 .card.playable{cursor:pointer;border-color:rgba(240,192,64,.5)}
 .card.playable:hover{border-color:var(--gold);transform:translateY(-6px)}
 .card.unplayable{opacity:.3;filter:grayscale(.8);transform:scale(.94);cursor:not-allowed}
@@ -2388,9 +2389,18 @@ function applyEffect(ev, cards, pidx) {
     }
     // If first effect was interactive (opened a modal), second queues in pendingTwoPair
     // For non-interactive (passive) effects, fire second immediately
-    const INTERACTIVE = new Set(['king','2x_k','3x_k','4x_k','queen','2x_q','3x_q','4x_q',
-      'jack','2x_j','3x_j','4x_j','power_8_2','power_8_3','power_8_4',
-      'joker_single','double_joker','triple_joker','ace_2','ace_3','ace_4']);
+    const INTERACTIVE = new Set([
+      'king','2x_k','3x_k','4x_k',
+      'queen','2x_q','3x_q','4x_q',
+      'jack','2x_j','3x_j','4x_j',
+      'power_8_2','power_8_3','power_8_4',
+      'power_7_3','power_7_4',
+      'power_9_3','power_9_4',
+      'power_2_3','power_2_4',
+      'ace_2','ace_3','ace_4',
+      'joker_single','double_joker','triple_joker',
+      'flush','straight','full_house'
+    ]);
     const firstIsInteractive = tp1 && INTERACTIVE.has(tp1.effect);
     if (firstIsInteractive && tp2 && tc2) {
       // Store second effect to fire after modal closes
@@ -2426,10 +2436,13 @@ function applyEffect(ev, cards, pidx) {
  
 function openJackFlushModal(totalFlushes) {
   const player = G.players[0];
-  // Can flush down to 1 card minimum
-  const flushable = player.hand.length - 1;
+  // Must keep at least 1 card
+  const flushable = Math.max(0, player.hand.length - 1);
   if (flushable <= 0) {
-    addLog('🃏 Jack: Hand too small to flush!', false);
+    addLog('🃏 Jack: Only 1 card left — nothing to flush!', false);
+    G.phase = 'play'; G.turnPhase = 'done';
+    fireTwoPairPending(0);
+    renderGame(); updateBtns(); renderLog();
     return;
   }
   const actualFlushes = Math.min(totalFlushes, flushable);
@@ -2479,7 +2492,7 @@ function jackFlushPick(handIdx) {
   }
  
   G.jackFlush.flushesLeft--;
-  if (G.jackFlush.flushesLeft <= 0 || player.hand.length <= 2) {
+  if (G.jackFlush.flushesLeft <= 0 || player.hand.length <= 1) {
     closeJackFlushModal();
   } else {
     G.jackFlushBusy = false;
@@ -3793,7 +3806,7 @@ function queenPickSuit(suit) {
   document.getElementById('queenSuitModal').style.display = 'none';
   const n = G._queenCount || 1;
   G.faceCard = { ...G.faceCard, suit: suit, rank: 'Q' };
-  G._queenSuit = suit; // locked bonus suit, survives face card changes
+  G._queenSuit = suit;
   addLog(
     n > 1
       ? `👸 ${n}x Queens! Suit locked → ${suit}. Play ${n-1} more card(s) from ${suit}!`
@@ -3807,14 +3820,19 @@ function queenPickSuit(suit) {
     G.turnPhase = 'playing';
     renderGame(); updateBtns();
     addLog(`👸 Select & play ${n-1} card(s) from ${suit} suit, then END TURN.`, false);
+    renderLog();
+    // Two Pairs: second effect fires after bonus plays are done (when queenBonus hits 0 in endTurn)
+    // Nothing needed here — fireTwoPairPending is called at turn advance
   } else {
     G.queenBonus = 0;
     G._queenSuit = null;
     G.turnPhase = 'done';
     renderGame(); updateBtns();
     addLog('Suit set! Click END TURN to draw & pass.', false);
+    renderLog();
+    // Single Queen in Two Pairs: fire second effect now
+    fireTwoPairPending(0);
   }
-  renderLog();
 }
 
 // =====================================================================
@@ -6427,6 +6445,7 @@ function _startHomeMusic() {
   homeAudio.volume = 0;
   homeAudio.play().then(() => {
     _homeStarted = true;
+    _unlocked = true; // autoplay succeeded — void any pending interaction trigger
     _fade(homeAudio, isMuted ? 0 : 0.65, 1200, null, 'home');
   }).catch(() => {
     // Browser blocked autoplay — will retry on first interaction via _onFirstInteraction
@@ -6446,15 +6465,17 @@ function _stopHomeForGame(onDone) {
 
 // ─── ONE-TIME UNLOCK (mobile autoplay) ───────────────────────
 // Fires exactly once. Never pauses anything.
+// If autoplay already succeeded, interaction is silently voided.
 let _unlocked = false;
 function _onFirstInteraction() {
   if (_unlocked) return;
   _unlocked = true;
-  // Remove both listeners permanently
   document.removeEventListener('touchstart', _onFirstInteraction, true);
   document.removeEventListener('click',      _onFirstInteraction, true);
-  // Only start if not already playing
-  if (homeAudio.paused) _startHomeMusic();
+  // If autoplay already started the music, do nothing — interaction is voided
+  if (!homeAudio.paused) return;
+  // Autoplay was blocked — start now on first interaction
+  _startHomeMusic();
 }
 document.addEventListener('touchstart', _onFirstInteraction, { once: true, passive: true, capture: true });
 document.addEventListener('click',      _onFirstInteraction, { once: true, passive: true, capture: true });
@@ -6565,4 +6586,4 @@ showScreen('home');
       </div>
     </div>
 </body>
-  </html>
+                                                 </html>
