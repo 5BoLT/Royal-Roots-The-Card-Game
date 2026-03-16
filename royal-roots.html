@@ -274,7 +274,19 @@ button{cursor:pointer;font-family:inherit}
 .draw-pile-btn:hover::before{opacity:1}
 
 /* FACE CARD display on table */
-#faceCardDisplay{position:relative}
+#faceCardDisplay{position:relative;min-width:64px;min-height:90px}
+/* Card landing animation */
+@keyframes cardLand {
+  0%   { transform: translateY(-60px) scale(1.15); opacity:0; }
+  60%  { transform: translateY(4px) scale(1.04);  opacity:1; }
+  100% { transform: translateY(0)   scale(1);     opacity:1; }
+}
+@keyframes cardLandFast {
+  0%   { transform: translateY(-40px) scale(1.1); opacity:0; }
+  100% { transform: translateY(0)   scale(1);    opacity:1; }
+}
+.card-land { animation: cardLand 0.22s cubic-bezier(.22,.68,0,1.2) both; }
+.card-land-fast { animation: cardLandFast 0.15s ease-out both; }
 .face-card-lock{
   position:absolute;top:-40px;left:50%;transform:translateX(-50%);
   font-size:32px;color:var(--gold);animation:pulse 1.5s ease-in-out infinite;
@@ -4455,7 +4467,37 @@ function advanceTurnIdx(from) {
 }
  
 // ========== PLAY CARDS ==========
+// =====================================================================
+// 🃏 CARD PLAY ANIMATION — each card lands on face card 0.2s apart
+// =====================================================================
+function animateCardsToFaceCard(cards, onDone) {
+  const fcd = document.getElementById('faceCardDisplay');
+  if (!fcd || !cards || cards.length === 0) { if (onDone) onDone(); return; }
+  let idx = 0;
+  function landNext() {
+    if (idx >= cards.length) { if (onDone) onDone(); return; }
+    const c = cards[idx++];
+    fcd.innerHTML = cardEl(c, 'card-land');
+    // Re-trigger animation if same card shows twice
+    const el = fcd.querySelector('.card-land');
+    if (el) { void el.offsetWidth; el.classList.add('card-land'); }
+    setTimeout(landNext, 200);
+  }
+  landNext();
+}
+
 function doPlayCards(pidx, cards) {
+  // Validate first without side effects
+  const ev = evalCombo(cards);
+  if (!ev.valid) return false;
+  // Animate cards landing on face card, then apply game logic
+  animateCardsToFaceCard(cards, () => {
+    _doPlayCardsCore(pidx, cards);
+  });
+  return true;
+}
+
+function _doPlayCardsCore(pidx, cards) {
   const player = G.players[pidx];
   const ev = evalCombo(cards);
   if (!ev.valid) return false;
@@ -5318,7 +5360,11 @@ function renderOpponents() {
  
 function renderCenter() {
   const fcd=document.getElementById('faceCardDisplay');
-  fcd.innerHTML=G.faceCard?cardEl(G.faceCard):'<div style="width:62px;height:88px;border:2px dashed #333;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#333;font-size:20px">?</div>';
+  // Don't overwrite during card-land animation
+  const landingNow = fcd && fcd.querySelector('.card-land');
+  if (!landingNow) {
+    fcd.innerHTML=G.faceCard?cardEl(G.faceCard):'<div style="width:62px;height:88px;border:2px dashed #333;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#333;font-size:20px">?</div>';
+  }
   document.getElementById('drawCount').textContent=G.deck.length;
 }
  
@@ -6666,4 +6712,4 @@ showScreen('home');
       </div>
     </div>
 </body>
-    </html>
+  </html>
