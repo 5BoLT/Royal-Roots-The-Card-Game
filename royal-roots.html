@@ -13,7 +13,7 @@
   --bg:#0f051a; --bg2:#1a052a; --bg3:#2a0a4a;
   --text:#e8dcc8; --text-dim:#888; --red:#c0392b; --red2:#e74c3c;
   --green:#27ae60; --purple:#9b59b6;
-  --card-bg:#f5f0e8; --card-border:#bbb;
+  --card-bg:#1e1e1e; --card-border:#444;
   --modal-bg:#1a052a; --modal-border:#F0C040;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Cinzel',serif;overflow:hidden}
@@ -428,12 +428,12 @@ button{cursor:pointer;font-family:inherit}
   border:2px solid var(--card-border);background:var(--card-bg);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   flex-shrink:0;select:none;position:relative;
-  box-shadow:0 4px 12px rgba(0,0,0,.4);transition:all .2s;cursor:default
+  box-shadow:0 4px 16px rgba(0,0,0,.7);transition:all .2s;cursor:default
 }
 .card .rank{font-weight:700;font-size:18px;line-height:1;color:#1a1a1a}
 .card .suit{font-size:18px;line-height:1}
 .card .corner{position:absolute;top:4px;left:6px;font-size:9px;font-weight:700;line-height:1.2;text-align:left;color:#1a1a1a}
-.card.red .rank,.card.red .suit,.card.red .corner{color:var(--red)}
+/* suit colors handled inline per card */
 .card.joker{background:linear-gradient(135deg,var(--bg2),#2d1800);border-color:var(--gold);border-width:2px;color:var(--gold)}
 .card.joker .jkr-suit{font-size:8px;color:rgba(240,192,64,.8);margin-top:2px;text-align:center;line-height:1.2}
 .card.selected{transform:translateY(-18px)!important;border:3px solid var(--gold)!important;box-shadow:0 0 25px rgba(240,192,64,.6)!important;z-index:200!important;position:relative!important}
@@ -549,7 +549,7 @@ button{cursor:pointer;font-family:inherit}
 .draft-player-name{font-size:12px;color:var(--gold);letter-spacing:1px}
 .draft-player-cards{display:flex;gap:8px;align-items:center}
 .draft-mini-card{
-  width:36px;height:50px;border-radius:6px;background:var(--card-bg);border:1px solid #bbb;
+  width:36px;height:50px;border-radius:6px;background:#1e1e1e;border:1px solid #555;
   display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#1a1a1a
 }
 .draft-mini-card.red{color:var(--red)}
@@ -1177,7 +1177,7 @@ button{cursor:pointer;font-family:inherit}
 
 // ========== CONSTANTS ==========
 const SUITS = ['♠','♥','♦','♣'];
-const SUIT_NAMES = {'♠':'Spades','♥':'Hearts','♦':'Diamonds','♣':'Clubs'};
+const SUIT_NAMES = {'♠':'Spades','♥':'Hearts','♦':'Diamonds','♣':'Clovers'};
 const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 const RANK_VAL = {'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14,'JKR':15};
  
@@ -1288,25 +1288,37 @@ function shuffle(a) {
 const isRed = c => c.suit==='♥'||c.suit==='♦';
 const rv    = r => RANK_VAL[r] || 0;
  
+// Suit color palette — Royal Roots™ dark card design
+const SUIT_COLORS = {
+  '♠': { color: '#F0C040', border: '#a88a20', glow: 'rgba(240,192,64,0.35)'  }, // Gold
+  '♦': { color: '#C0C0C0', border: '#888',    glow: 'rgba(192,192,192,0.35)' }, // Silver
+  '♣': { color: '#27ae60', border: '#1a7a44', glow: 'rgba(39,174,96,0.35)'   }, // Green
+  '♥': { color: '#e74c3c', border: '#a93226', glow: 'rgba(231,76,60,0.35)'   }, // Red
+};
+
 function cardEl(card, classes='') {
   if (!card) return '';
+  const sc = SUIT_COLORS[card.suit] || { color:'#ccc', border:'#666', glow:'rgba(200,200,200,0.2)' };
+
   if (card.rank === 'JKR') {
-    const jcolor = (card.suit==='♥'||card.suit==='♦') ? '#c0392b' : '#1a1a1a';
-    return `<div class="card joker-card ${classes}" data-id="${card.id}">
-      <div class="corner tl" style="color:var(--gold-light);font-size:7px">JKR<br>${card.suit}</div>
+    return `<div class="card joker-card ${classes}" data-id="${card.id}"
+      style="background:linear-gradient(145deg,#1a1a2e,#0d0d1a);border-color:${sc.border};
+             box-shadow:0 0 12px ${sc.glow},0 4px 16px rgba(0,0,0,.8)">
+      <div class="corner tl" style="color:${sc.color};font-size:7px;font-weight:700">JKR<br>${card.suit}</div>
       <div style="font-size:24px">🃏</div>
-      <div style="font-size:9px;color:var(--gold-light);text-align:center;line-height:1.2">${SUIT_NAMES[card.suit]}<br>Joker</div>
-      <div class="corner br" style="color:var(--gold-light);font-size:7px">JKR<br>${card.suit}</div>
+      <div style="font-size:9px;color:${sc.color};text-align:center;line-height:1.3;font-weight:700;letter-spacing:1px">${SUIT_NAMES[card.suit]}</div>
+      <div class="corner br" style="color:${sc.color};font-size:7px;font-weight:700">JKR<br>${card.suit}</div>
     </div>`;
   }
-  const col = isRed(card) ? 'red' : 'black';
-  const color = isRed(card) ? '#c0392b' : '#1a1a1a';
-  const rsize = card.rank==='10' ? '14px' : '18px';
-  return `<div class="card ${col} ${classes}" data-id="${card.id}">
-    <div class="corner tl" style="color:${color}">${card.rank}<br>${card.suit}</div>
-    <div class="rank" style="color:${color};font-size:${rsize}">${card.rank}</div>
-    <div class="suit-sym" style="color:${color}">${card.suit}</div>
-    <div class="corner br" style="color:${color}">${card.rank}<br>${card.suit}</div>
+
+  const rsize = card.rank==='10' ? '15px' : '19px';
+  return `<div class="card ${classes}" data-id="${card.id}"
+    style="background:linear-gradient(160deg,#2a2a2a,#1a1a1a);border-color:${sc.border};
+           box-shadow:0 0 8px ${sc.glow},0 4px 14px rgba(0,0,0,.8)">
+    <div class="corner tl" style="color:${sc.color};font-weight:700">${card.rank}<br>${card.suit}</div>
+    <div class="rank" style="color:${sc.color};font-size:${rsize};text-shadow:0 0 8px ${sc.glow}">${card.rank}</div>
+    <div class="suit-sym" style="color:${sc.color};font-size:20px;text-shadow:0 0 10px ${sc.glow}">${card.suit}</div>
+    <div class="corner br" style="color:${sc.color};font-weight:700">${card.rank}<br>${card.suit}</div>
   </div>`;
 }
  
