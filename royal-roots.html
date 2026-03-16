@@ -549,10 +549,10 @@ button{cursor:pointer;font-family:inherit}
 .draft-player-name{font-size:12px;color:var(--gold);letter-spacing:1px}
 .draft-player-cards{display:flex;gap:8px;align-items:center}
 .draft-mini-card{
-  width:36px;height:50px;border-radius:6px;background:#1e1e1e;border:1px solid #555;
-  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#1a1a1a
+  width:36px;height:50px;border-radius:6px;background:linear-gradient(160deg,#2a2a2a,#1a1a1a);
+  border:1px solid #555;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;font-size:10px;font-weight:700;line-height:1.2;color:#ccc
 }
-.draft-mini-card.red{color:var(--red)}
 .draft-mini-card.back{background:var(--bg3);border-color:rgba(240,192,64,.3);color:rgba(240,192,64,.4);font-size:16px}
 .draft-mini-card.revealed{animation:flipIn .3s ease}
 @keyframes flipIn{from{transform:rotateY(90deg);opacity:0}to{transform:rotateY(0);opacity:1}}
@@ -1178,6 +1178,7 @@ button{cursor:pointer;font-family:inherit}
 // ========== CONSTANTS ==========
 const SUITS = ['♠','♥','♦','♣'];
 const SUIT_NAMES = {'♠':'Spades','♥':'Hearts','♦':'Diamonds','♣':'Clovers'};
+const JOKER_SUIT_NAMES = {'♠':'Spades','♥':'Hearts','♦':'Diamond','♣':'Clovers'};
 const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 const RANK_VAL = {'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14,'JKR':15};
  
@@ -1306,7 +1307,7 @@ function cardEl(card, classes='') {
              box-shadow:0 0 12px ${sc.glow},0 4px 16px rgba(0,0,0,.8)">
       <div class="corner tl" style="color:${sc.color};font-size:7px;font-weight:700">JKR<br>${card.suit}</div>
       <div style="font-size:24px">🃏</div>
-      <div style="font-size:9px;color:${sc.color};text-align:center;line-height:1.3;font-weight:700;letter-spacing:1px">${SUIT_NAMES[card.suit]}</div>
+      <div style="font-size:${SUIT_NAMES[card.suit].length>6?'7px':'8px'};color:${sc.color};text-align:center;line-height:1.2;font-weight:700;letter-spacing:0.5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px">${JOKER_SUIT_NAMES[card.suit]||SUIT_NAMES[card.suit]}</div>
       <div class="corner br" style="color:${sc.color};font-size:7px;font-weight:700">JKR<br>${card.suit}</div>
     </div>`;
   }
@@ -2975,6 +2976,28 @@ function openWarSpectatorModal() {
   setTimeout(() => autoResolveAIWar(), 900);
 }
 
+function showAIWarOkayBtn() {
+  // Show OKAY button so player can dismiss the AI war screen and continue
+  const btn = document.getElementById('warActionBtn');
+  if (btn) {
+    btn.style.display = 'block';
+    btn.textContent = '✅ OKAY — CONTINUE';
+    btn.disabled = false;
+    btn.onclick = () => {
+      const w = G.war;
+      if (!w) return;
+      document.getElementById('warModal').style.display = 'none';
+      const winIdx = w.attackerIdx; // already settled above
+      G.war = null; G.pendingWar = null; G.phase = 'play';
+      G.cur = nxt(w.defenderIdx);
+      G.turnPhase = 'playing'; G.freeDrewId = null;
+      renderGame(); renderLog();
+      if (G.cur === 0) { startHumanTurn(); }
+      else { addLog(G.players[G.cur].name + "'s turn..."); setTimeout(()=>aiTurn(G.cur), 800); }
+    };
+  }
+}
+
 function autoResolveAIWar() {
   const w = G.war;
   if (!w || w.humanInvolved) return;
@@ -3004,14 +3027,19 @@ function autoResolveAIWar() {
       document.getElementById('warResult').textContent =
         `${G.players[w.attackerIdx].name} wins War! (+${w.cardsPlayed} cards)`;
       addLog(`⚔️ ${G.players[w.attackerIdx].name} wins War vs ${G.players[w.defenderIdx].name}! Gains ${w.cardsPlayed} cards.`, true);
-      G.players[w.attackerIdx].hand.push(...w.warPile);
-      closeWarModal(false);
+      // Winner gets all pot cards except the winning card
+      const warWinCard = aCard; // attacker won with aCard
+      settleWarPile(warWinCard);
+      G.players[w.attackerIdx].hand.push(warWinCard);
+      showAIWarOkayBtn();
     } else if (dVal > aVal) {
       document.getElementById('warResult').textContent =
         `${G.players[w.defenderIdx].name} wins War! (+${w.cardsPlayed} cards)`;
       addLog(`⚔️ ${G.players[w.defenderIdx].name} wins War vs ${G.players[w.attackerIdx].name}! Gains ${w.cardsPlayed} cards.`, true);
-      G.players[w.defenderIdx].hand.push(...w.warPile);
-      closeWarModal(false);
+      const warWinCard = dCard; // defender won with dCard
+      settleWarPile(warWinCard);
+      G.players[w.defenderIdx].hand.push(warWinCard);
+      showAIWarOkayBtn();
     } else {
       // Tie — another round
       w.round++;
@@ -5842,8 +5870,9 @@ function renderDraftScreen() {
       const isHuman = t.i === 0;
       const cardHtml = [0,1].map(ci => {
         if (t.picks[ci]) {
-          const isRed = ['♥','♦'].includes(t.picks[ci].suit);
-          return `<div class="draft-mini-card${isRed?' red':''} revealed">${t.picks[ci].rank}${t.picks[ci].suit}</div>`;
+          const _dc = {'♠':'#F0C040','♦':'#C0C0C0','♣':'#27ae60','♥':'#e74c3c'}[t.picks[ci].suit]||'#ccc';
+          const _db = {'♠':'#a88a20','♦':'#888','♣':'#1a7a44','♥':'#a93226'}[t.picks[ci].suit]||'#555';
+          return `<div class="draft-mini-card revealed" style="color:${_dc};border-color:${_db};box-shadow:0 0 6px ${_dc}44">${t.picks[ci].rank}<br>${t.picks[ci].suit}</div>`;
         }
         return `<div class="draft-mini-card back">🂠</div>`;
       }).join('');
@@ -6049,9 +6078,9 @@ function openComboRef() {
   if (tbody) {
     tbody.innerHTML = COMBO_TABLE.map((row, i) =>
       `<tr style="border-bottom:1px solid rgba(240,192,64,.08);background:${i%2?'rgba(240,192,64,.03)':'transparent'}">
-        <td style="padding:6px 8px;color:var(--gold-light);font-weight:700">${row[0]}</td>
-        <td style="padding:6px 4px;text-align:center;color:var(--gold);white-space:nowrap">${row[1]}</td>
-        <td style="padding:6px 8px;color:var(--text-dim);font-size:10px">${row[2]}</td>
+        <td style="padding:8px 10px;color:var(--gold-light);font-weight:700;font-size:14px">${row[0]}</td>
+        <td style="padding:8px 6px;text-align:center;color:var(--gold);white-space:nowrap;font-size:14px">${row[1]}</td>
+        <td style="padding:8px 10px;color:var(--text-dim);font-size:13px">${row[2]}</td>
       </tr>`
     ).join('');
   }
@@ -6702,7 +6731,7 @@ showScreen('home');
       <div class="ace-modal-title" style="font-size:20px">👑🃏 HOW TO PLAY</div>
       <div style="font-size:10px;color:rgba(240,192,64,.5);letter-spacing:3px;text-transform:uppercase">Royal Roots™ — Official Rules</div>
     </div>
-    <div id="rulesBody" style="font-family:'IM Fell English',serif;font-size:13px;color:var(--text);line-height:1.75"></div>
+    <div id="rulesBody" style="font-family:'IM Fell English',serif;font-size:16px;color:var(--text);line-height:1.85"></div>
     <button class="ace-action-btn" style="margin-top:18px;text-align:center" onclick="closeRulesModal()">✕ CLOSE</button>
   </div>
 </div>
