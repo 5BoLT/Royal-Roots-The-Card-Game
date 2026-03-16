@@ -905,18 +905,18 @@ button{cursor:pointer;font-family:inherit}
 
       <!-- CENTRAL BOARD -->
       <div class="central-board">
-        <div class="board-row">
+        <div class="board-row" style="align-items:flex-start">
           <!-- DECK -->
-          <div class="board-item">
+          <div class="board-item" style="min-width:72px">
             <div class="board-label">Draw Pile</div>
             <div class="draw-pile-btn" id="drawPile" onclick="freeDraw()">
               <span id="drawCount" style="font-size:32px">0</span>
             </div>
           </div>
           <!-- FACE CARD -->
-          <div class="board-item">
+          <div class="board-item" style="min-width:72px">
             <div class="board-label">Face Card</div>
-            <div id="faceCardDisplay" style="position:relative"></div>
+            <div id="faceCardDisplay" style="position:relative;min-height:90px;display:flex;align-items:flex-start"></div>
           </div>
         </div>
         <div class="combo-info" id="comboInfo">Select cards to play</div>
@@ -2586,16 +2586,22 @@ function showAceChoice() {
     </button>`;
   });
  
-  // Option B: Draw & Replace (draw 1 new card, discard 1 from hand)
+  // Option B: Draw & Replace (draw 1 new card from deck, discard 1 from hand)
   if (G.players[0].hand.length > 0) {
     html += `<button class="ace-action-btn" onclick="aceDrawReplace()">
-      🔄 Draw & Replace — draw 1 new card, discard 1 from your hand
+      🔄 Draw & Replace — draw 1 from deck, discard 1 from your hand
     </button>`;
   }
- 
-  // Option C: Just draw 1 for yourself (no discard)
+
+  // Option C: Draw from Discard Pile (pick 1 from last 10, face card excluded)
+  const discardAvail = G.discard.length > 1; // at least 1 behind face card
+  html += `<button class="ace-action-btn${discardAvail ? '' : ' force'}" style="${discardAvail ? 'border-color:#27ae60;color:#2ecc71' : 'opacity:.4'}" onclick="aceDrawFromDiscard()" ${discardAvail ? '' : 'disabled'}>
+    📤 Draw from Discard — pick 1 card from the last 10 discards
+  </button>`;
+
+  // Option D: Just draw 1 from deck for yourself (no discard)
   html += `<button class="ace-action-btn" onclick="aceDrawSelf()">
-    ➕ Draw 1 for yourself (keep all your cards)
+    ➕ Draw 1 from deck (keep all your cards)
   </button>`;
  
   main.innerHTML = html;
@@ -2650,6 +2656,19 @@ function cancelAceReplace() {
   document.getElementById('aceReplaceZone').style.display = 'none';
   document.getElementById('aceMainActions').style.display = 'block';
   showAceChoice();
+}
+
+function aceDrawFromDiscard() {
+  // Hide ace modal temporarily, open discard picker (max 10, excludes face card)
+  document.getElementById('aceModal').style.display = 'none';
+  openDiscardPickerModal(1, () => {
+    // After picking 1 card from discard, consume the ace action
+    addLog('🌟 Ace: Drew 1 card from the discard pile!', true);
+    renderGame();
+    // Restore ace modal and consume action
+    document.getElementById('aceModal').style.display = 'flex';
+    aceConsumeAction();
+  }, '🌟 ACE — Draw 1 from Discard (last 10, face card excluded)');
 }
  
 function aceConsumeAction() {
@@ -5408,21 +5427,60 @@ function renderCenter() {
   document.getElementById('drawCount').textContent=G.deck.length;
 }
  
+
+// Returns true if adding `card` to the current selection would still be
+// a valid (or potentially valid) combo — used for smart highlighting.
+function canExtendSelection(card, currentSel) {
+  if (currentSel.length === 0) return answersFC(card);
+  const trial = [...currentSel, card];
+  // Check if it forms a valid combo
+  const ev = evalCombo(trial);
+  if (ev.valid) return true;
+  // Check if it could extend — same rank (set), or consecutive (straight), or same suit (flush)
+  const ranks = currentSel.map(c => c.rank);
+  const suits = currentSel.map(c => c.suit);
+  const uniqueRanks = [...new Set(ranks.filter(r => r !== 'JKR'))];
+  const uniqueSuits = [...new Set(suits.filter(s => s))];
+  // Same-rank extension (pairs → trips → quads)
+  if (uniqueRanks.length === 1 && (card.rank === uniqueRanks[0] || card.rank === 'JKR')) return true;
+  // Flush extension — same suit or joker
+  if (uniqueSuits.length === 1 && (card.suit === uniqueSuits[0] || card.rank === 'JKR')) return true;
+  // Straight extension — numeric, adjacent or joker
+  const numVals = currentSel
+    .filter(c => c.rank !== 'JKR' && !['J','Q','K','A'].includes(c.rank))
+    .map(c => RANK_VAL[c.rank] || 0).sort((a,b)=>a-b);
+  if (numVals.length > 0 && !['J','Q','K','A'].includes(card.rank)) {
+    const v = RANK_VAL[card.rank] || 0;
+    const min = numVals[0], max = numVals[numVals.length-1];
+    if (v === min - 1 || v === max + 1 || card.rank === 'JKR') return true;
+  }
+  return false;
+}
+
 function renderHand() {
   const ph=document.getElementById('playerHand');
   const isMyTurn = G.cur===0 && G.phase==='play';
   const canSelect = isMyTurn && G.turnPhase !== 'done';
   const player = G.players[0];
  
+  // Build current selected cards for combo extension check
+  const selCards = G.sel.map(id => player.hand.find(c => c.id === id)).filter(Boolean);
+
   ph.innerHTML=player.hand.map((card,i)=>{
     const sel = G.sel.includes(card.id);
-    const playable = canSelect && answersFC(card);
-    const isFreeDrew = card.id === G.freeDrewId; // highlight newly drawn card
+    const isFreeDrew = card.id === G.freeDrewId;
     let cls='';
-    if(sel) cls='selected';
-    else if(canSelect && playable) cls='playable' + (isFreeDrew?' free-drew':'');
-    else if(canSelect && !playable) cls='unplayable';
-    return cardEl(card,cls);
+    if (sel) {
+      cls = 'selected';
+    } else if (canSelect) {
+      const extends_ = canExtendSelection(card, selCards);
+      if (extends_) {
+        cls = 'playable' + (isFreeDrew ? ' free-drew' : '');
+      } else {
+        cls = 'unplayable';
+      }
+    }
+    return cardEl(card, cls);
   }).join('');
  
   ph.querySelectorAll('.card').forEach((el,i)=>{
