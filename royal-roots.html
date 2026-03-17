@@ -273,6 +273,41 @@ button{cursor:pointer;font-family:inherit}
 }
 .draw-pile-btn:hover::before{opacity:1}
 
+
+/* ── DEAL ANIMATION ─────────────────────────────────────────── */
+#dealAnimOverlay {
+  position:fixed;inset:0;z-index:400;pointer-events:none;
+  background:transparent;
+}
+.deal-card-fly {
+  position:fixed;width:46px;height:64px;border-radius:8px;
+  background:linear-gradient(135deg,var(--bg2),var(--bg3));
+  border:2px solid rgba(240,192,64,.5);
+  box-shadow:0 4px 16px rgba(0,0,0,.7);
+  transition:transform 0.15s ease-out, opacity 0.12s ease;
+  pointer-events:none;z-index:401;
+  transform-style:preserve-3d;
+}
+.deal-card-fly::after {
+  content:'';position:absolute;inset:4px;
+  border:1px solid rgba(240,192,64,.15);border-radius:4px;
+  background:repeating-linear-gradient(45deg,transparent,transparent 4px,rgba(240,192,64,.04) 4px,rgba(240,192,64,.04) 5px);
+}
+/* Card pop-in when added during deal */
+@keyframes cardPopIn {
+  0%   { transform:scale(0.4) translateY(-10px); opacity:0; }
+  60%  { transform:scale(1.1) translateY(0); opacity:1; }
+  100% { transform:scale(1); opacity:1; }
+}
+.card-deal-pop { animation: cardPopIn 0.18s ease-out both; }
+/* Face card flip animation */
+@keyframes fcFlip {
+  0%   { transform:rotateY(90deg) scale(0.8); opacity:0; }
+  50%  { transform:rotateY(-10deg) scale(1.08); opacity:1; }
+  100% { transform:rotateY(0deg) scale(1); opacity:1; }
+}
+.fc-flip-anim { animation: fcFlip 0.3s cubic-bezier(.22,.68,0,1.15) both; }
+
 /* FACE CARD display on table */
 #faceCardDisplay{position:relative;min-width:64px;min-height:90px}
 /* Card landing animation */
@@ -296,12 +331,13 @@ button{cursor:pointer;font-family:inherit}
 
 /* ACTION LOG */
 .action-log{
-  position:absolute;bottom:clamp(8px,2vw,28px);right:clamp(6px,2vw,28px);
+  position:fixed;bottom:clamp(8px,2vw,28px);right:clamp(6px,2vw,28px);
   width:clamp(140px,28vw,300px);height:clamp(100px,20vh,240px);
   background:rgba(0,0,0,.88);backdrop-filter:blur(8px);
   border-radius:clamp(10px,2vw,20px);
   border:1px solid rgba(240,192,64,.2);box-shadow:0 4px 20px rgba(0,0,0,.5);
-  display:flex;flex-direction:column;z-index:80
+  display:flex;flex-direction:column;z-index:80;
+  touch-action:none
 }
 .log-header{
   padding:10px 16px;border-bottom:1px solid rgba(240,192,64,.1);
@@ -357,8 +393,8 @@ button{cursor:pointer;font-family:inherit}
 /* PLAYER FOOTER */
 .player-footer{
   background:rgba(0,0,0,.97);border-top:2px solid rgba(240,192,64,.4);
-  padding:4px 0 6px;z-index:50;flex-shrink:0;
-  max-height:40vh;overflow:visible;
+  padding:4px 0 4px;z-index:50;flex-shrink:0;
+  max-height:44vh;overflow:visible;
   display:flex;flex-direction:column;
   isolation:isolate
 }
@@ -374,7 +410,7 @@ button{cursor:pointer;font-family:inherit}
   padding:20px 2px 4px 2px;
   position:relative;z-index:60
 }
-.controls-zone{display:flex;flex-direction:column;gap:4px;width:clamp(130px,38vw,220px);flex-shrink:0}
+.controls-zone{display:flex;flex-direction:column;gap:4px;width:clamp(130px,38vw,220px);flex-shrink:0;overflow:hidden;min-width:0}
 .combo-status{font-size:9px;color:rgba(240,192,64,.6);text-align:center;text-transform:uppercase;letter-spacing:2px;margin-bottom:2px;min-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .btn-play{
   height:clamp(38px,6vh,52px);background:var(--gold);color:#000;border:none;border-radius:10px;
@@ -398,13 +434,85 @@ button{cursor:pointer;font-family:inherit}
 }
 .btn-end:not(:disabled):hover{background:rgba(240,192,64,.12)}
 .btn-end:disabled{opacity:.25;cursor:not-allowed}
+/* ROOT OUT + ROYAL DICE row */
+.btn-bottom-row{display:flex;gap:6px;width:100%}
 .btn-rootout{
-  background:none;border:1px solid #8e44ad;color:#9b59b6;
-  padding:8px 12px;border-radius:8px;font-family:Cinzel,serif;font-size:10px;
-  letter-spacing:1px;transition:all .2s;text-transform:uppercase
+  flex:1;background:none;border:1px solid #8e44ad;color:#9b59b6;
+  padding:6px 6px;border-radius:8px;font-family:Cinzel,serif;font-size:9px;
+  letter-spacing:1px;transition:all .2s;text-transform:uppercase;white-space:nowrap
 }
 .btn-rootout:not(:disabled):hover{border-color:#9b59b6;background:rgba(155,89,182,.1)}
 .btn-rootout:disabled{opacity:.25;cursor:not-allowed}
+.btn-royaldice{
+  flex:1;background:none;border:1px solid #e67e22;color:#e67e22;
+  padding:6px 6px;border-radius:8px;font-family:Cinzel,serif;font-size:9px;
+  letter-spacing:1px;transition:all .2s;text-transform:uppercase;white-space:nowrap
+}
+.btn-royaldice:not(:disabled):hover{border-color:#f39c12;background:rgba(230,126,34,.1)}
+.btn-royaldice:disabled{opacity:.25;cursor:not-allowed}
+/* ── DICE ROLL MODAL ────────────────────────────── */
+#diceRollModal{
+  position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.92);
+  backdrop-filter:blur(14px);display:none;align-items:center;
+  justify-content:center;flex-direction:column
+}
+.dice-modal-inner{
+  background:var(--bg2);border:2px solid rgba(230,126,34,.5);
+  border-radius:20px;padding:32px 28px;max-width:340px;width:92%;
+  text-align:center;box-shadow:0 0 40px rgba(230,126,34,.2)
+}
+.dice-title{
+  font-family:'Cinzel Decorative',cursive;font-size:18px;
+  color:#e67e22;letter-spacing:3px;margin-bottom:6px
+}
+.dice-sub{
+  font-family:Cinzel,serif;font-size:10px;color:rgba(230,126,34,.6);
+  letter-spacing:2px;text-transform:uppercase;margin-bottom:24px
+}
+/* Dice face squares */
+.dice-pair{display:flex;gap:20px;justify-content:center;margin-bottom:24px}
+.die-face{
+  width:80px;height:80px;border-radius:14px;
+  background:linear-gradient(145deg,#1a1a1a,#111);
+  border:3px solid rgba(230,126,34,.5);
+  display:flex;align-items:center;justify-content:center;
+  font-size:44px;line-height:1;
+  box-shadow:0 4px 20px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.05);
+  transition:transform 0.05s;user-select:none
+}
+.die-face.scrambling{
+  animation:diceScramble 0.08s steps(1) infinite
+}
+@keyframes diceScramble{
+  0%  {transform:scale(1)    rotate(0deg)}
+  25% {transform:scale(1.05) rotate(-3deg)}
+  50% {transform:scale(0.97) rotate(2deg)}
+  75% {transform:scale(1.03) rotate(-1deg)}
+  100%{transform:scale(1)    rotate(0deg)}
+}
+.dice-result-name{
+  font-family:'Cinzel Decorative',cursive;font-size:16px;
+  font-weight:700;margin-bottom:8px;letter-spacing:1px
+}
+.dice-result-desc{
+  font-family:'IM Fell English',serif;font-size:15px;
+  color:var(--text);line-height:1.6;margin-bottom:20px
+}
+.dice-btn{
+  width:100%;padding:12px;border-radius:10px;border:none;
+  font-family:Cinzel,serif;font-size:13px;letter-spacing:2px;
+  cursor:pointer;text-transform:uppercase;transition:all .2s;font-weight:700
+}
+.dice-btn-confirm{background:var(--gold);color:#000}
+.dice-btn-confirm:hover{opacity:.9}
+.dice-btn-cancel{
+  background:transparent;color:rgba(240,192,64,.5);
+  border:1px solid rgba(240,192,64,.25);margin-top:10px;
+  font-size:11px;padding:8px
+}
+.dice-btn-cancel:hover{color:var(--gold);border-color:var(--gold)}
+.dice-btn-orange{background:#e67e22;color:#fff}
+.dice-btn-orange:hover{background:#f39c12}
 
 /* COMBO INFO */
 .combo-info{
@@ -626,7 +734,7 @@ button{cursor:pointer;font-family:inherit}
 .card-back-mini{width:clamp(12px,3vw,22px);height:clamp(17px,4vw,30px)}
 
 /* Action log */
-.action-log{width:clamp(140px,30vw,300px);height:clamp(120px,22vh,240px);bottom:clamp(8px,2vw,28px);right:clamp(8px,2vw,28px)}
+.action-log{width:clamp(140px,30vw,300px);height:clamp(120px,22vh,240px)}
 .log-entry-item{font-size:clamp(8px,1.8vw,10px)}
 
 /* Player footer */
@@ -702,7 +810,7 @@ button{cursor:pointer;font-family:inherit}
 @media(min-width:1200px){
   .card{width:64px;height:90px}
   .player-footer{padding:24px 32px}
-  .action-log{width:300px;height:240px}
+  .action-log{width:300px;height:240px;position:fixed}
 }
 </style>
 </head>
@@ -832,10 +940,10 @@ button{cursor:pointer;font-family:inherit}
     <div class="setup-sub">STEP 3 OF 4 — MONEY MASTER ACTIVE</div>
     <div style="color:var(--text-dim);font-size:12px;margin-bottom:20px;font-family:Cinzel,serif">Starting chips per player</div>
     <div class="chips-grid">
-      <button class="chip-btn" onclick="setChips(100)">100<br><small style="font-family:Cinzel,serif;font-size:10px">Quick</small></button>
-      <button class="chip-btn" onclick="setChips(250)">250<br><small style="font-family:Cinzel,serif;font-size:10px">Standard</small></button>
-      <button class="chip-btn" onclick="setChips(500)">500<br><small style="font-family:Cinzel,serif;font-size:10px">High</small></button>
-      <button class="chip-btn" onclick="setChips(1000)">1000<br><small style="font-family:Cinzel,serif;font-size:10px">VIP</small></button>
+      <button class="chip-btn" onclick="setChips(1000)">1,000<br><small style="font-family:Cinzel,serif;font-size:10px">Quick</small></button>
+      <button class="chip-btn" onclick="setChips(2500)">2,500<br><small style="font-family:Cinzel,serif;font-size:10px">Standard</small></button>
+      <button class="chip-btn" onclick="setChips(5000)">5,000<br><small style="font-family:Cinzel,serif;font-size:10px">High</small></button>
+      <button class="chip-btn" onclick="setChips(10000)">10,000<br><small style="font-family:Cinzel,serif;font-size:10px">VIP</small></button>
     </div>
     <input class="chips-input" id="customChipsInput" type="number" min="10" placeholder="Custom chips..." oninput="const v=parseInt(this.value);if(v>=10){SETUP.chips=v;_refreshStakesScreen();}">
     <div class="min-bet-display" id="minBetDisplay">Set chips first</div>
@@ -882,7 +990,7 @@ button{cursor:pointer;font-family:inherit}
         <span class="score-box-label">Your Score</span>
         <span class="score-box-val" id="headerScore">0</span>
       </div>
-      <button id="muteBtn" onclick="toggleMute()" style="background:none;border:1px solid rgba(240,192,64,.4);color:var(--gold);height:28px;padding:0 10px;border-radius:8px;font-size:14px;cursor:pointer;margin-right:8px;transition:all .2s;">🔊</button><button class="exit-btn" onclick="showScreen('home')">EXIT</button>
+      <button id="muteBtn" onclick="toggleMute()" style="background:none;border:1px solid rgba(240,192,64,.4);color:var(--gold);height:28px;padding:0 10px;border-radius:8px;font-size:14px;cursor:pointer;margin-right:8px;transition:all .2s;">🔊</button><button class="exit-btn" onclick="exitToHome()">EXIT</button>
     </div>
   </div>
 
@@ -919,11 +1027,11 @@ button{cursor:pointer;font-family:inherit}
             <div id="faceCardDisplay" style="position:relative;min-height:90px;display:flex;align-items:flex-start"></div>
           </div>
         </div>
-        <div class="combo-info" id="comboInfo">Select cards to play</div>
       </div>
     </div>
 
     <!-- ACTION LOG (draggable, resizable, minimizable) -->
+    <div id="dealAnimOverlay"></div>
     <div class="action-log" id="actionLog">
       <div class="log-header" id="logDragHandle" style="cursor:grab;user-select:none">
         <div class="log-title">📜 Action Log</div>
@@ -940,8 +1048,8 @@ button{cursor:pointer;font-family:inherit}
       </div>
       <!-- resize handle -->
       <div id="logResizeHandle"
-        style="position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;opacity:.4"
-      >&#x25FF;</div>
+        style="position:absolute;bottom:0;right:0;width:24px;height:24px;cursor:nwse-resize;opacity:.5;display:flex;align-items:center;justify-content:center;font-size:14px;color:rgba(240,192,64,.6);user-select:none"
+      >◢</div>
     </div>
 
     <!-- PHASE BANNER -->
@@ -950,6 +1058,10 @@ button{cursor:pointer;font-family:inherit}
         <div class="banner-title" id="bannerTitle"></div>
         <div class="banner-text" id="bannerText"></div>
         <button class="banner-btn" id="bannerBtn" onclick="bannerAction()">CONTINUE</button>
+        <button class="banner-btn" id="bannerBtn2" onclick="bannerAction2()"
+          style="display:none;margin-top:12px;background:transparent;border:2px solid var(--gold);color:var(--gold)">
+          MAIN MENU
+        </button>
       </div>
     </div>
 
@@ -1166,7 +1278,10 @@ button{cursor:pointer;font-family:inherit}
         <button class="btn-play" id="playBtn" onclick="playSelected()" disabled>PLAY COMBO ▶</button>
         <button class="btn-free" id="drawFreeBtn" onclick="freeDraw()">FREE DRAW</button>
         <button class="btn-end" id="endBtn" onclick="endTurn()">END TURN ▶ (draws 1)</button>
-        <button class="btn-rootout" id="rootOutBtn" onclick="declareRootOut()" disabled>🎯 ROOT OUT!</button>
+        <div class="btn-bottom-row">
+          <button class="btn-royaldice" id="royalDiceBtn" onclick="declareRoyalDice()" disabled>🎲 ROYAL DICE</button>
+          <button class="btn-rootout" id="rootOutBtn" onclick="declareRootOut()" disabled>🎯 ROOT OUT!</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1206,8 +1321,8 @@ function initGame(mode, numPlayers) {
     cur: 0,
     dir: 1,
     sel: [],
-    pts: {},
-    wins: {},
+    pts: new Array(numPlayers).fill(0),
+    wins: new Array(numPlayers).fill(0),
     phase: 'play',
     turnPhase: 'playing',
     freeDrewId: null,
@@ -2241,81 +2356,79 @@ function applyEffect(ev, cards, pidx) {
   }
   if (eff.startsWith('power_9_')) {
     if (n === 2) {
-      // Pair 9s: reverse direction, next player plays (no extra turn for player)
+      // Pair 9s: reverse direction, next player plays
       G.dir *= -1;
       addLog('🔃 Pair of 9s! Direction reversed — next player plays!', true);
 
     } else if (n === 3) {
-      // Three 9s: play ANY card freely, THEN direction reverses
-      addLog('🔃 Three 9s! Play any card + direction reverses after!', true);
-      G._nineReverseAfterTurn = true; // reverse when this turn ends
+      // Three 9s: play ANY card freely, THEN direction reverses after
+      addLog('🔃 Three 9s! Play any card freely + direction reverses after!', true);
       if (pidx === 0) {
-        // Human: open free-play picker (single card, any card)
+        // Human: open free-play modal — direction reverses when modal closes
+        G._nineReverseAfterTurn = true;
+        G.phase = 'joker_free_play'; // pause turn
         openJokerFreePlay(0, '9s-three');
       } else {
-        // AI: play best card freely then reverse
+        // AI: play best card freely, then reverse
         const h = G.players[pidx].hand;
         if (h.length > 0) {
           h.sort((a,b)=>(RANK_VAL[b.rank]||0)-(RANK_VAL[a.rank]||0));
-          const fc = h.shift();
-          G.discard.push(fc); G.faceCard = fc;
-          addLog(G.players[pidx].name + ' plays ' + fc.rank + fc.suit + ' freely (Three 9s)!', false);
+          const fc9 = h.shift();
+          G.discard.push(fc9); G.faceCard = fc9;
+          addLog(G.players[pidx].name + ' plays ' + fc9.rank + fc9.suit + ' freely (Three 9s)!', false);
         }
-        // Reverse after AI turn
         G.dir *= -1;
-        G._nineReverseAfterTurn = false;
         addLog('🔃 Direction reversed!', true);
       }
 
     } else if (n === 4) {
-      // Four 9s: play any COMBO freely, reverse to teammate (solo: play any 2 cards)
+      // Four 9s: play any COMBO freely, reverse to teammate
+      // Solo: play any combo + reverse + skip next player
       G.dir *= -1;
-      addLog('🔃 FOUR 9s! Play any combo + reverse to teammate!', true);
-      const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
-      const partnerIdx = G.players[pidx].partnerIdx;
+      const isTeam4 = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+      const partnerIdx4 = G.players[pidx].partnerIdx;
+      const hasTeammate = isTeam4 && partnerIdx4 !== null && partnerIdx4 !== undefined;
 
-      if (isTeam && partnerIdx !== null && partnerIdx !== undefined) {
-        // Team: play any COMBO (not just one card), then teammate gets the turn
+      if (hasTeammate) {
+        addLog('🔃 FOUR 9s! Play any combo freely — turn reverses to teammate after!', true);
         if (pidx === 0) {
-          G._nineFreeComboTeammate = partnerIdx; // after combo played, pass to teammate
-          G._nineFreeCombo = true; // flag: bypass face card matching this turn
+          G._nineFreeComboTeammate = partnerIdx4;
+          G._nineFreeCombo = true;
+          G.phase = 'play';
           G.turnPhase = 'playing';
           G.sel = [];
           renderGame(); updateBtns();
-          addLog('Play any combo now — face card rules ignored! Turn passes to teammate after.', false);
+          addLog('Play any combo now (face card ignored) — turn passes to ' + G.players[partnerIdx4].name + ' after!', false);
           renderLog();
         } else {
-          // AI: play best combo freely
-          const play = findBestPlay(G.players[pidx].hand);
-          if (play && play.length > 0) {
-            const ids = new Set(play.map(c=>c.id));
-            G.players[pidx].hand = G.players[pidx].hand.filter(c=>!ids.has(c.id));
-            G.discard.push(...play);
-            G.faceCard = play[play.length-1];
+          const play4 = findBestPlay(G.players[pidx].hand);
+          if (play4 && play4.length > 0) {
+            const ids4 = new Set(play4.map(c=>c.id));
+            G.players[pidx].hand = G.players[pidx].hand.filter(c=>!ids4.has(c.id));
+            G.discard.push(...play4); G.faceCard = play4[play4.length-1];
             addLog(G.players[pidx].name + ' plays combo freely (Four 9s)!', false);
           }
-          // Give teammate the turn
-          G.cur = partnerIdx;
-          addLog('Turn reversed to teammate ' + G.players[partnerIdx].name + '!', true);
+          G.cur = partnerIdx4;
+          addLog('Turn reversed to teammate ' + G.players[partnerIdx4].name + '!', true);
         }
       } else {
-        // Solo: play any combo freely, reverse direction, skip next player
-        addLog('🔃 FOUR 9s (Solo)! Play any combo + reverse + skip next!', true);
-        advSkip(1); // skip the next player after the reverse
+        // Solo: play any combo + reverse already done + skip next player
+        advSkip(1);
+        addLog('🔃 FOUR 9s (Solo)! Play any combo freely + reversed + next player skipped!', true);
         if (pidx === 0) {
-          G._aceComboFree = true; // reuse the free-combo flag (bypasses FC check)
+          G._nine4SoloFree = true; // dedicated flag — avoid collisions with ace/other combos
+          G.phase = 'play';
           G.turnPhase = 'playing';
           G.sel = [];
           renderGame(); updateBtns();
-          addLog('Play any combo freely (face card rules ignored)!', false);
+          addLog('Play any combo now (face card rules ignored)!', false);
           renderLog();
         } else {
-          // AI: play best combo freely
-          const play = findBestPlay(G.players[pidx].hand);
-          if (play && play.length > 0) {
-            const ids = new Set(play.map(c=>c.id));
-            G.players[pidx].hand = G.players[pidx].hand.filter(c=>!ids.has(c.id));
-            G.discard.push(...play); G.faceCard = play[play.length-1];
+          const play4s = findBestPlay(G.players[pidx].hand);
+          if (play4s && play4s.length > 0) {
+            const ids4s = new Set(play4s.map(c=>c.id));
+            G.players[pidx].hand = G.players[pidx].hand.filter(c=>!ids4s.has(c.id));
+            G.discard.push(...play4s); G.faceCard = play4s[play4s.length-1];
             addLog(G.players[pidx].name + ' plays combo freely (Four 9s solo)!', false);
           }
         }
@@ -2925,7 +3038,8 @@ function removeWarCounterFromHand(pidx, key) {
     const rank = target === 'JKR' ? 'JKR' : target;
     if (hand[i].rank === rank) {
       const c = hand.splice(i,1)[0];
-      G.discard.push(c);
+      // Don't push to discard yet — warPile will hold these
+      // until setWarFaceStack disposes them correctly
       removedCards.push(c);
       removed++;
     }
@@ -3055,25 +3169,19 @@ function autoResolveAIWar() {
   const dVal = RANK_VAL[dCard.rank] || 0;
   setTimeout(() => {
     if (aVal > dVal) {
-      document.getElementById('warResult').textContent =
-        `${G.players[w.attackerIdx].name} wins War! (+${w.cardsPlayed} cards)`;
-      addLog(`⚔️ ${G.players[w.attackerIdx].name} wins War vs ${G.players[w.defenderIdx].name}! Gains ${w.cardsPlayed} cards.`, true);
-      // Winner gets all pot cards except the winning card
-      const warWinCard = aCard; // attacker won with aCard
-      settleWarPile(warWinCard);
-      G.players[w.attackerIdx].hand.push(warWinCard);
-      showAIWarOkayBtn();
+      // Attacker wins — settle pile, award points, loser draws replacements
+      showWarOutcome(w.attackerIdx, w.defenderIdx, aCard);
     } else if (dVal > aVal) {
-      document.getElementById('warResult').textContent =
-        `${G.players[w.defenderIdx].name} wins War! (+${w.cardsPlayed} cards)`;
-      addLog(`⚔️ ${G.players[w.defenderIdx].name} wins War vs ${G.players[w.attackerIdx].name}! Gains ${w.cardsPlayed} cards.`, true);
-      const warWinCard = dCard; // defender won with dCard
-      settleWarPile(warWinCard);
-      G.players[w.defenderIdx].hand.push(warWinCard);
-      showAIWarOkayBtn();
+      showWarOutcome(w.defenderIdx, w.attackerIdx, dCard);
     } else {
-      // Tie — another round
+      // Tie — another round (cap at 5 for AI vs AI to prevent infinite loop)
       w.round++;
+      if (w.round > 5) {
+        // Force resolution: attacker wins by default on extreme tie
+        addLog('⚔️ War — 5 rounds tied! Attacker wins by default.', true);
+        showWarOutcome(w.attackerIdx, w.defenderIdx, aCard);
+        return;
+      }
       document.getElementById('warSub').textContent = `Tied! Round ${w.round}...`;
       document.getElementById('warResult').textContent = '🔁 Tied — another round!';
       addLog(`⚔️ War tied! Round ${w.round}...`, false);
@@ -3147,7 +3255,7 @@ function resolveWarBattle(hCard) {
   w.warPile.push(hCard, aCard);
   w.lastHumanCard = hCard;
   w.lastEnemyCard = aCard;
-  G.discard.push(hCard, aCard);
+  // Don't push to discard yet — setWarFaceStack handles this after outcome
 
   const slotY = document.getElementById('warSlotYou');
   const slotE = document.getElementById('warSlotEnemy');
@@ -3289,25 +3397,45 @@ function showWarOutcome(winnerIdx, loserIdx, winningCard = null) {
   resultEl.textContent = `${winnerIdx === 0 ? '👑 YOU WIN!' : `${winName} WINS`} — ${loseName} draws ${drawCount} cards${winningCard ? ` • Face Card: ${winningCard.rank}${winningCard.suit}` : ''}`;
   resultEl.style.color = winnerIdx === 0 ? 'var(--gold-light)' : '#e74c3c';
  
-  document.getElementById('warActionBtn').style.display = 'none';
-  document.getElementById('warContinueBtn').style.display = 'block';
   // Store outcome on G.war for warContinue()
   G.war._winnerIdx = winnerIdx;
   G.war._loserIdx  = loserIdx;
+
+  const w2 = G.war;
+  if (w2 && !w2.humanInvolved) {
+    // AI vs AI — show OKAY button via showAIWarOkayBtn
+    showAIWarOkayBtn(winnerIdx);
+  } else {
+    // Human involved — show standard CONTINUE button
+    document.getElementById('warActionBtn').style.display = 'none';
+    const contBtn = document.getElementById('warContinueBtn');
+    contBtn.style.display = 'block';
+    contBtn.textContent = '✅ OKAY';
+    contBtn.style.background = 'var(--gold)';
+    contBtn.style.color = '#000';
+    contBtn.style.border = 'none';
+  }
 }
 
 function setWarFaceStack(w, winningCard) {
-  if (!w || !winningCard || !w.warPile || w.warPile.length === 0) return;
-  const idSet = new Set(w.warPile.map(c => c.id));
-  const others = [];
-  let winnerFound = false;
-  w.warPile.forEach(c => {
-    if (!winnerFound && c.id === winningCard.id) { winnerFound = true; return; }
-    others.push(c);
-  });
+  if (!w || !winningCard) return;
+  const pile = w.warPile || [];
+  // Remove war pile cards from discard (they may have been placed there)
+  const idSet = new Set(pile.map(c => c.id));
   G.discard = G.discard.filter(c => !idSet.has(c.id));
-  G.discard.push(...others, winningCard);
+  // All non-winning war cards sit below the winning card
+  const below = pile.filter(c => c.id !== winningCard.id);
+  // Winning card sits on top → becomes new face card
+  G.discard.push(...below, winningCard);
   G.faceCard = winningCard;
+}
+
+// settleWarPile: called from AI vs AI war (autoResolveAIWar)
+// Moves all war pot cards to discard with winning card on top as new face card
+function settleWarPile(winningCard) {
+  const w = G.war;
+  if (!w || !winningCard) return;
+  setWarFaceStack(w, winningCard);
 }
  
 function warContinue() {
@@ -3317,6 +3445,7 @@ function warContinue() {
  
 function warFinish(winnerIdx, loserIdx) {
   const w = G.war;
+  if (!w) { document.getElementById('warModal').style.display = 'none'; return; }
   document.getElementById('warModal').style.display = 'none';
   G.war = null;
   G.pendingWar = null;
@@ -3333,6 +3462,7 @@ function warFinish(winnerIdx, loserIdx) {
  
   if (G.cur === 0) {
     G.sel = []; // clear stale selection before human turn
+    // G.cur is already 0 here — startHumanTurn will use it
     startHumanTurn();
   } else {
     addLog(`${G.players[G.cur].name}'s turn...`);
@@ -3451,6 +3581,12 @@ function closeJokerModal(skipDone) {
   document.getElementById('jokerModal').style.display = 'none';
   G._jokerFreePlaySuit = null;
   G.phase = 'play';
+  // Three 9s: apply direction reverse AFTER the free card is played
+  if (G._nineReverseAfterTurn) {
+    G._nineReverseAfterTurn = false;
+    G.dir *= -1;
+    addLog('🔃 Three 9s — direction now reversed!', true);
+  }
   renderGame(); renderLog();
   if (!skipDone) { const done = G._jokerDone; G._jokerDone = null; if (done) done(); }
 }
@@ -4292,66 +4428,613 @@ function closeRoyalRootsModal() {
 }
  
 // =====================================================================
+
+// =====================================================================
+// 🎲 ROYAL DICE (Royal Roll) — Full Implementation
+// =====================================================================
+function declareRoyalDice() {
+  if (G.phase !== 'play' || G.cur !== 0) { addLog('Not your turn!', false); return; }
+  if (G.royalRollUsed && G.royalRollUsed[0]) { addLog('Royal Roll already used this hand cycle!', false); return; }
+  if (G.turnPhase === 'done') { addLog('Already played this turn — Royal Dice before playing only.', false); return; }
+
+  // Show confirmation screen — player can still cancel here
+  _diceShowConfirm();
+}
+
+function _diceShowConfirm() {
+  if (G.phase !== 'play') { addLog('Cannot use Royal Dice right now.', false); return; }
+  const modal = document.getElementById('diceRollModal');
+  document.getElementById('diceModalTitle').textContent = '🎲 ROYAL DICE';
+  document.getElementById('diceModalSub').textContent = "Once you roll, there's no turning back!";
+  document.getElementById('diceConfirmSection').style.display = 'block';
+  document.getElementById('diceResultSection').style.display = 'none';
+  // Reset dice faces to 1 (⚀)
+  document.getElementById('die1').textContent = '⚀';
+  document.getElementById('die2').textContent = '⚀';
+  document.getElementById('die1').classList.remove('scrambling');
+  document.getElementById('die2').classList.remove('scrambling');
+  // Clean up any leftover Lucky Boost choices
+  const lbc = document.getElementById('luckyBoostChoices');
+  if (lbc) lbc.remove();
+  modal.style.display = 'flex';
+}
+
+function _diceCancelConfirm() {
+  // User backs out before rolling — no penalty, no state change
+  document.getElementById('diceRollModal').style.display = 'none';
+}
+
+function _diceStartRoll() {
+  // POINT OF NO RETURN — mark as used and lock in
+  if (!G.royalRollUsed) G.royalRollUsed = G.players.map(() => false);
+  G.royalRollUsed[0] = true;
+  G.phase = 'royal_dice';
+
+  // Hide the roll/cancel buttons
+  document.getElementById('diceConfirmSection').style.display = 'none';
+  document.getElementById('diceModalSub').textContent = 'Rolling...';
+
+  // Start scramble animation
+  const die1El = document.getElementById('die1');
+  const die2El = document.getElementById('die2');
+  const FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+  die1El.classList.add('scrambling');
+  die2El.classList.add('scrambling');
+
+  // Scramble faces for 2.75s
+  const scrambleInterval = setInterval(() => {
+    die1El.textContent = FACES[Math.floor(Math.random() * 6)];
+    die2El.textContent = FACES[Math.floor(Math.random() * 6)];
+  }, 80);
+
+  setTimeout(() => {
+    clearInterval(scrambleInterval);
+    die1El.classList.remove('scrambling');
+    die2El.classList.remove('scrambling');
+
+    // Final roll
+    const d1 = Math.floor(Math.random() * 6) + 1;
+    const d2 = Math.floor(Math.random() * 6) + 1;
+    const total = d1 + d2;
+    const isDoubles = d1 === d2;
+
+    // Show final face
+    die1El.textContent = FACES[d1 - 1];
+    die2El.textContent = FACES[d2 - 1];
+
+    addLog(`🎲 ROYAL ROLL! ${d1} + ${d2} = ${total}${isDoubles ? ' (DOUBLES!)' : ''}`, true);
+
+    // Show result after a brief pause for drama
+    setTimeout(() => _diceShowResult(d1, d2, total, isDoubles), 400);
+  }, 2750);
+}
+
+// Store roll result for _diceOkay to apply
+let _pendingDiceResult = null;
+
+function _diceShowResult(d1, d2, total, isDoubles) {
+  let rollName, rollDesc, rollColor;
+  if (isDoubles) {
+    rollName = 'DOUBLE UP! 🔄';
+    rollDesc = 'You & your partner each discard 2 cards of choice. Solo: you discard 2.';
+    rollColor = '#e67e22';
+  } else if (total === 2) {
+    rollName = 'SNAKE EYES 🐍';
+    rollDesc = 'Draw 2 cards and lose your turn.';
+    rollColor = '#e74c3c';
+  } else if (total === 7) {
+    rollName = 'DOUBLE DOWN ✌️';
+    rollDesc = 'Team: Partner plays before you this turn. Solo: play two moves this turn.';
+    rollColor = '#3498db';
+  } else if (total === 9) {
+    rollName = 'MONEY MONEY MONEY 💰';
+    rollDesc = 'All enemy players pay double the minimum Main Bet to the pot.';
+    rollColor = '#f0c040';
+  } else if (total === 11) {
+    rollName = 'LUCKY BOOST ⚡';
+    rollDesc = 'Draw 1 card from the discard pile OR steal a random card from any player.';
+    rollColor = '#2ecc71';
+  } else if (total === 12) {
+    rollName = 'ROYAL ROOTS! 👑';
+    rollDesc = 'Play any legal combo this turn — Face Card restrictions ignored.';
+    rollColor = '#f0c040';
+  } else {
+    rollName = 'NO LUCK 💨';
+    rollDesc = `Rolled ${total} — no effect. Your turn continues normally.`;
+    rollColor = '#888';
+  }
+
+  _pendingDiceResult = { d1, d2, total, isDoubles };
+
+  document.getElementById('diceModalTitle').textContent = `${d1} + ${d2} = ${total}`;
+  document.getElementById('diceModalSub').textContent = isDoubles ? '🎉 DOUBLES!' : `Roll: ${d1} + ${d2}`;
+  const nameEl = document.getElementById('diceResultName');
+  nameEl.textContent = rollName;
+  nameEl.style.color = rollColor;
+  document.getElementById('diceResultDesc').textContent = rollDesc;
+  document.getElementById('diceResultSection').style.display = 'block';
+  document.getElementById('diceOkayBtn').style.borderColor = rollColor;
+  document.getElementById('diceOkayBtn').style.background = rollColor;
+  document.getElementById('diceOkayBtn').textContent = rollName.includes('NO LUCK') ? '😤 OKAY' : '✅ APPLY EFFECT';
+  document.getElementById('diceConfirmSection').style.display = 'none';
+}
+
+function _diceOkay() {
+  document.getElementById('diceRollModal').style.display = 'none';
+  if (!_pendingDiceResult) return;
+  const { d1, d2, total, isDoubles } = _pendingDiceResult;
+  _pendingDiceResult = null;
+  // Now apply the effect via the existing resolver
+  _resolveRoyalDice(d1, d2, total, isDoubles);
+}
+
+// _showRoyalDiceModal replaced by _diceShowConfirm / _diceShowResult / _diceOkay
+
+function _resolveRoyalDice(d1, d2, total, isDoubles) {
+  // aceModal not used by dice flow — diceRollModal already closed by _diceOkay
+  G.phase = 'play';
+
+  if (isDoubles) {
+    // DOUBLE UP — you discard 2 (human picks), partner auto-discards 2
+    addLog('🎲 DOUBLE UP! You must discard 2 cards.', true);
+    // Partner discards 2 lowest first (AI-controlled)
+    const partnerIdxDU = G.players[0].partnerIdx;
+    if (partnerIdxDU !== null && partnerIdxDU !== undefined) {
+      const pDU = G.players[partnerIdxDU];
+      pDU.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+      const toDiscard = Math.min(2, pDU.hand.length);
+      if (toDiscard > 0) {
+        G.discard.push(...pDU.hand.splice(0, toDiscard));
+        addLog(`${pDU.name} (partner) discards ${toDiscard} card(s).`, false);
+      }
+    }
+    // Human picks 2 to discard via jack flush modal
+    openJackFlushModal(2);
+    // After flush, turn continues normally (closeJackFlushModal restores phase)
+    return;
+
+  } else if (total === 2) {
+    // SNAKE EYES — draw 2, lose turn (no law draw — already drew)
+    forceDraw(0, 2);
+    addLog('🐍 Snake Eyes! Drew 2 cards. Turn lost — next player goes.', true);
+    G.forceSingleEndDraw = false; // no additional law draw this turn
+    const snakeNext = nxt(0);
+    G.cur = snakeNext; G.turnPhase = 'playing'; G.sel = [];
+    renderGame(); renderLog(); updateBtns();
+    if (snakeNext === 0) {
+      // Only player — turn goes back to human
+      setTimeout(() => startHumanTurn(), 800);
+    } else {
+      setTimeout(() => aiTurn(snakeNext), 800);
+    }
+
+  } else if (total === 7) {
+    // DOUBLE DOWN — partner plays before you, OR you get 2 moves
+    const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+    const partnerIdx = G.players[0].partnerIdx;
+    if (isTeam && partnerIdx !== null && partnerIdx !== undefined) {
+      addLog('🎲 DOUBLE DOWN! Partner plays before you — then your turn resumes!', true);
+      G._royalDiceDoubleDown = true; // after partner acts, return to human
+      G.cur = partnerIdx;
+      renderGame(); renderLog(); updateBtns();
+      setTimeout(() => aiTurn(partnerIdx), 600);
+    } else {
+      addLog('🎲 DOUBLE DOWN! You may play two moves this turn (combo + single, or two singles).', true);
+      G._royalDiceExtraMoves = 2;
+      G.turnPhase = 'playing'; G.sel = [];
+      renderGame(); updateBtns(); renderLog();
+    }
+
+  } else if (total === 9) {
+    // MONEY MONEY MONEY — all enemies pay double min bet
+    if (G.styles && G.styles.money && G.chips && G.minBet) {
+      const pay = G.minBet * 2;
+      let gained = 0;
+      G.players.forEach((_,i) => {
+        if (i === 0) return;
+        const actual = Math.min(pay, G.chips[i] || 0);
+        G.chips[i] = (G.chips[i] || 0) - actual;
+        G.matchPot = (G.matchPot || 0) + actual;
+        gained += actual;
+        addLog(`${G.players[i].name} pays ${actual} chips to pot.`, false);
+      });
+      addLog(`💰 MONEY MONEY MONEY! ${gained} chips added to pot!`, true);
+    } else {
+      // No money mode: opponents lose 10pts each
+      G.players.forEach((_,i) => { if (i !== 0) forcePts(i, -10); });
+      addLog('💰 MONEY MONEY MONEY! All opponents lose 10pts.', true);
+    }
+    G.turnPhase = 'playing'; G.sel = [];
+    renderGame(); updateBtns(); renderLog();
+
+  } else if (total === 11) {
+    // LUCKY BOOST — draw from discard OR steal from player
+    addLog('⚡ LUCKY BOOST! Draw 1 from discard, or steal a card from any player.', true);
+    _showLuckyBoostChoice();
+    return; // handled in modal
+
+  } else if (total === 12) {
+    // ROYAL ROOTS! — play any combo ignoring face card
+    addLog('👑 ROYAL ROOTS! Play any legal combo — Face Card restrictions ignored this turn!', true);
+    G._royalDiceFreeCombo = true;
+    G.turnPhase = 'playing'; G.sel = [];
+    renderGame(); updateBtns(); renderLog();
+
+  } else {
+    // Wasted roll
+    addLog(`🎲 Wasted Roll (${total}) — no effect. Your turn continues.`, false);
+    G.turnPhase = 'playing'; G.sel = [];
+    renderGame(); updateBtns(); renderLog();
+  }
+}
+
+function _showLuckyBoostChoice() {
+  // Show Lucky Boost options inside the dice modal
+  G.phase = 'royal_dice';
+  const modal = document.getElementById('diceRollModal');
+  document.getElementById('diceModalTitle').textContent = '⚡ LUCKY BOOST';
+  document.getElementById('diceModalSub').textContent = 'Choose your boost:';
+  document.getElementById('diceResultSection').style.display = 'none';
+  document.getElementById('diceConfirmSection').style.display = 'none';
+
+  // Build choice buttons inside dice modal inner div
+  let choiceHtml = '<div id="luckyBoostChoices" style="margin-top:4px">';
+  choiceHtml += `<button class="dice-btn dice-btn-orange" style="margin-bottom:10px;background:#2ecc71;font-size:11px" onclick="_luckyBoostDiscard()">
+    📤 Draw 1 from discard (last 10, face card excluded)
+  </button>`;
+  const opponents = G.players
+    .map((p,i) => ({p,i}))
+    .filter(({p,i}) => i !== 0 && p.hand && p.hand.length > 0);
+  if (opponents.length === 0) {
+    choiceHtml += '<div style="color:var(--text-dim);font-family:Cinzel,serif;font-size:12px;margin-top:8px">No players with cards to steal.</div>';
+  } else {
+    opponents.forEach(({p,i}) => {
+      choiceHtml += `<button class="dice-btn" style="margin-bottom:8px;border:1px solid rgba(240,192,64,.4);color:var(--gold);background:transparent;font-size:11px" onclick="_luckyBoostSteal(${i})">
+        🤚 Steal from ${p.name} (${p.hand.length} cards)
+      </button>`;
+    });
+  }
+  choiceHtml += '</div>';
+
+  // Append to modal inner
+  const inner = modal.querySelector('.dice-modal-inner');
+  // Remove previous choice div if any
+  const prev = inner.querySelector('#luckyBoostChoices');
+  if (prev) prev.remove();
+  inner.insertAdjacentHTML('beforeend', choiceHtml);
+  modal.style.display = 'flex';
+}
+
+function _luckyBoostDiscard() {
+  document.getElementById('diceRollModal').style.display = 'none';
+  const lbc = document.getElementById('luckyBoostChoices');
+  if (lbc) lbc.remove();
+  G.phase = 'play';
+  openDiscardPickerModal(1, () => {
+    addLog('⚡ Lucky Boost: Drew 1 from discard!', true);
+    G.turnPhase = 'playing'; renderGame(); updateBtns(); renderLog();
+  }, '⚡ LUCKY BOOST — Draw from Discard');
+}
+
+function _luckyBoostSteal(targetIdx) {
+  document.getElementById('diceRollModal').style.display = 'none';
+  const lbc = document.getElementById('luckyBoostChoices');
+  if (lbc) lbc.remove();
+  G.phase = 'play';
+  const them = G.players[targetIdx];
+  if (them.hand.length === 0) { addLog('No cards to steal!', false); return; }
+  const stealIdx = Math.floor(Math.random() * them.hand.length);
+  const stolen = them.hand.splice(stealIdx, 1)[0];
+  G.players[0].hand.push(stolen);
+  addLog(`⚡ Lucky Boost: Stole ${stolen.rank}${stolen.suit} from ${them.name}!`, true);
+  G.turnPhase = 'playing'; G.sel = []; renderGame(); updateBtns(); renderLog();
+}
+// =====================================================================
+
 // 🎯 ROOT OUT! SYSTEM
 // =====================================================================
+// =====================================================================
+// 🌱 ROOT OUT — Full Official Implementation
+// =====================================================================
+
 function declareRootOut() {
-  if (G.phase !== 'play' || G.cur !== 0 || G.rootOutUsed) {
-    addLog('ROOT OUT already used this match or not your turn!', false); return;
+  if (G.phase !== 'play' || G.cur !== 0) {
+    addLog('Not your turn!', false); return;
+  }
+  if (G.rootOutUsed) {
+    addLog('ROOT OUT already used this match!', false); return;
   }
   if (G.players[0].hand.length < 2) {
     addLog('Need at least 2 cards to call ROOT OUT!', false); return;
   }
+  // Show confirmation — player can still back out here
+  _rootOutShowConfirm();
+}
+
+function _rootOutShowConfirm() {
+  if (G.phase !== 'play') { addLog('Cannot declare Root Out right now.', false); return; }
+  const modal = document.getElementById('aceModal');
+  const title = modal.querySelector('.ace-modal-title');
+  const sub   = modal.querySelector('#aceModalSub');
+  const main  = document.getElementById('aceMainActions');
+  const rzone = document.getElementById('aceReplaceZone');
+  if (rzone) rzone.style.display = 'none';
+  G.aceState = null;
+
+  title.textContent = '🎯 ROOT OUT!';
+  if (sub) sub.textContent = 'Once declared, there is NO turning back!';
+
+  main.innerHTML = `
+    <div style="text-align:center;padding:12px 0">
+      <div style="font-size:36px;margin-bottom:12px">🎯</div>
+      <div style="font-family:'IM Fell English',serif;font-size:15px;color:var(--text);line-height:1.7;margin-bottom:20px">
+        You are about to call <b>ROOT OUT!</b><br>
+        All hands will be revealed. Everyone builds their best combo off the current Face Card.<br><br>
+        <b style="color:#f0c040">Win:</b> +100pts, match ends, pot is yours.<br>
+        <b style="color:#e74c3c">Lose:</b> −200pts, draw 4, pay 2× min bet.
+      </div>
+      <button class="ace-action-btn" style="width:100%;font-size:14px;border-color:#e74c3c;color:#e74c3c;margin-bottom:10px" onclick="_rootOutConfirmed()">
+        🎯 DECLARE ROOT OUT — FINAL!
+      </button>
+      <button class="ace-action-btn" style="width:100%;font-size:11px;border-color:rgba(240,192,64,.25);color:rgba(240,192,64,.5)" onclick="document.getElementById('aceModal').style.display='none'">
+        ✕ CANCEL — Go Back
+      </button>
+    </div>`;
+  modal.style.display = 'flex';
+}
+
+function _rootOutConfirmed() {
+  document.getElementById('aceModal').style.display = 'none';
+  // NOW it's final
   G.rootOutUsed = true;
   G.phase = 'root_out';
-  addLog('🎯 ROOT OUT DECLARED! All hands revealed — best combo off the face card wins!', true);
- 
-  // Reveal all hands and find best combo for each player
-  const fc = G.faceCard;
-  const results = G.players.map((p, i) => {
-    // Find best combo in hand that starts with a card matching the face card
-    let bestCombo = null; let bestPts = -1;
-    const validStarters = p.hand.filter(c => answersFC(c));
-    // Try each valid starter + combinations (simplified: try all hands as one combo)
-    // Build best possible combo starting with face-card-matching card
-    for (const starter of validStarters) {
-      const rest = p.hand.filter(c => c.id !== starter.id);
-      // Try combos of increasing size
-      for (let size = 1; size <= p.hand.length; size++) {
-        const combos = getCombinations([starter, ...rest], size);
-        for (const combo of combos) {
-          if (combo[0].id !== starter.id) continue; // must start with matching card
-          const ev = evalComboIgnoreFC(combo);
-          if (ev.valid && ev.pts > bestPts) { bestPts = ev.pts; bestCombo = { cards: combo, ev }; }
+  G.aceState = null;
+  G.jackFlush = null;
+  G.jackFlushBusy = false;
+  document.getElementById('jackModal') && (document.getElementById('jackModal').style.display = 'none');
+  addLog('🎯 ROOT OUT DECLARED! All hands revealed — build your best combo off the Face Card!', true);
+  renderLog();
+
+  // ── STEP 1: Find best combo for every player ────────────────
+  // In team modes, teammates may COMBINE hands (one combo per player still)
+  const results = G.players.map((p, pidx) => {
+    let pool = [...p.hand];
+
+    // Team mode: allow teammate's cards to be part of the pool
+    // but still evaluate as one legal combo per player
+    // (We use full pool so both can contribute cards to a single combo)
+    const partnerIdx = p.partnerIdx;
+    const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+    if (isTeam && partnerIdx !== null && partnerIdx !== undefined) {
+      pool = [...p.hand, ...G.players[partnerIdx].hand];
+    }
+
+    const best = _rootOutBestCombo(pool);
+    return { pidx, name: p.name, combo: best.combo, pts: best.pts, ev: best.ev };
+  });
+
+  // ── STEP 2: Rank results ────────────────────────────────────
+  // Sort: pts desc, then highest card desc, then most cards desc
+  results.sort((a, b) => {
+    if (b.pts !== a.pts) return b.pts - a.pts;
+    // Tiebreaker 1: highest card value in combo
+    const aHigh = a.combo ? Math.max(...a.combo.map(c => RANK_VAL[c.rank]||0)) : 0;
+    const bHigh = b.combo ? Math.max(...b.combo.map(c => RANK_VAL[c.rank]||0)) : 0;
+    if (bHigh !== aHigh) return bHigh - aHigh;
+    // Tiebreaker 2: most cards
+    const aLen = a.combo ? a.combo.length : 0;
+    const bLen = b.combo ? b.combo.length : 0;
+    return bLen - aLen;
+  });
+
+  const winner = results[0];
+  const callerResult = results.find(r => r.pidx === 0);
+  const callerWins = winner.pidx === 0;
+
+  // ── STEP 3: Show results modal ──────────────────────────────
+  _showRootOutModal(results, callerWins, callerResult, winner);
+}
+
+// Find the best legal combo a player can build starting with a face-card-matching card
+function _rootOutBestCombo(pool) {
+  // Cap pool to 9 cards max to prevent combinatorial explosion
+  const cappedPool = pool.slice(0, 9);
+  const validStarters = cappedPool.filter(c => answersFC(c));
+  if (validStarters.length === 0) return { combo: null, pts: 0, ev: null };
+
+  let bestCombo = null, bestPts = 0, bestEv = null;
+  const tierW = { LEGENDARY:10000, MYTHICAL:5000, EPIC:2000, RARE:500, COMMON:0 };
+  let totalChecked = 0;
+  const TOTAL_CAP = 800; // hard cap across all iterations
+
+  outer:
+  for (const starter of validStarters) {
+    const rest = cappedPool.filter(c => c.id !== starter.id);
+    const maxSize = Math.min(rest.length + 1, 5); // cap at 5-card combos for performance
+    for (let size = 1; size <= maxSize; size++) {
+      const combos = getCombinations([starter, ...rest], size);
+      for (const combo of combos) {
+        if (combo[0].id !== starter.id) continue;
+        totalChecked++;
+        if (totalChecked > TOTAL_CAP) break outer;
+        const ev = evalCombo(combo);
+        if (ev.valid) {
+          const score = ev.pts + (tierW[ev.tier] || 0);
+          const prevScore = bestPts + (tierW[bestEv?.tier] || 0);
+          if (score > prevScore) {
+            bestPts = ev.pts; bestCombo = combo; bestEv = ev;
+          }
         }
       }
     }
-    return { pidx: i, name: p.name, combo: bestCombo, pts: bestPts };
+  }
+  return { combo: bestCombo, pts: bestPts, ev: bestEv };
+}
+
+function _showRootOutModal(results, callerWins, callerResult, winner) {
+  // Build a modal using the ace-modal structure
+  const modal = document.getElementById('aceModal');
+  const title = modal.querySelector('.ace-modal-title');
+  const sub   = modal.querySelector('.ace-modal-sub') || modal.querySelector('#aceModalSub');
+  const main  = document.getElementById('aceMainActions');
+  const rzone = document.getElementById('aceReplaceZone');
+  if (rzone) rzone.style.display = 'none';
+
+  title.textContent = callerWins ? '🎯 ROOT OUT — YOU WIN!' : '🎯 ROOT OUT — FAILED!';
+  if (sub) sub.textContent = callerWins
+    ? 'You had the best combo! Match won + pot claimed!'
+    : `${winner.name} had the best combo. −200pts, draw 4, pay 2× min bet.`;
+
+  // Build results table
+  let html = '<div style="text-align:left;font-family:Cinzel,serif;font-size:13px;width:100%">';
+  html += '<div style="color:rgba(240,192,64,.5);font-size:10px;letter-spacing:2px;margin-bottom:10px">ROOT OUT RESULTS</div>';
+  results.forEach((r, rank) => {
+    const isCaller = r.pidx === 0;
+    const isWinner = rank === 0;
+    const col = isWinner ? '#f0c040' : isCaller ? '#e74c3c' : 'var(--text-dim)';
+    const badge = isWinner ? ' 👑' : '';
+    const comboStr = r.combo ? `${r.ev.name} (${r.pts}pts)` : 'No valid combo (0pts)';
+    html += `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);color:${col}">
+      <b>${r.name}${isCaller?' (YOU)':''}${badge}</b> — ${comboStr}
+    </div>`;
+    // Show their cards
+    if (r.combo) {
+      html += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 6px 0">
+        ${r.combo.map(c => cardEl(c,'')).join('')}
+      </div>`;
+    }
   });
- 
-  // Find winner
-  results.sort((a,b) => b.pts - a.pts);
-  const winner = results[0];
-  const caller = results.find(r => r.pidx === 0);
- 
-  addLog('--- ROOT OUT RESULTS ---', true);
-  results.forEach(r => {
-    addLog(r.name + ': ' + (r.combo ? r.combo.ev.name + ' (' + r.pts + 'pts)' : 'No valid combo'), false);
-  });
- 
-  if (winner.pidx === 0) {
-    // Human won ROOT OUT
+  html += '</div>';
+
+  // Resolution button
+  const btnLabel = callerWins ? '🏆 CLAIM VICTORY' : '😬 ACCEPT PENALTY';
+  html += `<button class="ace-action-btn" style="margin-top:14px;width:100%;font-size:14px" onclick="_resolveRootOut(${callerWins})">
+    ${btnLabel}
+  </button>`;
+
+  main.innerHTML = html;
+  G.aceState = null; // ensure ace system doesn't interfere
+  modal.style.display = 'flex';
+  G.phase = 'root_out'; // keep locked until resolved
+  // Store winner info for _resolveRootOut
+  G._rootOutWinner = winner;
+  G._rootOutResults = results; // store all results for physical discard on resolve
+}
+
+function _resolveRootOut(callerWins) {
+  document.getElementById('aceModal').style.display = 'none';
+  G.phase = 'play';
+
+  if (callerWins) {
+    // ── CALLER WINS ─────────────────────────────────────────
+    // +10pts on top of combo pts (already counted in findBestCombo)
     forcePts(0, 100);
-    addLog('YOU WIN ROOT OUT! +100 pts! Match won!', true);
-    floatPts('+25 ROOT OUT!', 'EPIC');
+    addLog('🎯 ROOT OUT WIN! +100 bonus pts! Pot claimed! Match over!', true);
+    floatPts('+100 ROOT OUT!', 'LEGENDARY');
+
+    // Remove caller's winning combo from hand and discard it (winner's last card = face card)
+    const winResults = G._rootOutResults || [];
+    G._rootOutResults = null;
+    const winnerResult = winResults.find(r => r.pidx === 0);
+    if (winnerResult && winnerResult.combo && winnerResult.combo.length > 0) {
+      const ids = new Set(winnerResult.combo.map(c => c.id));
+      G.players[0].hand = G.players[0].hand.filter(c => !ids.has(c.id));
+      const allButLast = winnerResult.combo.slice(0, -1);
+      const topCard = winnerResult.combo[winnerResult.combo.length - 1];
+      if (allButLast.length > 0) G.discard.push(...allButLast);
+      G.discard.push(topCard);
+      G.faceCard = topCard;
+    }
+
+    // Roulette: both teammates get official empty hands (2-way exit)
+    if (G.mode === 'roulette') {
+      const partnerIdx = G.players[0].partnerIdx;
+      if (partnerIdx !== null && partnerIdx !== undefined) {
+        G.players[0].hand = [];
+        G.players[partnerIdx].hand = [];
+        addLog('🌀 Roulette ROOT OUT — both teammates exit! 2-way empty hands!', true);
+      }
+    }
     endMatch(0);
+
   } else {
-    // Human called but lost
+    // ── CALLER LOSES ────────────────────────────────────────
+
+    const roWinner = G._rootOutWinner;
+    G._rootOutWinner = null;
+
+    G._rootOutResults = null; // clear — non-winners do NOT play their combos
+
+    // 1. ONLY the winner's combo is physically played to the discard pile.
+    //    All other players keep their hands (they follow discard 2 + draw 3 instead).
+    if (roWinner && roWinner.combo && roWinner.combo.length > 0) {
+      // Remove winner's combo cards from their hand
+      const ids = new Set(roWinner.combo.map(c => c.id));
+      G.players[roWinner.pidx].hand = G.players[roWinner.pidx].hand.filter(c => !ids.has(c.id));
+      // All combo cards except the last sit below the face card in discard
+      const allButLast = roWinner.combo.slice(0, -1);
+      const newFC = roWinner.combo[roWinner.combo.length - 1];
+      G.discard.push(...allButLast);
+      G.discard.push(newFC); // winner's last card = new face card on top
+      G.faceCard = newFC;
+      addLog(`👑 ${roWinner.name} plays ${roWinner.ev ? roWinner.ev.name : 'combo'} — ${newFC.rank}${newFC.suit} is the new Face Card!`, true);
+    }
+
+    // 2. Winner gets +50pts
+    if (roWinner) {
+      forcePts(roWinner.pidx, 50);
+      addLog(`👑 ${roWinner.name} wins ROOT OUT — +50 bonus pts!`, true);
+      if (roWinner.pidx === 0) floatPts('+50 ROOT OUT WIN!', 'EPIC');
+    }
+
+    // 3. All players EXCEPT the caller AND winner: discard 2 + draw 3
+    //    Winner already had their combo removed — skip them here
+    const winnerPidx = roWinner ? roWinner.pidx : -1;
+    G.players.forEach((p, i) => {
+      if (i === 0) return;          // caller has own penalties
+      if (i === winnerPidx) return; // winner already played their combo
+      p.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+      const toDiscard = Math.min(2, p.hand.length);
+      if (toDiscard > 0) {
+        const discarded = p.hand.splice(0, toDiscard);
+        G.discard.push(...discarded);
+        addLog(`${p.name} discards ${toDiscard} card(s) and draws 3.`, false);
+      }
+      forceDraw(i, 3);
+    });
+
+    // 4. Caller penalties: -200pts, draw 4, pay 2× min bet
+    const penalty = G.minBet ? G.minBet * 2 : 0;
+    if (G.chips && penalty > 0) {
+      const pay = Math.min(penalty, G.chips[0] || 0);
+      G.chips[0] = (G.chips[0] || 0) - pay;
+      G.matchPot = (G.matchPot || 0) + pay;
+      addLog(`💸 You pay ${pay} chips (2× min bet) to the pot.`, false);
+    }
     forcePts(0, -200);
-    addLog('ROOT OUT failed! -200pts penalty. Play continues.', true);
-    forceDraw(0, 2);
-    G.rootOutPenalty = true;
-    G.phase = 'play';
-    renderGame(); updateBtns(); renderLog();
+    forceDraw(0, 4);
+    addLog('🎯 ROOT OUT failed! −200pts, draw 4 cards. Law Draw still applies at end of your turn.', true);
+
+    // 5. Caller must still Law Draw at end of their turn (G._rootOutLawDraw flag)
+    G.rootOutPenalty = true; // signals endTurn to apply law draw
+
+    // Roulette: losing team stays and draws new cards for next round
+    if (G.mode === 'roulette') {
+      addLog('🌀 Roulette: Losing team stays and draws new cards next round!', true);
+    }
+
+    // Play resumes with the next player (not caller)
+    addLog('Play resumes with the next player. Caller still Law Draws at turn end.', false);
+    G.cur = nxt(0);
+    G.turnPhase = 'playing';
+    G.sel = [];
+    renderGame(); renderLog(); updateBtns();
+    if (G.cur === 0) {
+      startHumanTurn();
+    } else {
+      addLog(G.players[G.cur].name + "'s turn...", false);
+      setTimeout(() => aiTurn(G.cur), 800);
+    }
   }
 }
  
@@ -4371,10 +5054,14 @@ function getCombinations(arr, k) {
   if (k === 1) return arr.map(x => [x]);
   if (k === arr.length) return [arr];
   const result = [];
+  const CAP = 300;
   for (let i = 0; i <= arr.length - k; i++) {
+    if (result.length >= CAP) break;
     const rest = getCombinations(arr.slice(i+1), k-1);
-    rest.forEach(combo => result.push([arr[i], ...combo]));
-    if (result.length > 200) break; // cap for performance
+    for (const combo of rest) {
+      result.push([arr[i], ...combo]);
+      if (result.length >= CAP) break;
+    }
   }
   return result;
 }
@@ -4691,21 +5378,29 @@ function _doPlayCardsCore(pidx, cards) {
 function checkWin(pidx) {
   const player = G.players[pidx];
   if (player.hand.length > 0) return false;
- 
-  if (G.mode === 'duos') {
-    const partner = G.players[2];
-    if (pidx === 0 && partner.hand.length > 0) { addLog('You emptied! Partner still playing...', true); return false; }
-    if (pidx === 2 && G.players[0].hand.length > 0) { addLog(`${player.name} emptied! You still have cards...`, true); return false; }
-    if ((pidx===0&&partner.hand.length===0)||(pidx===2&&G.players[0].hand.length===0)) {
-      endMatch(pidx===0?0:2); return true;
+  // Reset Royal Roll for this player when they empty their hand
+  if (G.royalRollUsed) G.royalRollUsed[pidx] = false;
+
+  // Team modes: both partners must empty hands to win
+  const isTeam = G.mode === 'duos' || G.mode === 'synergy';
+  if (isTeam) {
+    const partnerIdx = player.partnerIdx;
+    if (partnerIdx !== null && partnerIdx !== undefined) {
+      const partner = G.players[partnerIdx];
+      if (partner.hand.length > 0) {
+        addLog(`${player.name} emptied their hand! Waiting for ${partner.name}...`, true);
+        return false;
+      }
+      // Both emptied — team wins; prefer lower index (human is 0)
+      endMatch(Math.min(pidx, partnerIdx));
+      return true;
     }
-    return false;
   }
- 
+
   endMatch(pidx);
   return true;
 }
- 
+
 function endMatch(winnerIdx) {
   G.phase = 'ended';
   const w = G.players[winnerIdx];
@@ -4746,8 +5441,10 @@ function endGame(winnerIdx) {
   showBanner(
     humanWon ? '👑 GAME OVER — YOU WIN!' : `💀 GAME OVER — ${w.name} WINS!`,
     `${scoreStr}\n\n${humanWon ? 'The crown is yours!' : 'Better luck next game!'}`,
-    'PLAY AGAIN',
-    () => showScreen('mode-select')
+    '▶ PLAY AGAIN',
+    () => showScreen('mode-select'),
+    '⌂ MAIN MENU',
+    () => exitToHome()
   );
   addLog(`👑 ${w.name} WINS THE GAME! ${G.wins[winnerIdx]} matches won!`, true);
   renderGame();
@@ -4762,8 +5459,10 @@ function endGameRoyalDeadMan(winnerIdx) {
   showBanner(
     humanWon ? '💀👑 ROYAL DEAD MAN — GAME OBLITERATED!' : `💀👑 ROYAL DEAD MAN — ${w.name} ENDS IT ALL!`,
     `The ultimate hand has been played. The game is over.\n\n${scoreStr}`,
-    'NEW GAME',
-    () => showScreen('mode-select')
+    '▶ NEW GAME',
+    () => showScreen('mode-select'),
+    '⌂ MAIN MENU',
+    () => exitToHome()
   );
   addLog(`💀👑 ROYAL DEAD MAN! ${w.name} ends the entire game!`, true);
   renderGame();
@@ -4777,10 +5476,11 @@ function nextMatch() {
   G.extraTurns = 0;
   G.rootOutUsed = false;
   G.rootOutPenalty = false;
+  G.royalRollUsed = G.players ? G.players.map(() => false) : []; // per-player, resets on empty hand
   G.lockedSuit = null;
   G.lockedSuitTurns = 0;
   G.dir = 1;
-  G.cur = 0;
+  G.cur = 0; // temporary — will be overridden by dealer rotation below
   G.queenBonus = 0;
   G.limitNext = 0;
   G.war = null;
@@ -4791,7 +5491,23 @@ function nextMatch() {
   G.forceSingleEndDraw = false;
   G.sel = [];
   G.turnPhase = 'playing';
-  G.phase = 'play';
+  G.phase = 'dealing'; // locked during deal animation; startBettingPhase sets 'play'
+  G.matchPot = 0;
+  G.pointPot = 0;
+  G.betFolds = null;
+  G.bet = null;
+  G._extraLawDraws = 0;
+  G._nineFreeCombo = false;
+  G._nineFreeComboTeammate = null;
+  G._nineReverseAfterTurn = false;
+  G._nine4SoloFree = false;
+  G._aceComboFree = false;
+  G._sevenFourFreeCombo = false;
+  G._eightFreePlay = false;
+  G._eightSoloFreeCount = 0;
+  G._royalDiceFreeCombo = false;
+  G._royalDiceDoubleDown = false;
+  G._royalDiceExtraMoves = 0;
   buildAndDeal();
 
   // Dead Man's Hand curse: enemies of winner draw 1 extra card
@@ -4818,11 +5534,21 @@ function nextMatch() {
     G.royalRootsWinner = undefined;
   }
 
+  // Dealer rotation: next first player = player to the RIGHT of last first player
+  // G._lastFirstIdx tracks who went first in the previous match
+  const prevFirst = G._lastFirstIdx !== undefined ? G._lastFirstIdx : G.cur;
+  G.cur = nxt(prevFirst); // clockwise next player
+  G._lastFirstIdx = G.cur;
+  addLog(`👑 ${G.players[G.cur].name} goes first this match (clockwise from last dealer)!`, true);
+
   showScreen('game');
   renderGame();
-  addLog(`--- MATCH ${G.wins.reduce((a,b)=>a+b,0)+1} — DEAL! ---`, true);
+  addLog(`--- MATCH ${G.wins.reduce((a,b)=>a+b,0)+1} — DEALING... ---`, true);
   renderLog();
-  startBettingPhase();
+  animateDeal(G.numPlayers, G.cur, () => {
+    renderGame();
+    startBettingPhase();
+  });
 }
  
 // ========== AI ==========
@@ -4895,6 +5621,18 @@ function aiTurn(pidx) {
     // pendingWar just marks an opportunity — it does NOT block turn advancement.
     // The DEFENDER handles it on their own turn.
     if (G.phase === 'play' && !G.war && !G.aceState) {
+      // Double Down: if this AI is the partner who just played, return to human
+      if (G._royalDiceDoubleDown) {
+        G._royalDiceDoubleDown = false;
+        G.cur = 0;
+        G.turnPhase = 'playing';
+        G.freeDrewId = null;
+        G.sel = [];
+        addLog('🎲 Double Down: Your turn resumes!', true);
+        renderGame(); renderLog();
+        startHumanTurn();
+        return;
+      }
       G.cur = advanceTurnIdx(pidx);
       G.turnPhase = 'playing';
       G.freeDrewId = null;
@@ -4983,8 +5721,9 @@ function findBestPlay(hand) {
 // G.turnPhase tracks this. G.freeDrewId = id of free-draw card if used.
  
 function startHumanTurn() {
-  // Ensure turn ownership is aligned with the UI state.
-  G.cur = 0;
+  // NOTE: caller must set G.cur correctly before calling this.
+  // startHumanTurn() is only called when G.cur === 0 (human's turn).
+  // We do NOT override G.cur here so the draft winner / rotation is respected.
   G.limitNext = 0; // clear any Three 8s card-limit
   if (G.lockedSuitTurns > 0) {
     G.lockedSuitTurns--;
@@ -5053,11 +5792,13 @@ function toggleSelect(id) {
 }
  
 function updateComboInfo() {
-  const ci = document.getElementById('comboInfo');
+  // Single source of truth: comboInfo2 inside controls-zone
+  const ci = document.getElementById('comboInfo2');
+  if (!ci) return;
   if (G.sel.length === 0) {
     const phase = G.turnPhase;
     if (phase === 'done') { ci.textContent = 'Click END TURN to draw & pass'; }
-    else { ci.textContent = 'Select cards to play — or FREE DRAW first'; }
+    else { ci.textContent = 'Select cards to build your combo'; }
     ci.className = 'combo-info';
     ci.style.color = '';
     return;
@@ -5067,20 +5808,16 @@ function updateComboInfo() {
   const TIER_ICONS = { LEGENDARY:'👑', MYTHICAL:'🔥', EPIC:'⚡', RARE:'💎', COMMON:'🎯' };
   if (ev.valid) {
     const icon = TIER_ICONS[ev.tier] || '';
-    const penaltyNote = ev.faceCardPenalty ? ' ⚠️-5pts (Face Card)' : '';
+    const penaltyNote = ev.faceCardPenalty ? ' ⚠️-5pts' : '';
     ci.textContent = `${icon} ${ev.name} • ${ev.pts} pts${penaltyNote} ✓`;
     ci.className = 'combo-info';
-    // color by tier
     const colors = { LEGENDARY:'#ffd700', MYTHICAL:'#ff6b35', EPIC:'#a855f7', RARE:'#60a5fa', COMMON:'var(--gold-light)' };
     ci.style.color = colors[ev.tier] || 'var(--gold-light)';
   } else {
-    ci.textContent = ev.reason || 'Invalid — check suit/number match';
+    ci.textContent = ev.reason || 'First card must match face card suit or number';
     ci.className = 'combo-info invalid';
-    ci.style.color = '';
+    ci.style.color = '#e74c3c';
   }
-  // Mirror to footer combo info
-  const ci2 = document.getElementById('comboInfo2');
-  if (ci2) { ci2.textContent = ci.textContent; ci2.style.color = ci.style.color; ci2.className = ci.className; }
 }
  
 function updateBtns() {
@@ -5095,6 +5832,15 @@ function updateBtns() {
     rob.style.opacity = canRO ? '1' : '0.3';
     rob.style.cursor = canRO ? 'pointer' : 'not-allowed';
     rob.textContent = G.rootOutUsed ? '🎯 ROOT OUT (used)' : '🎯 ROOT OUT!';
+  }
+  const rdb = document.getElementById('royalDiceBtn');
+  if (rdb) {
+    const rdUsed = G.royalRollUsed && G.royalRollUsed[0];
+    const canRD = G.cur===0 && G.phase==='play' && !rdUsed && G.turnPhase !== 'done';
+    rdb.disabled = !canRD;
+    rdb.style.opacity = canRD ? '1' : '0.3';
+    rdb.style.cursor = canRD ? 'pointer' : 'not-allowed';
+    rdb.textContent = rdUsed ? '🎲 ROLLED (used)' : '🎲 ROYAL DICE';
   }
  
   // Jack flush phase
@@ -5112,7 +5858,9 @@ function updateBtns() {
     return;
   }
   // Async interactive phases — modal is open, lock all buttons
-  const ASYNC_PHASES = ['joker_effect','roots_pick','cascade_pick','even_steven','ace','war','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','royal_roots_choice','root_out'];
+  const ASYNC_PHASES = ['joker_effect','roots_pick','cascade_pick','even_steven','ace','war','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','royal_roots_choice','root_out','royal_dice','dealing'];
+  // Also block if dice modal is showing
+  if (document.getElementById('diceRollModal') && document.getElementById('diceRollModal').style.display === 'flex') { pb.disabled=true; eb.disabled=true; if(db) db.disabled=true; return; }
   if (ASYNC_PHASES.includes(G.phase) || G.aceState) {
     pb.disabled=true; eb.disabled=true; if(db) db.disabled=true;
     ts.textContent='✨ EFFECT IN PROGRESS...';
@@ -5215,7 +5963,7 @@ function playSelected() {
     }
   }
   let ev;
-  if (G._aceComboFree || G._nineFreeCombo || G._nineSoloFree || G._sevenFourFreeCombo) {
+  if (G._aceComboFree || G._nineFreeCombo || G._nineSoloFree || G._sevenFourFreeCombo || G._nine4SoloFree || G._royalDiceFreeCombo) {
     // Bypass face card matching — any combo is valid
     ev = evalComboIgnoreFC(cards);
     if (!ev.valid) {
@@ -5229,6 +5977,8 @@ function playSelected() {
 
   // Clear free-play flags before playing
   if (G._aceComboFree) { G._aceComboFree = false; addLog('✨ Free combo played!', false); }
+  if (G._nine4SoloFree) { G._nine4SoloFree = false; addLog('🔃 Four 9s free combo played!', false); }
+  if (G._royalDiceFreeCombo) { G._royalDiceFreeCombo = false; addLog('👑 Royal Roots! free combo played!', false); }
   if (G._sevenFourFreeCombo) { G._sevenFourFreeCombo = false; addLog('⚡ Four 7s free combo played!', false); }
   if (G._nineFreeCombo) {
     G._nineFreeCombo = false;
@@ -5278,7 +6028,7 @@ function playSelected() {
 }
  
 function endTurn() {
-  const ASYNC = ['war_prompt','jack_flush','ace','joker_effect','roots_pick','cascade_pick','even_steven','war','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','royal_roots_choice','root_out'];
+  const ASYNC = ['war_prompt','jack_flush','ace','joker_effect','roots_pick','cascade_pick','even_steven','war','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','royal_roots_choice','root_out','dealing','royal_dice'];
   if (ASYNC.includes(G.phase)||G.cur!==0||G.war||G.jackFlush||G.aceState) return;
 
   // If a pending war trigger is awaiting this player and they end turn without matching,
@@ -5305,6 +6055,9 @@ function endTurn() {
   G._queenSuit = null;
   G._eightFreePlay = false;
   G._eightSoloFreeCount = 0;
+  G._royalDiceFreeCombo = false;  // single play only
+  G._royalDiceDoubleDown = false;
+  if (!G._royalDiceExtraMoves) G._royalDiceExtraMoves = 0;
   // Three 9s: reverse direction AFTER the player ends their extra turn
   if (G._nineReverseAfterTurn) {
     G._nineReverseAfterTurn = false;
@@ -5314,6 +6067,24 @@ function endTurn() {
  
   if (G.phase !== 'play') { renderGame(); return; }
  
+  // Royal Dice Double Down extra move (solo): give extra play
+  if (G._royalDiceExtraMoves && G._royalDiceExtraMoves > 0) {
+    G._royalDiceExtraMoves--;
+    if (G._royalDiceExtraMoves > 0) {
+      addLog(`🎲 Double Down: ${G._royalDiceExtraMoves} move(s) remaining!`, false);
+    } else {
+      addLog('🎲 Double Down: Extra move used. Ending turn.', false);
+      G._royalDiceExtraMoves = 0;
+      // fall through to normal turn advance
+    }
+    if (G._royalDiceExtraMoves > 0) {
+      G.turnPhase = 'playing'; G.sel = [];
+      renderGame(); updateBtns(); renderLog();
+      startHumanTurn();
+      return;
+    }
+  }
+
   if (G.extraTurns > 0 || G.extraTurn) {
     if (G.extraTurns > 0) G.extraTurns--;
     else G.extraTurn = false;
@@ -5325,10 +6096,14 @@ function endTurn() {
  
   G.cur = advanceTurnIdx(0);
   renderGame();
-  if (G.cur !== 0 && G.phase==='play') {
+  if (G.phase !== 'play') return;
+  if (G.cur !== 0) {
     addLog(`${G.players[G.cur].name}'s turn...`);
     renderLog();
     setTimeout(()=>aiTurn(G.cur), 600);
+  } else {
+    // Turn cycled back to human (small player count or everyone skipped)
+    startHumanTurn();
   }
 }
  
@@ -5342,7 +6117,7 @@ function floatPts(text, tier='COMMON') {
   const colors = { LEGENDARY:'#ffd700', MYTHICAL:'#ff6b35', EPIC:'#a855f7', RARE:'#60a5fa', COMMON:'var(--gold-light)' };
   const el = document.createElement('div');
   el.className = 'float-pts';
-  el.textContent = text + 'pts';
+  el.textContent = text;
   el.style.cssText = `left:50%;top:38%;transform:translateX(-50%);color:${colors[tier]||'var(--gold-light)'}`;
   const area = document.getElementById('tableArea') || document.body;
   area.appendChild(el);
@@ -5357,7 +6132,8 @@ function renderGame() {
   renderHand();
   renderLog();
   updateBtns();
-  initActionLog(); // ensure drag/resize init after game screen shown
+  // initActionLog is idempotent via _rrLogInited — only runs once per element instance
+  initActionLog();
   renderPlayerInfoBar();
   // War prompt visibility
   const wp = document.getElementById('warPrompt');
@@ -5446,31 +6222,132 @@ function renderCenter() {
 
 // Returns true if adding `card` to the current selection would still be
 // a valid (or potentially valid) combo — used for smart highlighting.
+// Detect what combo pattern the current selection has locked into.
+// Returns: 'set' | 'flush' | 'straight' | 'face' | 'joker' | 'mixed' | null
+function detectSelectionType(sel) {
+  if (!sel || sel.length === 0) return null;
+  const nonJoker = sel.filter(c => c.rank !== 'JKR');
+  const jokerCt  = sel.length - nonJoker.length;
+
+  // All jokers
+  if (nonJoker.length === 0) return 'joker';
+
+  // Face cards (K/Q/J) — only match same rank
+  const faceRanks = new Set(['K','Q','J']);
+  const isFace = nonJoker.every(c => faceRanks.has(c.rank));
+  if (isFace) return 'face';
+
+  // Same rank (set) — ALL non-jokers share one rank
+  const uniqueRanks = [...new Set(nonJoker.map(c => c.rank))];
+  if (uniqueRanks.length === 1) return 'set';
+
+  // All same suit (flush) — ALL non-jokers same suit, mixed ranks
+  const uniqueSuits = [...new Set(nonJoker.map(c => c.suit))];
+  if (uniqueSuits.length === 1) {
+    // Check if could also be straight — if ranks are all consecutive, prefer straight
+    const numericVals = nonJoker
+      .filter(c => !faceRanks.has(c.rank) && c.rank !== 'A')
+      .map(c => RANK_VAL[c.rank] || 0).sort((a,b)=>a-b);
+    if (numericVals.length === nonJoker.length) {
+      const span = numericVals[numericVals.length-1] - numericVals[0] + 1;
+      const gaps = span - new Set(numericVals).size;
+      if (gaps <= jokerCt) return 'straight_flush'; // locked into SF
+    }
+    return 'flush';
+  }
+
+  // Consecutive values = straight
+  const numVals = nonJoker
+    .filter(c => !faceRanks.has(c.rank))
+    .map(c => RANK_VAL[c.rank] || 0).sort((a,b)=>a-b);
+  if (numVals.length === nonJoker.length) {
+    const uniqueVals = [...new Set(numVals)];
+    if (uniqueVals.length === numVals.length) {
+      const span = numVals[numVals.length-1] - numVals[0] + 1;
+      const gaps = span - uniqueVals.length;
+      if (gaps <= jokerCt) return 'straight';
+    }
+  }
+
+  return 'mixed'; // can't determine — allow trial-and-error
+}
+
 function canExtendSelection(card, currentSel) {
   if (currentSel.length === 0) return answersFC(card);
+
+  // If adding this card already forms a valid combo, always allow it
   const trial = [...currentSel, card];
-  // Check if it forms a valid combo
   const ev = evalCombo(trial);
   if (ev.valid) return true;
-  // Check if it could extend — same rank (set), or consecutive (straight), or same suit (flush)
-  const ranks = currentSel.map(c => c.rank);
-  const suits = currentSel.map(c => c.suit);
-  const uniqueRanks = [...new Set(ranks.filter(r => r !== 'JKR'))];
-  const uniqueSuits = [...new Set(suits.filter(s => s))];
-  // Same-rank extension (pairs → trips → quads)
-  if (uniqueRanks.length === 1 && (card.rank === uniqueRanks[0] || card.rank === 'JKR')) return true;
-  // Flush extension — same suit or joker
-  if (uniqueSuits.length === 1 && (card.suit === uniqueSuits[0] || card.rank === 'JKR')) return true;
-  // Straight extension — numeric, adjacent or joker
-  const numVals = currentSel
-    .filter(c => c.rank !== 'JKR' && !['J','Q','K','A'].includes(c.rank))
-    .map(c => RANK_VAL[c.rank] || 0).sort((a,b)=>a-b);
-  if (numVals.length > 0 && !['J','Q','K','A'].includes(card.rank)) {
-    const v = RANK_VAL[card.rank] || 0;
-    const min = numVals[0], max = numVals[numVals.length-1];
-    if (v === min - 1 || v === max + 1 || card.rank === 'JKR') return true;
+
+  const type = detectSelectionType(currentSel);
+  const nonJoker = currentSel.filter(c => c.rank !== 'JKR');
+  const isJoker  = card.rank === 'JKR';
+
+  // Jokers are wild — always extend any selection
+  if (isJoker) return true;
+
+  switch (type) {
+    case 'set': {
+      // Only same rank can join a set
+      const setRank = nonJoker[0].rank;
+      return card.rank === setRank;
+    }
+    case 'flush': {
+      // Only same suit can extend a flush
+      const flushSuit = nonJoker[0].suit;
+      return card.suit === flushSuit;
+    }
+    case 'straight':
+    case 'straight_flush': {
+      // Must be numeric and adjacent (or fill a gap within joker budget)
+      const faceRanks = new Set(['J','Q','K','A']);
+      if (faceRanks.has(card.rank)) return false;
+      const numVals = nonJoker
+        .filter(c => !faceRanks.has(c.rank))
+        .map(c => RANK_VAL[c.rank] || 0).sort((a,b)=>a-b);
+      const v = RANK_VAL[card.rank] || 0;
+      const min = numVals[0], max = numVals[numVals.length-1];
+      const jokerBudget = currentSel.filter(c => c.rank === 'JKR').length;
+      // Allow adjacent extension OR filling a gap within joker budget
+      if (v === min - 1 || v === max + 1) return true;
+      // Allow if value falls within existing span (gap fill) and budget allows
+      if (v > min && v < max && !numVals.includes(v)) return true;
+      // SF: also must match suit
+      if (type === 'straight_flush') {
+        return card.suit === nonJoker[0].suit;
+      }
+      return false;
+    }
+    case 'face': {
+      // Only same face rank
+      const faceRank = nonJoker[0].rank;
+      return card.rank === faceRank;
+    }
+    case 'joker': {
+      // Multiple jokers — any joker can join
+      return card.rank === 'JKR';
+    }
+    case 'mixed':
+    default: {
+      // Ambiguous selection — try all possible extensions
+      // Same rank?
+      const uRanks = [...new Set(nonJoker.map(c => c.rank))];
+      if (uRanks.length === 1 && card.rank === uRanks[0]) return true;
+      // Same suit?
+      const uSuits = [...new Set(nonJoker.map(c => c.suit))];
+      if (uSuits.length === 1 && card.suit === uSuits[0]) return true;
+      // Adjacent numeric?
+      const numVals2 = nonJoker
+        .filter(c => !['J','Q','K','A'].includes(c.rank))
+        .map(c => RANK_VAL[c.rank] || 0).sort((a,b)=>a-b);
+      if (numVals2.length > 0 && !['J','Q','K','A'].includes(card.rank)) {
+        const v2 = RANK_VAL[card.rank] || 0;
+        if (v2 === numVals2[0]-1 || v2 === numVals2[numVals2.length-1]+1) return true;
+      }
+      return false;
+    }
   }
-  return false;
 }
 
 function renderHand() {
@@ -5524,21 +6401,66 @@ function renderLog() {
 }
  
 // ========== BANNER ==========
-function showBanner(title, text, btnLabel, cb) {
+let bannerCb2 = null;
+function showBanner(title, text, btnLabel, cb, btn2Label, cb2) {
   document.getElementById('bannerTitle').textContent = title;
   document.getElementById('bannerText').textContent = text;
   document.getElementById('bannerBtn').textContent = btnLabel || 'CONTINUE';
+  const btn2 = document.getElementById('bannerBtn2');
+  if (btn2) {
+    if (btn2Label) {
+      btn2.textContent = btn2Label;
+      btn2.style.display = 'block';
+      bannerCb2 = cb2 || null;
+    } else {
+      btn2.style.display = 'none';
+      bannerCb2 = null;
+    }
+  }
   document.getElementById('phaseBanner').classList.add('show');
   bannerCb = cb;
 }
 function bannerAction() {
   document.getElementById('phaseBanner').classList.remove('show');
+  const btn2 = document.getElementById('bannerBtn2');
+  if (btn2) btn2.style.display = 'none';
   if (bannerCb) { bannerCb(); bannerCb = null; }
+  bannerCb2 = null;
+}
+function bannerAction2() {
+  document.getElementById('phaseBanner').classList.remove('show');
+  const btn2 = document.getElementById('bannerBtn2');
+  if (btn2) btn2.style.display = 'none';
+  bannerCb = null;
+  if (bannerCb2) { bannerCb2(); bannerCb2 = null; }
 }
  
 // ========== SCREENS ==========
+
+function exitToHome() {
+  // Clear any active timers/phase state before going home
+  G.phase = 'ended';
+  G.war = null;
+  G.pendingWar = null;
+  G.aceState = null;
+  G.bet = null;
+  G.sel = [];
+  // Hide all modals
+  ['aceModal','warModal','diceRollModal','royalRootsModal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  document.getElementById('phaseBanner').classList.remove('show');
+  showScreen('home');
+}
+
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  // When switching to game screen, reset log init so it re-attaches cleanly
+  if (id === 'game') {
+    const logEl = document.getElementById('actionLog');
+    if (logEl) logEl._rrLogInited = false;
+  }
   document.getElementById(id).classList.add('active');
 }
  
@@ -5836,7 +6758,13 @@ const COMBO_TABLE = [
   ['Royal Roots (J-Q-K-A-Joker same suit)','777','Instant win; dealer flushes 3 of your cards next match'],
   ['Joker Cascade (4 Jokers)','2000','Instant win; counts as 2 match wins'],
   ['Royal Dead Man','9999','(8,8,A,A + Black Joker same suit) GAME OVER'],
-  ['ROOT OUT!','100/-200','Win=100pts+match ends; Fail=-200pts, all effects cancelled'],
+  ['🎲 ROYAL DICE (2)','—','SNAKE EYES: Draw 2 + lose turn'],
+  ['🎲 ROYAL DICE (7)','—','DOUBLE DOWN: Partner plays first OR you play 2 moves'],
+  ['🎲 ROYAL DICE (9)','—','MONEY MONEY: All enemies pay 2× min bet to pot'],
+  ['🎲 ROYAL DICE (11)','—','LUCKY BOOST: Pull from discard OR steal 1 card from any player'],
+  ['🎲 ROYAL DICE (12)','—','ROYAL ROOTS: Play any combo, ignore Face Card restriction'],
+  ['🎲 ROYAL DICE (Doubles)','—','DOUBLE UP: You + partner each discard 2 cards'],
+  ['ROOT OUT!','100/-200','Win=+100pts+match ends+pot; Fail=−200pts+draw 4+law draw, winner gets +50pts+new face card, others discard 2+draw 3, caller pays 2× min bet'],
   ['Royal War (win)','30','Win a WAR challenge, tie-breaker, or Dice Duel'],
 ];
 
@@ -5983,6 +6911,190 @@ function renderDraftScreen() {
   if (btn) btn.disabled = !allDone;
 }
 
+
+
+// ── DEAL ANIMATION HAND HELPERS ─────────────────────────────
+function _dealClearHands(numPlayers) {
+  // Clear opponent card-back displays
+  document.querySelectorAll('.opp-cards').forEach(el => { el.innerHTML = ''; });
+  // Clear human hand zone
+  const ph = document.getElementById('playerHand');
+  if (ph) ph.innerHTML = '';
+}
+
+function _dealAddCardToHand(pidx, cardCount) {
+  if (pidx === 0) {
+    // Human: show their ACTUAL card as it arrives — only they can see it
+    const ph = document.getElementById('playerHand');
+    if (!ph) return;
+    // cardCount is 1-based — the card at index (cardCount-1) was just dealt
+    const card = G.players[0].hand[cardCount - 1];
+    const wrapper = document.createElement('div');
+    wrapper.className = 'card-deal-pop';
+    wrapper.style.cssText = 'display:inline-block;flex-shrink:0;';
+    if (card) {
+      // Render real card using cardEl, wrap it so pop animation applies
+      wrapper.innerHTML = cardEl(card, '');
+    } else {
+      // Fallback: face-down card-back
+      wrapper.innerHTML = '<div class="card" style="background:linear-gradient(160deg,#2a2a2a,#1a1a1a);border:2px solid rgba(240,192,64,.4);border-radius:9px;width:64px;height:90px;flex-shrink:0;"></div>';
+    }
+    ph.appendChild(wrapper);
+  } else {
+    // AI / other players: always card-back only, never reveal their cards
+    const seats = document.querySelectorAll('.opponent-seat');
+    const seatEl = seats[pidx - 1];
+    if (!seatEl) return;
+    const oppCards = seatEl.querySelector('.opp-cards');
+    if (!oppCards) return;
+    if (oppCards.children.length >= 8) return; // cap at 8 visible backs
+    const cb = document.createElement('div');
+    cb.className = 'card-back-mini card-deal-pop';
+    oppCards.appendChild(cb);
+  }
+}
+// ────────────────────────────────────────────────────────────
+
+// =====================================================================
+// 🃏 DEAL ANIMATION
+// Step 1: Face card flips from draw pile to face card area (0.3s)
+// Step 2: Cards dealt clockwise from draw pile to each player (0.1s apart)
+// =====================================================================
+
+const SEAT_POSITIONS = [
+  { x: 0.5,  y: 0.90 }, // 0 = human (bottom center)
+  { x: 0.10, y: 0.55 }, // 1 = left
+  { x: 0.25, y: 0.28 }, // 2 = top-left
+  { x: 0.5,  y: 0.20 }, // 3 = top-center
+  { x: 0.75, y: 0.28 }, // 4 = top-right
+  { x: 0.90, y: 0.55 }, // 5 = right
+];
+
+function getElCenter(el) {
+  if (!el) return { x: window.innerWidth*0.5, y: window.innerHeight*0.45 };
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width/2, y: r.top + r.height/2 };
+}
+
+function animateDeal(numPlayers, firstPlayerIdx, onDone) {
+  const overlay = document.getElementById('dealAnimOverlay');
+  if (!overlay) { if (onDone) onDone(); return; }
+  overlay.innerHTML = '';
+
+  // Get draw pile and face card positions from DOM
+  const drawPileEl   = document.getElementById('drawPile');
+  const faceCardEl   = document.getElementById('faceCardDisplay');
+  const drawPilePos  = getElCenter(drawPileEl);
+  const faceCardPos  = getElCenter(faceCardEl);
+
+  const DEAL_INTERVAL = 100; // 0.1s per card
+  const FLIGHT_MS     = 180; // card flight time
+
+  // ── STEP 1: Flip face card from draw pile to face card area ──────
+  function flipFaceCard(afterFlip) {
+    // Briefly hide the face card display so we can animate the "flip"
+    if (faceCardEl) faceCardEl.style.opacity = '0';
+
+    const fc = document.createElement('div');
+    fc.className = 'deal-card-fly';
+    // Style as a face-down card at draw pile position
+    fc.style.left    = (drawPilePos.x - 23) + 'px';
+    fc.style.top     = (drawPilePos.y - 32) + 'px';
+    fc.style.opacity = '1';
+    fc.style.transition = 'none';
+    overlay.appendChild(fc);
+
+    // After one frame, animate flight to face card area
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      fc.style.transition = `transform 0.28s ease-out, opacity 0.1s ease`;
+      const dx = faceCardPos.x - drawPilePos.x;
+      const dy = faceCardPos.y - drawPilePos.y;
+      fc.style.transform = `translate(${dx}px, ${dy}px)`;
+
+      setTimeout(() => {
+        // Remove flying card, reveal real face card with flip animation
+        if (fc.parentNode) fc.parentNode.removeChild(fc);
+        if (faceCardEl) {
+          faceCardEl.style.opacity = '1';
+          const inner = faceCardEl.querySelector('.card, .card-land');
+          if (inner) {
+            inner.classList.remove('fc-flip-anim');
+            void inner.offsetWidth; // force reflow
+            inner.classList.add('fc-flip-anim');
+          } else {
+            faceCardEl.classList.add('fc-flip-anim');
+            setTimeout(() => faceCardEl.classList.remove('fc-flip-anim'), 400);
+          }
+        }
+        afterFlip();
+      }, 320);
+    }));
+  }
+
+  // ── STEP 2: Deal 9 cards to each player clockwise from draw pile ──
+  function dealCards() {
+    const CARDS_PER_PLAYER = 9;
+    const dealQueue = [];
+    for (let round = 0; round < CARDS_PER_PLAYER; round++) {
+      for (let seat = 0; seat < numPlayers; seat++) {
+        dealQueue.push((firstPlayerIdx + seat) % numPlayers);
+      }
+    }
+
+    // Track dealt count per player for hand display
+    const dealtCount = {};
+    for (let i = 0; i < numPlayers; i++) dealtCount[i] = 0;
+
+    // Clear all hands visually before dealing starts
+    _dealClearHands(numPlayers);
+
+    let qi = 0;
+    function dealNext() {
+      if (qi >= dealQueue.length) {
+        setTimeout(() => {
+          overlay.innerHTML = '';
+          if (onDone) onDone(); // reveals real hands
+        }, FLIGHT_MS + 60);
+        return;
+      }
+      const pidx = dealQueue[qi++];
+      dealtCount[pidx]++;
+
+      const seat = SEAT_POSITIONS[Math.min(pidx, SEAT_POSITIONS.length - 1)];
+      const destX = window.innerWidth  * seat.x;
+      const destY = window.innerHeight * seat.y;
+
+      const el = document.createElement('div');
+      el.className = 'deal-card-fly';
+      el.style.left    = (drawPilePos.x - 23) + 'px';
+      el.style.top     = (drawPilePos.y - 32) + 'px';
+      el.style.opacity = '1';
+      el.style.transition = 'none';
+      overlay.appendChild(el);
+
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        el.style.transition = `transform ${FLIGHT_MS}ms ease-out, opacity 0.1s ease`;
+        el.style.transform = `translate(${destX - drawPilePos.x}px, ${destY - drawPilePos.y}px) scale(0.8)`;
+
+        // When card lands, pop a card-back into the player's hand display
+        setTimeout(() => {
+          el.style.opacity = '0';
+          _dealAddCardToHand(pidx, dealtCount[pidx]);
+          setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 80);
+        }, FLIGHT_MS - 30);
+      }));
+
+      setTimeout(dealNext, DEAL_INTERVAL);
+    }
+    dealNext();
+  }
+
+  // Run step 1 then step 2
+  flipFaceCard(() => {
+    setTimeout(dealCards, 120); // brief pause after face card lands
+  });
+}
+
 function draftConfirm() {
   if (!G.draft) return;
   const totals = G.players.map((_,i) => ({
@@ -5990,6 +7102,7 @@ function draftConfirm() {
   })).sort((a,b)=>a.total-b.total);
 
   G.cur = totals[0].i;
+  G._lastFirstIdx = G.cur; // track for dealer rotation next match
   G.dealerIdx = totals[totals.length-1].i;
   // Reorder G.players so turn order starts from the winner
   // (we rotate players array so index 0 stays human but G.cur reflects correct first)
@@ -6002,13 +7115,17 @@ function draftConfirm() {
 
   G.draft = null;
   showScreen('game');
-  G.phase = 'play';
+  G.phase = 'dealing';
   renderGame();
   const matchLog = `⚔️ ${MODE_LABELS[G.mode]} · ${G.styleLabel} · First to ${G.matchesTo} match${G.matchesTo>1?'es':''}`;
   addLog(matchLog, true);
-  addLog('Match 1 — Deal!', true);
+  addLog(`👑 ${G.players[G.cur].name} goes first — dealing cards clockwise...`, true);
   renderLog();
-  startBettingPhase();
+  // Animate deal then start betting/play
+  animateDeal(G.numPlayers, G.cur, () => {
+    renderGame(); // show actual hands after animation
+    startBettingPhase();
+  });
 }
 
 
@@ -6018,35 +7135,43 @@ function draftConfirm() {
 // No shared state between drag and resize — each uses its own pointerId
 
 function initActionLog() {
-  if (window._logInited) return;
+  // Always re-init (remove guard so it works after screen changes)
   const log    = document.getElementById('actionLog');
   const handle = document.getElementById('logDragHandle');
   const resH   = document.getElementById('logResizeHandle');
   if (!log || !handle) return;
-  window._logInited = true;
 
-  // Stop ALL pointer events on the log from reaching the game table
-  log.addEventListener('pointerdown', e => { e.stopPropagation(); }, true);
-  log.addEventListener('touchstart',  e => { e.stopPropagation(); }, true);
-  log.addEventListener('click',       e => { e.stopPropagation(); }, true);
+  // Prevent duplicate listeners
+  if (log._rrLogInited) return;
+  log._rrLogInited = true;
 
-  // ── DRAG ──────────────────────────────────────────────────────────
+  // Block pointer events from bleeding through to game table
+  // Only stop propagation for pointerdown — let click events reach buttons inside
+  log.addEventListener('pointerdown', e => {
+    // Only stop if not clicking a button (so minimize btn still works)
+    if (e.target.tagName !== 'BUTTON') e.stopPropagation();
+  }, true);
+  log.addEventListener('touchstart', e => {
+    if (e.target.tagName !== 'BUTTON') e.stopPropagation();
+  }, { capture:true, passive:true });
+
+  // ── DRAG (position:fixed → use window coords directly) ───────────
   let dragId = -1, dragStartX, dragStartY, dragStartL, dragStartT;
 
   handle.style.touchAction = 'none';
+  handle.style.cursor = 'grab';
+
   handle.addEventListener('pointerdown', e => {
-    if (dragId !== -1) return; // already dragging
-    e.preventDefault();
-    e.stopPropagation();
+    if (dragId !== -1) return;
+    e.preventDefault(); e.stopPropagation();
     dragId = e.pointerId;
     handle.setPointerCapture(dragId);
+    const r = log.getBoundingClientRect();
     dragStartX = e.clientX;
     dragStartY = e.clientY;
-    const r  = log.getBoundingClientRect();
-    const pr = log.offsetParent ? log.offsetParent.getBoundingClientRect() : {left:0,top:0};
-    dragStartL = r.left - pr.left;
-    dragStartT = r.top  - pr.top;
-    // Anchor log with pixel coords so right/bottom don't fight
+    dragStartL = r.left;
+    dragStartT = r.top;
+    // Lock to pixel position, clear right/bottom
     log.style.left   = dragStartL + 'px';
     log.style.top    = dragStartT + 'px';
     log.style.right  = 'auto';
@@ -6057,53 +7182,46 @@ function initActionLog() {
   handle.addEventListener('pointermove', e => {
     if (e.pointerId !== dragId) return;
     e.preventDefault();
-    const dx = e.clientX - dragStartX;
-    const dy = e.clientY - dragStartY;
-    const pr = log.offsetParent ? log.offsetParent.getBoundingClientRect() : {width:window.innerWidth,height:window.innerHeight};
-    const maxL = pr.width  - log.offsetWidth;
-    const maxT = pr.height - log.offsetHeight;
-    log.style.left = Math.max(0, Math.min(maxL, dragStartL + dx)) + 'px';
-    log.style.top  = Math.max(0, Math.min(maxT, dragStartT + dy)) + 'px';
+    const newL = dragStartL + (e.clientX - dragStartX);
+    const newT = dragStartT + (e.clientY - dragStartY);
+    const maxL = window.innerWidth  - log.offsetWidth;
+    const maxT = window.innerHeight - log.offsetHeight;
+    log.style.left = Math.max(0, Math.min(maxL, newL)) + 'px';
+    log.style.top  = Math.max(0, Math.min(maxT, newT)) + 'px';
   });
 
-  handle.addEventListener('pointerup', e => {
-    if (e.pointerId !== dragId) return;
-    dragId = -1;
-    handle.style.cursor = 'grab';
-  });
-
-  handle.addEventListener('pointercancel', e => {
-    if (e.pointerId !== dragId) return;
-    dragId = -1;
-    handle.style.cursor = 'grab';
-  });
+  const stopDrag = e => { if (e.pointerId === dragId) { dragId = -1; handle.style.cursor = 'grab'; } };
+  handle.addEventListener('pointerup',     stopDrag);
+  handle.addEventListener('pointercancel', stopDrag);
 
   // ── RESIZE ────────────────────────────────────────────────────────
   if (resH) {
     let resId = -1, resStartX, resStartY, resStartW, resStartH;
     resH.style.touchAction = 'none';
+    resH.style.cursor = 'nwse-resize';
+    resH.style.opacity = '0.7';
+    resH.style.fontSize = '16px';
+    resH.textContent = '◢'; // Clearer resize icon
 
     resH.addEventListener('pointerdown', e => {
       if (resId !== -1) return;
-      e.preventDefault();
-      e.stopPropagation();
+      e.preventDefault(); e.stopPropagation();
       resId = e.pointerId;
       resH.setPointerCapture(resId);
-      resStartX = e.clientX;
-      resStartY = e.clientY;
-      resStartW = log.offsetWidth;
-      resStartH = log.offsetHeight;
+      resStartX = e.clientX; resStartY = e.clientY;
+      resStartW = log.offsetWidth; resStartH = log.offsetHeight;
     });
 
     resH.addEventListener('pointermove', e => {
       if (e.pointerId !== resId) return;
       e.preventDefault();
-      log.style.width  = Math.max(120, resStartW + (e.clientX - resStartX)) + 'px';
-      log.style.height = Math.max(80,  resStartH + (e.clientY - resStartY)) + 'px';
+      log.style.width  = Math.max(160, resStartW + (e.clientX - resStartX)) + 'px';
+      log.style.height = Math.max(90,  resStartH + (e.clientY - resStartY)) + 'px';
     });
 
-    resH.addEventListener('pointerup', e => { if (e.pointerId === resId) resId = -1; });
-    resH.addEventListener('pointercancel', e => { if (e.pointerId === resId) resId = -1; });
+    const stopRes = e => { if (e.pointerId === resId) resId = -1; };
+    resH.addEventListener('pointerup',     stopRes);
+    resH.addEventListener('pointercancel', stopRes);
   }
 }
 
@@ -6114,23 +7232,27 @@ function toggleLogMinimize() {
   const log = document.getElementById('actionLog');
   const body = document.getElementById('gameLog');
   const footer = log ? log.querySelector('.log-footer') : null;
+  const resH = document.getElementById('logResizeHandle');
   const btn = document.getElementById('logMinBtn');
   if (!log) return;
   const minimized = log.dataset.minimized === '1';
   if (minimized) {
+    // EXPAND
     log.dataset.minimized = '0';
-    if (body) body.style.display = '';
-    if (footer) footer.style.display = '';
-    log.style.height = '';
-    if (btn) btn.textContent = '—';
-    if (btn) btn.title = 'Minimize';
+    if (body)   { body.style.display = ''; }
+    if (footer) { footer.style.display = ''; }
+    if (resH)   { resH.style.display = ''; }
+    log.style.height = log._savedH || '';
+    if (btn) { btn.textContent = '—'; btn.title = 'Minimize'; }
   } else {
+    // MINIMIZE
+    log._savedH = log.style.height || '';
     log.dataset.minimized = '1';
-    if (body) body.style.display = 'none';
-    if (footer) footer.style.display = 'none';
+    if (body)   { body.style.display = 'none'; }
+    if (footer) { footer.style.display = 'none'; }
+    if (resH)   { resH.style.display = 'none'; }
     log.style.height = 'auto';
-    if (btn) btn.textContent = '▲';
-    if (btn) btn.title = 'Expand';
+    if (btn) { btn.textContent = '▲'; btn.title = 'Expand'; }
   }
 }
 
@@ -6180,13 +7302,21 @@ function openComboRef() {
 
 function startBettingPhase() {
   if (!G.styles || !G.styles.money || !G.chips) {
-    // No money — skip straight to play
-    startHumanTurn();
+    // No money — skip straight to play, respecting G.cur from draft/rotation
+    G.phase = 'play';
+    if (G.cur === 0) {
+      startHumanTurn();
+    } else {
+      addLog(`${G.players[G.cur].name} goes first!`, true);
+      renderGame(); renderLog();
+      setTimeout(() => aiTurn(G.cur), 800);
+    }
     return;
   }
 
   // Ante: 5% of starting chips (rounded up, min 1)
-  const ante = Math.max(1, Math.ceil(SETUP.chips * 0.05));
+  const startChips = SETUP.chips || 1000;
+  const ante = Math.max(1, Math.ceil(startChips * 0.05));
   G.bet = {
     matchPot: 0,
     pointPot: 0,
@@ -6515,7 +7645,15 @@ function endBettingPhase() {
   addLog(`💰 Betting closed. Match Pot: ${G.matchPot}💰. Let the match begin!`, true);
   renderLog();
   G.bet = null;
-  startHumanTurn();
+  G.phase = 'play'; // unlock from dealing/betting phase
+  // Start the turn of whoever won the card draw (G.cur set by draftConfirm/nextMatch)
+  if (G.cur === 0) {
+    startHumanTurn();
+  } else {
+    addLog(`${G.players[G.cur].name} goes first!`, true);
+    renderGame(); renderLog();
+    setTimeout(() => aiTurn(G.cur), 800);
+  }
 }
 
 // Award match pot to match winner, point pot to points leader at match end
@@ -6545,79 +7683,82 @@ function showRules() {
     { h:'🎮 MATERIALS & SETUP', body:`
       <b>Deck:</b> 2 full decks (108 cards) + 4 suited Jokers (Spade, Diamond, Clover, Heart).<br>
       <b>Players:</b> 2–6. Solo (FFA), Duos (2v2 across), Synergy Duos (2v2 next to each other), Royal Roulette (2v2v2).<br>
-      <b>Starting hand:</b> 10 cards each. One Face Card flipped to start the draw pile.<br>
+      <b>Starting hand:</b> 9 cards each. One Face Card flipped to start.<br>
       <b>Teams sit ACROSS from each other</b> (except Synergy Duos — sit next to partner).
     `},
+    { h:'🏆 HAND FLUSHER', body:`
+      <b>Goal:</b> Empty your hand before anyone else.<br><br>
+      Win by playing all your cards — your last play must be a <b>2-card combo or higher</b> (a single card cannot end the match).<br>
+      You cannot end a turn holding exactly 1 card — you must always have at least 2 cards or zero.<br><br>
+      <b>Most match wins at the end of the game = Hand Flusher victory.</b><br><br>
+      <i>In team modes:</i> Both teammates must empty their hands to win the match. Partners sub in when a teammate empties out.
+    `},
+    { h:'⭐ POINT LORD', body:`
+      <b>Goal:</b> Rack the most points through combos across all matches.<br><br>
+      Points are earned every time you play a valid combo. Higher-tier combos earn more — pairs, flushes, straights, face cards, jokers, and special plays all reward different amounts.<br><br>
+      Points reset each match but <b>accumulate toward your total</b> across the game.<br>
+      <b>Most total points at the end of the game = Point Lord victory.</b><br><br>
+      <i>Tiebreaker:</i> If chip totals are tied at game end, points decide the winner.
+    `},
+    { h:'💰 MONEY MASTER', body:`
+      <b>Goal:</b> Control the chips — raise, call, or fold and miss out.<br><br>
+      Before each match begins, a betting round opens. Every player antes 5% of their starting chips into the <b>Match Pot</b>.<br>
+      Betting order starts from the first-turn player and moves clockwise — check, bet, raise, or fold on your turn.<br><br>
+      <b>Match Pot:</b> won by the player who empties their hand first (Hand Flusher winner).<br>
+      <b>Point Pot:</b> won by whoever has the most points when the match ends.<br><br>
+      Raise only before the first card is played. All-In does NOT reveal your hand.<br>
+      Run out of chips? Eliminated from Money Master — you still play, but your points are frozen.<br><br>
+      <b>Most chips at the end of the game = Money Master victory.</b>
+    `},
     { h:'👑 WHO GOES FIRST?', body:`
-      Each player draws 2 cards. Add their values (J=11, Q=12, K=13, A=14, Joker=15).<br>
-      <b>Lowest total goes first.</b> Ties re-draw. Highest total becomes dealer.<br>
-      Each match, the player to the LEFT of last match's first player goes first (rotates clockwise).
+      Each player draws 2 cards from any pile. Add the values (J=11, Q=12, K=13, A=14, Joker=15).<br>
+      <b>Lowest total goes first.</b> Ties re-draw. Each new match, the player to the LEFT of the last first player goes first (rotates clockwise).
     `},
     { h:'🃏 HOW A TURN WORKS', body:`
       1. <b>Look at the Face Card.</b> You must play a card that matches its suit or number.<br>
-      2. <b>Free Draw</b> (optional): draw 1 card at the start of your turn — it IS playable this turn.<br>
+      2. <b>Free Draw</b> (optional): draw 1 card at the start of your turn — playable immediately.<br>
       3. <b>Play a card or combo</b> — must START with a card that answers the Face Card.<br>
-      4. <b>THE LAW DRAW</b>: after your turn ends, you MUST draw 1 card. This card is NOT playable until your next turn. Final and unavoidable.<br>
-      5. If you can't play, draw your free card. If still can't play, end turn (Law Draw still happens).<br>
+      4. <b>THE LAW DRAW</b>: after every turn you MUST draw 1 card. Unavoidable. Not playable until next turn.<br>
+      5. Can't play? Draw your free card. Still can't? End turn — Law Draw still applies.<br>
       The last card you played becomes the new Face Card.
     `},
     { h:'⭐ THE FACE CARD', body:`
-      Play same <b>suit</b> (any number) OR same <b>number</b> (any suit — changes the suit).<br>
-      <b>Power cards</b> (K/Q/J/Joker) can override the Face Card per hierarchy.<br>
+      Play same <b>suit</b> (any number) OR same <b>number</b> (any suit — shifts the suit).<br>
+      <b>Power cards</b> (K/Q/J/Joker) can override the Face Card.<br>
       <b>8s</b> — wild only if they match the current face card suit or number.<br>
-      <b>Combos</b> must START with a Face Card matching card — never end on one (except power plays).<br>
-      <b>Face Card Straight/Flush (4-card)</b>: only valid if the Face Card rank is adjacent, extending it to 5. Penalty: -5pts, effects negated.
+      <b>Combos</b> must START with a Face Card matching card.
     `},
     { h:'👑 FACE CARD HIERARCHY', body:`
-      <b>King</b> — overrides everything. Forces same suit. Tax: next player pays 10pts (doubles per extra King). War if countered with a King.<br>
-      <b>Queen</b> — overrides all except King. Acts as a wild/suit-changer (8s ability). War if matched.<br>
-      <b>Jack</b> — overrides all except King & Queen. Flush 1 card per Jack played. War if matched.<br>
-      <b>Joker</b> — overrides anything. Activates unique suit effect. War if countered with any Joker.
+      <b>King</b> — overrides everything. Forces same suit. Tax: opponent pays 10pts (doubles per extra King). War if countered with a King.<br>
+      <b>Queen</b> — overrides all except King. Wild suit-changer. War if matched.<br>
+      <b>Jack</b> — overrides all except King & Queen. Flush 1 card per Jack. War if matched.<br>
+      <b>Joker</b> — overrides anything. Activates its unique effect. War if countered with any Joker.
     `},
-    { h:'⚔️ WAR RULES', body:`
-      When a King, Queen, Jack, Joker, or power pair (2s/7s/8s/9s) is played, the NEXT player may counter with the <b>exact same card type</b> to declare war.<br>
-      Both players each play one card face-down → reveal → <b>highest rank wins</b> (Joker beats all; ties = another round, max 3 rounds then Dice Duel).<br>
-      <b>Winner</b>: keeps hand, original effect is VOIDED.<br>
-      <b>Loser</b>: draws cards equal to all cards played in war. Play resumes after challenger.
+    { h:'⚔️ WAR', body:`
+      When a K/Q/J/Joker or power pair is played, the NEXT player may counter with the <b>exact same type</b> to declare war.<br>
+      Both play one card face-down → reveal → highest rank wins. Ties = another round (max 3 → Dice Duel).<br>
+      <b>Winner</b>: original effect VOIDED, winner keeps their hand.<br>
+      <b>Loser</b>: draws cards equal to all war pot cards. Play resumes.
     `},
-    { h:'🎲 DICE DUEL (TIEBREAKER)', body:`
-      If war ties after 3 rounds: both roll 2 dice. Highest total wins. Re-roll on tie. Loser draws 3 cards.
+    { h:'🎲 DICE DUEL', body:`
+      War tiebreaker after 3 tied rounds. Both roll 2d6. Highest total wins. Re-roll on tie. Loser draws 3.
     `},
-    { h:'🌱 ROOT OUT!', body:`
-      Once per match per player. Declare "ROOT OUT!" before your turn.<br>
-      All hands revealed. Everyone plays their best legal combo <b>starting from the current Face Card</b>.<br>
-      <b>Caller wins</b>: match ends, +100pts, win the pot.<br>
-      <b>Caller loses</b>: -200pts, pay double min bet to pot, draw 3 extra cards.
+    { h:'🎲 ROYAL DICE', body:`
+      Once per player per hand-cycle. Tap <b>🎲 ROYAL DICE</b> before playing on your turn.<br>
+      Roll 2d6 — see the <b>Royal Dice tab</b> for the full results table.
     `},
-    { h:'⭐ ROYAL ROLL (ADD-ON)', body:`
-      Once per match per player. Roll 2d6:<br>
-      2 = Snake Eyes — draw 2, lose turn.<br>
-      7 = Double Down — partner plays next, or you play two moves.<br>
-      9 = Money Money — all enemies pay double min bet.<br>
-      11 = Lucky Boost — pull from discard OR steal 1 random card from any player.<br>
-      12 = Royal Roots! — play any legal combo ignoring Face Card restrictions this turn.<br>
-      Doubles = you & partner discard 2 cards each. Any other number = wasted, turn continues.
-    `},
-    { h:'💰 MONEY MASTER — BETTING', body:`
-      After cards are dealt, BEFORE any card is played: betting round begins.<br>
-      <b>Ante</b> = 5% of starting chips. Contributes to the Match Pot.<br>
-      Betting order starts from the first-turn player, moves clockwise.<br>
-      <b>Match Pot</b>: won by the player who empties their hand.<br>
-      <b>Point Pot</b>: won by whoever has the most points when the match ends.<br>
-      Raise only before the match begins. All-In does NOT reveal your hand.<br>
-      Run out of chips? Eliminated from Money Master — points freeze until game over.
-    `},
+
     { h:'🏆 HOW TO WIN THE GAME', body:`
-      The game spans multiple matches. Win by dominating <b>2 of 3 paths</b>:<br>
-      <b>Hand Flusher</b> — most match wins (empty hand first).<br>
-      <b>Money Master</b> — most chips at end of game.<br>
-      <b>Point Lord</b> — most points across all matches.<br>
-      <b>Ancestors Rule</b> — all three active simultaneously; dominate 2/3 to win.<br>
-      <i>Tie?</i> Final Sudden Death match — winner takes all.
+      Select 1, 2, or all 3 win conditions when setting up:<br><br>
+      🃏 <b>Hand Flusher</b> — most match wins by emptying hand first.<br>
+      ⭐ <b>Point Lord</b> — most points accumulated across all matches.<br>
+      💰 <b>Money Master</b> — most chips remaining at game end.<br><br>
+      <b>Ancestors Rule</b> — all three active simultaneously. Dominate 2 out of 3 to claim the throne.<br><br>
+      <i>Tie on all fronts?</i> A Sudden Death match decides — winner takes all.
     `},
     { h:'🔄 DECK RULES', body:`
-      If the draw pile empties: take all cards discarded under the current Face Card, shuffle them, and make a new draw pile. The Face Card stays.<br>
-      After each match: the player to the RIGHT of the previous dealer shuffles. Deal rotates LEFT each match.
+      Draw pile empty? Shuffle all discards under the Face Card into a new draw pile. Face Card stays on top.<br>
+      After each match: player to the RIGHT of the previous dealer shuffles. First player rotates LEFT each match.
     `},
   ];
 
@@ -6630,7 +7771,159 @@ function showRules() {
       </div>`
     ).join('');
   }
-  const rm2 = document.getElementById('rulesModal'); rm2.style.display='flex'; rm2.style.flexDirection='column'; rm2.style.alignItems='center'; rm2.style.justifyContent='center';
+
+  // Populate Root Out page
+  const roBody = document.getElementById('rootOutBody');
+  if (roBody) { roBody.innerHTML = _buildRootOutHelp(); }
+
+  // Populate Royal Dice page
+  const rdBody = document.getElementById('royalDiceBody');
+  if (rdBody) { rdBody.innerHTML = _buildRoyalDiceHelp(); }
+
+  const rm2 = document.getElementById('rulesModal');
+  rm2.style.display='flex'; rm2.style.flexDirection='column';
+  rm2.style.alignItems='center'; rm2.style.justifyContent='center';
+  switchHelpTab(1); // always open on page 1
+}
+
+function switchHelpTab(tab) {
+  [1,2,3].forEach(n => {
+    const page = document.getElementById('helpPage' + n);
+    const btn  = document.getElementById('helpTab' + n + 'Btn');
+    if (!page || !btn) return;
+    const active = tab === n;
+    page.style.display = active ? 'block' : 'none';
+    // Tab 3 uses orange accent
+    const activeColor = n === 3 ? '#e67e22' : '#000';
+    const activeBg    = n === 3 ? '#e67e22' : 'var(--gold)';
+    const inactiveColor = n === 3 ? 'rgba(230,126,34,.7)' : 'rgba(240,192,64,.6)';
+    const inactiveBorder = n === 3 ? '1px solid rgba(230,126,34,.35)' : '1px solid rgba(240,192,64,.3)';
+    btn.style.background = active ? activeBg    : 'transparent';
+    btn.style.color      = active ? activeColor : inactiveColor;
+    btn.style.border     = active ? 'none'      : inactiveBorder;
+  });
+}
+
+
+function _buildRoyalDiceHelp() {
+  const sec = (icon, title, body) => `
+    <div style="margin-bottom:22px">
+      <div style="font-family:'Cinzel Decorative',cursive;font-size:13px;color:#e67e22;letter-spacing:2px;margin-bottom:8px;border-bottom:1px solid rgba(230,126,34,.2);padding-bottom:6px">${icon} ${title}</div>
+      <div>${body}</div>
+    </div>`;
+
+  const row = (roll, name, color, effect) => `
+    <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+      <div style="min-width:36px;text-align:center;font-family:'Cinzel Decorative',cursive;font-size:16px;color:${color};font-weight:700;flex-shrink:0">${roll}</div>
+      <div>
+        <div style="font-family:Cinzel,serif;font-size:12px;color:${color};font-weight:700;letter-spacing:1px;margin-bottom:3px">${name}</div>
+        <div style="font-family:'IM Fell English',serif;font-size:14px;color:var(--text);line-height:1.5">${effect}</div>
+      </div>
+    </div>`;
+
+  return sec('🎲','WHAT IS ROYAL DICE?',`
+    <b>Royal Dice</b> is a once-per-hand-cycle power play. Tap the <b>🎲 ROYAL DICE</b> button on your turn — before you play any card.<br><br>
+    You roll 2 six-sided dice. The total (and whether it's doubles) determines a special effect that fires immediately.<br><br>
+    <b>Important:</b> Your Royal Roll resets every time you empty your hand. In longer formats like Roulette, you'll get one nearly every match — use it wisely!
+  `) +
+  sec('📋','HOW TO USE IT',`
+    1. It must be <b>your turn</b> and you must not have already rolled this hand-cycle.<br>
+    2. Tap <b>🎲 ROYAL DICE</b> before playing any card or ending your turn.<br>
+    3. The dice roll and the effect fires immediately.<br>
+    4. After the effect, your turn continues normally <i>(unless Snake Eyes — you lose your turn)</i>.
+  `) +
+  sec('🎯','ALL ROLL RESULTS',`
+    ${row('2','SNAKE EYES 🐍','#e74c3c','Draw 2 cards and lose your turn. Next player goes immediately.')}
+    ${row('7','DOUBLE DOWN ✌️','#3498db','<b>Team mode:</b> Your partner plays before you do this turn.<br><b>Solo:</b> You may play two moves this turn — a combo + a single, or two singles.')}
+    ${row('9','MONEY MONEY 💰','#f0c040','All enemy players pay double the minimum Main Bet into the pot.<br><i>No Money Master active?</i> All enemies lose 10pts each instead.')}
+    ${row('11','LUCKY BOOST ⚡','#2ecc71','Your choice:<br>• Draw 1 card from the discard pile (last 10 cards, face card excluded)<br>• OR steal a random card from any player of your choice<br>Play continues normally after.')}
+    ${row('12','ROYAL ROOTS! 👑','#f0c040','Play any legal combo from your hand this turn — the Face Card suit and number restriction is completely ignored. One play only.')}
+    ${row('Doubles','DOUBLE UP 🔄','#e67e22','You and your partner each choose and discard 2 cards from your hands.<br><i>Solo:</i> Just you discard 2 cards.')}
+    ${row('Other','WASTED ROLL 💨','#888','No effect. Your turn continues normally — at least you tried.')}
+  `) +
+  sec('🔄','WHEN IT RESETS',`
+    Your Royal Roll is <b>not</b> tied to the full game — it resets whenever you empty your hand.<br><br>
+    This means in a standard match, you get <b>one roll per match</b>.<br>
+    In Roulette format where hands cycle more often, you'll get a roll nearly every round — the stakes are higher and the chaos is real!<br><br>
+    The button shows <b>"🎲 ROLLED (used)"</b> when your roll is spent, and reactivates automatically when your hand is emptied.
+  `) +
+  sec('⚡','QUICK REFERENCE',`
+    <div style="background:rgba(230,126,34,.06);border:1px solid rgba(230,126,34,.25);border-radius:8px;padding:14px;font-family:Cinzel,serif;font-size:12px;line-height:2">
+      <b style="color:#e67e22">2</b> → Draw 2, lose turn &nbsp;|&nbsp;
+      <b style="color:#3498db">7</b> → Partner first / 2 moves &nbsp;|&nbsp;
+      <b style="color:#f0c040">9</b> → Enemies pay 2× min bet<br>
+      <b style="color:#2ecc71">11</b> → Pull from discard or steal a card &nbsp;|&nbsp;
+      <b style="color:#f0c040">12</b> → Free combo, ignore Face Card<br>
+      <b style="color:#e67e22">Doubles</b> → You + partner discard 2 &nbsp;|&nbsp;
+      <b style="color:#888">Anything else</b> → No effect
+    </div>
+  `);
+}
+
+function _buildRootOutHelp() {
+  const sec = (icon, title, body) => `
+    <div style="margin-bottom:22px">
+      <div style="font-family:'Cinzel Decorative',cursive;font-size:13px;color:var(--gold);letter-spacing:2px;margin-bottom:8px;border-bottom:1px solid rgba(240,192,64,.15);padding-bottom:6px">${icon} ${title}</div>
+      <div>${body}</div>
+    </div>`;
+
+  return sec('🌱','WHAT IS ROOT OUT?',`
+    <b>ROOT OUT!</b> is a once-per-match power play you can call on your turn — before you play any card.<br><br>
+    It's high risk, high reward. You're betting that YOU have (or can build) the best combo off the current Face Card.
+    If you're right, you win the match instantly. If you're wrong, you pay a heavy price.
+  `) +
+  sec('📋','HOW TO CALL IT',`
+    1. It must be <b>your turn</b> and you must not have already used ROOT OUT this match.<br>
+    2. You need at least <b>2 cards</b> in hand.<br>
+    3. Tap the <b>🎯 ROOT OUT!</b> button before playing any card.<br>
+    4. The game reveals all hands and evaluates everyone's best possible combo.
+  `) +
+  sec('🃏','THE COMBO BATTLE',`
+    Every player — including you — builds their <b>best legal combo</b> starting from the current Face Card.<br><br>
+    <b>Rules still apply:</b><br>
+    • First card must answer the Face Card (match suit or number)<br>
+    • Kings, Queens, Jacks, and Jokers can still override as usual<br>
+    • No wild combos — combos must be structurally valid<br><br>
+    <b>Combo ranking</b> (strongest → weakest):<br>
+    Royal Flush → Straight Flush → Four of a Kind → Full House → Flush → Straight → Three of a Kind → Two Pair → Pair → Single Card<br><br>
+    <b>Tiebreakers:</b> Highest card in combo → Most cards in combo
+  `) +
+  sec('🏆','IF THE CALLER WINS',`
+    You had the best combo — here's what happens:<br><br>
+    ✅ <b>+100 bonus pts</b> on top of your combo's points<br>
+    ✅ <b>Match ends immediately</b> — you win<br>
+    ✅ <b>You claim the pot</b><br><br>
+    <i>Roulette mode:</i> Both you and your teammate get official empty hands — a 2-way exit!
+  `) +
+  sec('💀','IF THE CALLER LOSES',`
+    Someone else had a better combo. The penalties are steep:<br><br>
+    <b>Caller (you):</b><br>
+    ❌ <b>−200 pts</b><br>
+    ❌ <b>Draw 4 cards</b><br>
+    ❌ <b>Pay 2× minimum bet</b> to the pot (Money Master only)<br>
+    ❌ <b>Law Draw still applies</b> at the end of your turn — you draw again<br><br>
+    <b>Winner (the one who beat you):</b><br>
+    👑 Their best combo is physically played — cards removed from hand and placed in discard<br>
+    👑 Their last combo card becomes the <b>new Face Card</b><br>
+    👑 <b>+50 bonus pts</b> on top of their combo points<br><br>
+    <b>All other players (not you, not the winner):</b><br>
+    🔄 Discard <b>2 cards</b> of their choice<br>
+    🔄 Then <b>draw 3 new cards</b><br><br>
+    Play resumes with the <b>next player</b> after you. You still Law Draw when your turn comes back.
+  `) +
+  sec('🌀','ROULETTE MODE RULES',`
+    <b>Winning ROOT OUT:</b> Both teammates get official empty hands — a 2-way exit from the round!<br><br>
+    <b>Losing ROOT OUT:</b> Your team stays in and draws new cards for the next round.<br>
+    The risk is even higher here — use wisely!
+  `) +
+  sec('⚡','QUICK SUMMARY',`
+    <div style="background:rgba(240,192,64,.06);border:1px solid rgba(240,192,64,.2);border-radius:8px;padding:14px">
+    <b>Root Out declared →</b> Best combos evaluated off Face Card<br><br>
+    <b>You win:</b> +100pts · match ends · pot yours<br>
+    <b>You lose:</b> −200pts · draw 4 · pay 2× min bet · Law Draw · winner gets +50pts + new Face Card · others discard 2 + draw 3<br><br>
+    Once per match. Think carefully before you call it! 👑
+    </div>
+  `);
 }
  
 
@@ -6803,13 +8096,51 @@ showScreen('home');
 </script>
 <!-- RULES MODAL (body-level so it works from any screen) -->
 <div id="rulesModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);backdrop-filter:blur(10px);align-items:flex-start;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 8px" onclick="if(event.target===this)closeRulesModal()">
-  <div class="ace-modal-inner" style="max-width:660px;max-height:88vh;overflow-y:auto;text-align:left;padding:32px 36px">
-    <div style="text-align:center;margin-bottom:18px">
+  <div class="ace-modal-inner" style="max-width:680px;max-height:92vh;overflow-y:auto;text-align:left;padding:24px 28px">
+    <div style="text-align:center;margin-bottom:14px">
       <div class="ace-modal-title" style="font-size:20px">👑🃏 HOW TO PLAY</div>
       <div style="font-size:10px;color:rgba(240,192,64,.5);letter-spacing:3px;text-transform:uppercase">Royal Roots™ — Official Rules</div>
     </div>
-    <div id="rulesBody" style="font-family:'IM Fell English',serif;font-size:16px;color:var(--text);line-height:1.85"></div>
-    <button class="ace-action-btn" style="margin-top:18px;text-align:center" onclick="closeRulesModal()">✕ CLOSE</button>
+    <!-- Tab buttons -->
+    <div style="display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid rgba(240,192,64,.2);padding-bottom:12px">
+      <button id="helpTab1Btn" onclick="switchHelpTab(1)" style="flex:1;padding:8px 2px;background:var(--gold);color:#000;border:none;border-radius:8px;font-family:Cinzel,serif;font-size:10px;letter-spacing:1px;cursor:pointer;font-weight:700;transition:all .2s">📖 HOW TO PLAY</button>
+      <button id="helpTab2Btn" onclick="switchHelpTab(2)" style="flex:1;padding:8px 2px;background:transparent;color:rgba(240,192,64,.6);border:1px solid rgba(240,192,64,.3);border-radius:8px;font-family:Cinzel,serif;font-size:10px;letter-spacing:1px;cursor:pointer;transition:all .2s">🌱 ROOT OUT!</button>
+      <button id="helpTab3Btn" onclick="switchHelpTab(3)" style="flex:1;padding:8px 2px;background:transparent;color:rgba(230,126,34,.7);border:1px solid rgba(230,126,34,.35);border-radius:8px;font-family:Cinzel,serif;font-size:10px;letter-spacing:1px;cursor:pointer;transition:all .2s">🎲 ROYAL DICE</button>
+    </div>
+    <!-- Page 1: How to Play -->
+    <div id="helpPage1">
+      <div id="rulesBody" style="font-family:'IM Fell English',serif;font-size:16px;color:var(--text);line-height:1.85"></div>
+    </div>
+    <!-- Page 2: Root Out -->
+    <div id="helpPage2" style="display:none">
+      <div id="rootOutBody" style="font-family:'IM Fell English',serif;font-size:16px;color:var(--text);line-height:1.85"></div>
+    </div>
+    <!-- Page 3: Royal Dice -->
+    <div id="helpPage3" style="display:none">
+      <div id="royalDiceBody" style="font-family:'IM Fell English',serif;font-size:16px;color:var(--text);line-height:1.85"></div>
+    </div>
+    <button class="ace-action-btn" style="margin-top:18px;text-align:center;width:100%" onclick="closeRulesModal()">✕ CLOSE</button>
+  </div>
+</div>
+
+<!-- DICE ROLL MODAL -->
+<div id="diceRollModal" onclick="if(event.target===this&&document.getElementById('diceConfirmSection').style.display!=='none')_diceCancelConfirm()">
+  <div class="dice-modal-inner">
+    <div class="dice-title" id="diceModalTitle">🎲 ROYAL DICE</div>
+    <div class="dice-sub" id="diceModalSub">Your Royal Roll awaits</div>
+    <div class="dice-pair">
+      <div class="die-face" id="die1">⚀</div>
+      <div class="die-face" id="die2">⚀</div>
+    </div>
+    <div id="diceResultSection" style="display:none">
+      <div class="dice-result-name" id="diceResultName"></div>
+      <div class="dice-result-desc" id="diceResultDesc"></div>
+      <button class="dice-btn dice-btn-orange" id="diceOkayBtn" onclick="_diceOkay()">✅ OKAY — APPLY EFFECT</button>
+    </div>
+    <div id="diceConfirmSection">
+      <button class="dice-btn dice-btn-orange" id="diceRollBtn" onclick="_diceStartRoll()">🎲 ROLL THE DICE</button>
+      <button class="dice-btn dice-btn-cancel" onclick="_diceCancelConfirm()">✕ CANCEL</button>
+    </div>
   </div>
 </div>
 
@@ -6830,4 +8161,4 @@ showScreen('home');
       </div>
     </div>
 </body>
-  </html>
+</html>
