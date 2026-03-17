@@ -866,17 +866,17 @@ button{cursor:pointer;font-family:inherit}
         <div class="setup-option-icon">🃏</div>
         <div><div class="setup-option-name">SOLO / FFA</div><div class="setup-option-desc">1v1 up to 6-player free-for-all — every player for themselves</div></div>
       </button>
-      <button class="setup-option" onclick="selectMode('duos',4)">
+      <button class="setup-option" onclick="showDuosSizeSelect()">
         <div class="setup-option-icon">🤝</div>
-        <div><div class="setup-option-name">REGAL DUOS</div><div class="setup-option-desc">2v2 — both hands must empty to win</div></div>
+        <div><div class="setup-option-name">REGAL DUOS</div><div class="setup-option-desc">2v2 or 2v2v2 — both hands must empty to win</div></div>
       </button>
       <button class="setup-option" onclick="selectMode('synergy',4)">
         <div class="setup-option-icon">⚡</div>
         <div><div class="setup-option-name">SYNERGY DUOS</div><div class="setup-option-desc">Sit next to partner — every play made together</div></div>
       </button>
-      <button class="setup-option" onclick="selectMode('roulette',6)">
+      <button class="setup-option" onclick="showRouletteSizeSelect()">
         <div class="setup-option-icon">🌀</div>
-        <div><div class="setup-option-name">ROULETTE</div><div class="setup-option-desc">2v2v2 — knockout cycling, first to 6 wins</div></div>
+        <div><div class="setup-option-name">ROULETTE</div><div class="setup-option-desc">6–18 players, teams of 2 — knockout cycling</div></div>
       </button>
     </div>
       <button class="setup-back-btn" onclick="showScreen('home')">← BACK</button>
@@ -896,6 +896,37 @@ button{cursor:pointer;font-family:inherit}
         <button class="match-btn" onclick="selectMode('ffa',6)" style="font-size:20px">6<small>FFA</small></button>
       </div>
       <button class="setup-back-btn" style="margin-top:10px" onclick="document.getElementById('soloSizePicker').style.display='none'">← BACK</button>
+    </div>
+  </div>
+
+  <!-- DUOS SIZE PICKER -->
+  <div id="duosSizePicker" style="display:none;margin-top:16px">
+    <div class="setup-card" style="margin-top:0">
+      <div class="setup-title" style="font-size:20px">REGAL DUOS</div>
+      <div class="setup-sub" style="margin-bottom:12px">HOW MANY PLAYERS?</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+        <button class="match-btn" onclick="selectMode('duos',4)" style="font-size:20px">4<small>2v2</small></button>
+        <button class="match-btn" onclick="selectMode('duos',6)" style="font-size:20px">6<small>2v2v2</small></button>
+      </div>
+      <button class="setup-back-btn" style="margin-top:10px" onclick="document.getElementById('duosSizePicker').style.display='none'">← BACK</button>
+    </div>
+  </div>
+
+  <!-- ROULETTE SIZE PICKER -->
+  <div id="rouletteSizePicker" style="display:none;margin-top:16px">
+    <div class="setup-card" style="margin-top:0">
+      <div class="setup-title" style="font-size:20px">ROULETTE</div>
+      <div class="setup-sub" style="margin-bottom:12px">HOW MANY PLAYERS? (TEAMS OF 2)</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <button class="match-btn" onclick="selectMode('roulette',6)"  style="font-size:18px">6<small>3 teams</small></button>
+        <button class="match-btn" onclick="selectMode('roulette',8)"  style="font-size:18px">8<small>4 teams</small></button>
+        <button class="match-btn" onclick="selectMode('roulette',10)" style="font-size:18px">10<small>5 teams</small></button>
+        <button class="match-btn" onclick="selectMode('roulette',12)" style="font-size:18px">12<small>6 teams</small></button>
+        <button class="match-btn" onclick="selectMode('roulette',14)" style="font-size:18px">14<small>7 teams</small></button>
+        <button class="match-btn" onclick="selectMode('roulette',16)" style="font-size:18px">16<small>8 teams</small></button>
+        <button class="match-btn" onclick="selectMode('roulette',18)" style="font-size:18px">18<small>9 teams</small></button>
+      </div>
+      <button class="setup-back-btn" style="margin-top:10px" onclick="document.getElementById('rouletteSizePicker').style.display='none'">← BACK</button>
     </div>
   </div>
 </div>
@@ -1302,8 +1333,8 @@ let G = {};
 let bannerCb = null;
  
 function initGame(mode, numPlayers) {
-  const names  = ['YOU', 'Kenzo', 'Zairis', 'Hikari', 'Dante', 'Solenne'];
-  const emojis = ['👤','🃏','♠️','⚡','🔥','🌙'];
+  const names  = ['YOU','Kenzo','Zairis','Hikari','Dante','Solenne','Ryuu','Sable','Nova','Orion','Lyra','Caelum','Vex','Mira','Frost','Axel','Nyx','Zeno'];
+  const emojis = ['👤','🃏','♠️','⚡','🔥','🌙','🐉','⚫','💫','🌌','🎵','🏛️','⚔️','🌊','❄️','⚡','🌑','🎯'];
 
   // Seat order and partner assignment per mode:
   // solo/ffa: no partners, pure clockwise
@@ -1336,17 +1367,23 @@ function initGame(mode, numPlayers) {
     log: [],
     extraTurn: false,
     extraTurns: 0,
+    freshDiscardCount: 0,
+    freshDiscard: [],
+    matchPot: 0,
+    pointPot: 0,
+    _extraLawDraws: 0,
+    royalRollUsed: null,
   };
 
   // Build players with correct partner indices
   for (let i = 0; i < numPlayers; i++) {
     let partnerIdx = null;
-    if (mode === 'duos' && numPlayers === 4) {
-      // Seat 0↔2, Seat 1↔3
-      partnerIdx = (i + 2) % 4;
-    } else if (mode === 'roulette' && numPlayers === 6) {
-      // Seat 0↔3, 1↔4, 2↔5
-      partnerIdx = (i + 3) % 6;
+    if (mode === 'duos') {
+      // Partners sit across: i ↔ i + numPlayers/2
+      partnerIdx = (i + numPlayers / 2) % numPlayers;
+    } else if (mode === 'roulette') {
+      // Same: partners across the table in teams of 2
+      partnerIdx = (i + numPlayers / 2) % numPlayers;
     } else if (mode === 'synergy' && numPlayers === 4) {
       partnerIdx = i % 2 === 0 ? i + 1 : i - 1;
     }
@@ -1364,8 +1401,14 @@ function initGame(mode, numPlayers) {
 
 function getTeamId(mode, numPlayers, i) {
   if (mode === 'solo' || mode === 'ffa') return i; // everyone own team
-  if (mode === 'duos' || mode === 'synergy') return i % 2; // 0,2 = team 0; 1,3 = team 1
-  if (mode === 'roulette') return i % 3; // 0,3=T0; 1,4=T1; 2,5=T2
+  if (mode === 'duos' || mode === 'synergy') {
+    // Teams of 2 across: first half vs second half
+    return i < numPlayers / 2 ? i : i - numPlayers / 2;
+  }
+  if (mode === 'roulette') {
+    // Teams of 2: numPlayers/2 teams
+    return i % (numPlayers / 2);
+  }
   return i;
 }
  
@@ -2649,6 +2692,7 @@ function closeJackFlushModal() {
   G.phase = 'play';
   G.turnPhase = 'done';
   G.forceSingleEndDraw = true;
+  if (G.players[0].hand.length === 0) { checkWin(0); return; }
   renderGame();
   updateBtns();
   fireTwoPairPending(0);
@@ -2799,6 +2843,7 @@ function closeAceModal() {
   document.getElementById('aceModal').style.display = 'none';
   G.aceState = null;
   G.phase = 'play';
+  if (G.cur === 0 && G.players[0].hand.length === 0) { checkWin(0); return; }
 
   if (G._acePlayCardAfter) {
     // Three Aces: play any single card freely
@@ -4837,8 +4882,8 @@ function _rootOutConfirmed() {
 
 // Find the best legal combo a player can build starting with a face-card-matching card
 function _rootOutBestCombo(pool) {
-  // Cap pool to 9 cards max to prevent combinatorial explosion
-  const cappedPool = pool.slice(0, 9);
+  // Cap pool - team pools can be large, cap at 12 for performance
+  const cappedPool = pool.slice(0, Math.min(pool.length, 12));
   const validStarters = cappedPool.filter(c => answersFC(c));
   if (validStarters.length === 0) return { combo: null, pts: 0, ev: null };
 
@@ -5222,6 +5267,11 @@ function nxt(from) { return (from + G.dir + G.numPlayers) % G.numPlayers; }
 function advanceTurnIdx(from) {
   let next = (from + G.dir + G.numPlayers) % G.numPlayers;
   while (_skipCount > 0) { next = (next + G.dir + G.numPlayers) % G.numPlayers; _skipCount--; }
+  // Skip eliminated players
+  let guard = G.numPlayers;
+  while (G.players[next] && G.players[next].eliminated && guard-- > 0) {
+    next = (next + G.dir + G.numPlayers) % G.numPlayers;
+  }
   return next;
 }
  
@@ -5382,7 +5432,7 @@ function checkWin(pidx) {
   if (G.royalRollUsed) G.royalRollUsed[pidx] = false;
 
   // Team modes: both partners must empty hands to win
-  const isTeam = G.mode === 'duos' || G.mode === 'synergy';
+  const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
   if (isTeam) {
     const partnerIdx = player.partnerIdx;
     if (partnerIdx !== null && partnerIdx !== undefined) {
@@ -5496,6 +5546,8 @@ function nextMatch() {
   G.pointPot = 0;
   G.betFolds = null;
   G.bet = null;
+  G.freshDiscardCount = 0;
+  G.freshDiscard = [];
   G._extraLawDraws = 0;
   G._nineFreeCombo = false;
   G._nineFreeComboTeammate = null;
@@ -5564,6 +5616,18 @@ function aiTurn(pidx) {
     // Ignore stale AI timers after phase/turn changes (prevents turn theft/freezes).
     if (!['play'].includes(G.phase) || G.war || pidx !== G.cur) return;
 
+    // In team modes, if this player already emptied their hand, auto-skip their turn
+    const isTeamMode = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+    if (isTeamMode && G.players[pidx].hand.length === 0) {
+      addLog(`${G.players[pidx].name} has emptied — skipping their turn.`, false);
+      G.cur = advanceTurnIdx(pidx);
+      G.turnPhase = 'playing'; G.freeDrewId = null;
+      renderGame(); renderLog();
+      if (G.cur !== 0) { setTimeout(() => aiTurn(G.cur), 400); }
+      else { startHumanTurn(); }
+      return;
+    }
+
     // pendingWar: AI defender just plays their turn normally.
     // If they play the matching card type, doPlayCards detects it and starts war.
     // If they play anything else, the pendingWar counter-detect block resolves it as a pass.
@@ -5591,7 +5655,17 @@ function aiTurn(pidx) {
     }
 
     if (!didPlay && G.pendingWar && G.pendingWar.defenderIdx === pidx) {
+      const pw_before = { ...G.pendingWar }; // snapshot before clearing
+      const hadPassiveEffect = !G.pendingWar.effectAlreadyFired;
       resolvePendingWarAsPass(pidx);
+      // For passive skip effects (2s/7s): _skipCount was set by applyEffect.
+      // advanceTurnIdx will be called with pidx (defender), but skip should
+      // count from ATTACKER position. Fix: add 1 to _skipCount to compensate
+      // for the extra step from defender→next already consumed.
+      if (hadPassiveEffect && _skipCount > 0) {
+        // The defender is already "used up" as a turn — skip 1 fewer
+        _skipCount = Math.max(0, _skipCount - 1);
+      }
     }
 
     // pendingWar set by THIS AI: the next player will handle it on their own turn.
@@ -5724,6 +5798,19 @@ function startHumanTurn() {
   // NOTE: caller must set G.cur correctly before calling this.
   // startHumanTurn() is only called when G.cur === 0 (human's turn).
   // We do NOT override G.cur here so the draft winner / rotation is respected.
+
+  // In team modes, if human already emptied their hand, auto-skip
+  const isTeamMode2 = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+  if (isTeamMode2 && G.players[0].hand.length === 0) {
+    addLog('You have emptied your hand — waiting for partner. Skipping your turn.', false);
+    G.cur = advanceTurnIdx(0);
+    G.turnPhase = 'playing'; G.freeDrewId = null;
+    renderGame(); renderLog();
+    if (G.cur !== 0) { setTimeout(() => aiTurn(G.cur), 400); }
+    else { startHumanTurn(); } // rare edge: all others also emptied
+    return;
+  }
+
   G.limitNext = 0; // clear any Three 8s card-limit
   if (G.lockedSuitTurns > 0) {
     G.lockedSuitTurns--;
@@ -6182,13 +6269,30 @@ function renderOpponents() {
   // Position presets: 1 opp = top-center, 2 opps = top-left + top-right, 3 = spread
   // Positions as % of oval. Spread widely to avoid overlap.
   const positions = {
-    1: [{ x:50, y:25 }],
-    2: [{ x:22, y:25 }, { x:78, y:25 }],
-    3: [{ x:15, y:40 }, { x:50, y:20 }, { x:85, y:40 }],
-    4: [{ x:12, y:38 }, { x:35, y:20 }, { x:65, y:20 }, { x:88, y:38 }],
-    5: [{ x:8,  y:50 }, { x:26, y:26 }, { x:50, y:18 }, { x:74, y:26 }, { x:92, y:50 }],
+    1:  [{ x:50, y:22 }],
+    2:  [{ x:22, y:25 }, { x:78, y:25 }],
+    3:  [{ x:15, y:40 }, { x:50, y:20 }, { x:85, y:40 }],
+    4:  [{ x:12, y:38 }, { x:35, y:20 }, { x:65, y:20 }, { x:88, y:38 }],
+    5:  [{ x:8, y:50 }, { x:26, y:26 }, { x:50, y:18 }, { x:74, y:26 }, { x:92, y:50 }],
+    6:  [{ x:5, y:50 }, { x:18, y:30 }, { x:38, y:17 }, { x:62, y:17 }, { x:82, y:30 }, { x:95, y:50 }],
+    7:  [{ x:5, y:55 }, { x:12, y:36 }, { x:28, y:20 }, { x:50, y:14 }, { x:72, y:20 }, { x:88, y:36 }, { x:95, y:55 }],
+    8:  [{ x:5, y:60 }, { x:10, y:40 }, { x:22, y:24 }, { x:40, y:13 }, { x:60, y:13 }, { x:78, y:24 }, { x:90, y:40 }, { x:95, y:60 }],
+    9:  [{ x:5, y:62 }, { x:8, y:44 }, { x:17, y:27 }, { x:32, y:15 }, { x:50, y:10 }, { x:68, y:15 }, { x:83, y:27 }, { x:92, y:44 }, { x:95, y:62 }],
+    10: [{ x:5, y:65 }, { x:7, y:47 }, { x:14, y:30 }, { x:27, y:17 }, { x:44, y:10 }, { x:56, y:10 }, { x:73, y:17 }, { x:86, y:30 }, { x:93, y:47 }, { x:95, y:65 }],
+    11: [{ x:5, y:68 }, { x:6, y:50 }, { x:12, y:34 }, { x:22, y:20 }, { x:36, y:11 }, { x:50, y:8 }, { x:64, y:11 }, { x:78, y:20 }, { x:88, y:34 }, { x:94, y:50 }, { x:95, y:68 }],
+    12: [{ x:5, y:70 }, { x:5, y:54 }, { x:10, y:37 }, { x:19, y:23 }, { x:31, y:13 }, { x:46, y:7 }, { x:54, y:7 }, { x:69, y:13 }, { x:81, y:23 }, { x:90, y:37 }, { x:95, y:54 }, { x:95, y:70 }],
+    13: [{ x:3, y:72 }, { x:4, y:56 }, { x:8, y:40 }, { x:15, y:26 }, { x:26, y:15 }, { x:40, y:8 }, { x:50, y:6 }, { x:60, y:8 }, { x:74, y:15 }, { x:85, y:26 }, { x:92, y:40 }, { x:96, y:56 }, { x:97, y:72 }],
+    14: [{ x:3, y:74 }, { x:3, y:58 }, { x:7, y:43 }, { x:13, y:29 }, { x:22, y:17 }, { x:35, y:9 }, { x:47, y:5 }, { x:53, y:5 }, { x:65, y:9 }, { x:78, y:17 }, { x:87, y:29 }, { x:93, y:43 }, { x:97, y:58 }, { x:97, y:74 }],
+    15: [{ x:3, y:76 }, { x:3, y:61 }, { x:6, y:46 }, { x:11, y:32 }, { x:19, y:20 }, { x:30, y:11 }, { x:42, y:5 }, { x:50, y:4 }, { x:58, y:5 }, { x:70, y:11 }, { x:81, y:20 }, { x:89, y:32 }, { x:94, y:46 }, { x:97, y:61 }, { x:97, y:76 }],
+    16: [{ x:2, y:78 }, { x:2, y:63 }, { x:5, y:49 }, { x:9, y:35 }, { x:16, y:23 }, { x:26, y:13 }, { x:38, y:6 }, { x:50, y:3 }, { x:62, y:6 }, { x:74, y:13 }, { x:84, y:23 }, { x:91, y:35 }, { x:95, y:49 }, { x:98, y:63 }, { x:98, y:78 }, { x:50, y:4 }],
+    17: [{ x:2, y:80 }, { x:2, y:65 }, { x:4, y:51 }, { x:8, y:37 }, { x:14, y:25 }, { x:23, y:15 }, { x:34, y:7 }, { x:45, y:3 }, { x:55, y:3 }, { x:66, y:7 }, { x:77, y:15 }, { x:86, y:25 }, { x:92, y:37 }, { x:96, y:51 }, { x:98, y:65 }, { x:98, y:80 }, { x:50, y:5 }],
   };
-  const pos = positions[opps.length] || positions[Math.min(opps.length,5)];
+  // Use exact match or closest smaller preset, scaling down for very large games
+  const pos = positions[opps.length] || (function() {
+    const keys = Object.keys(positions).map(Number).sort((a,b)=>b-a);
+    const k = keys.find(k => k <= opps.length) || keys[keys.length-1];
+    return positions[k];
+  })();
   area.innerHTML = opps.map((p, i) => {
     const pidx = i + 1;
     const active = G.cur === pidx;
@@ -6445,6 +6549,7 @@ function exitToHome() {
   G.aceState = null;
   G.bet = null;
   G.sel = [];
+  _skipCount = 0;
   // Hide all modals
   ['aceModal','warModal','diceRollModal','royalRootsModal'].forEach(id => {
     const el = document.getElementById(id);
@@ -6480,11 +6585,11 @@ const SETUP = {
  
 // Mode label lookup for summaries
 const MODE_LABELS = {
-  solo: 'SOLO — FFA',
-  ffa: 'FREE FOR ALL — 1v1v1',
-  duos: 'DUOS — 2v2',
-  synergy: 'SYNERGY DUOS — 2v2',
-  roulette: 'ROYAL ROOTS ROULETTE — 2v2v2',
+  solo: 'SOLO — 1v1',
+  ffa: 'FREE FOR ALL',
+  duos: 'REGAL DUOS',
+  synergy: 'SYNERGY DUOS',
+  roulette: 'ROYAL ROOTS ROULETTE',
 };
 const STYLE_LABELS = { flush: 'HAND FLUSHER', money: 'MONEY MASTER', points: 'POINT LORD' };
  
@@ -6493,11 +6598,21 @@ function showSoloSizeSelect() {
   const picker = document.getElementById('soloSizePicker');
   if (picker) picker.style.display = 'block';
 }
+function showDuosSizeSelect() {
+  const picker = document.getElementById('duosSizePicker');
+  if (picker) picker.style.display = 'block';
+}
+function showRouletteSizeSelect() {
+  const picker = document.getElementById('rouletteSizePicker');
+  if (picker) picker.style.display = 'block';
+}
 
 function selectMode(mode, numPlayers) {
-  // Hide solo picker if open
-  const picker = document.getElementById('soloSizePicker');
-  if (picker) picker.style.display = 'none';
+  // Hide all size pickers
+  ['soloSizePicker','duosSizePicker','rouletteSizePicker'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
   SETUP.mode = mode;
   SETUP.numPlayers = numPlayers;
   // Reset styles for fresh pick
@@ -6962,12 +7077,24 @@ function _dealAddCardToHand(pidx, cardCount) {
 // =====================================================================
 
 const SEAT_POSITIONS = [
-  { x: 0.5,  y: 0.90 }, // 0 = human (bottom center)
-  { x: 0.10, y: 0.55 }, // 1 = left
-  { x: 0.25, y: 0.28 }, // 2 = top-left
-  { x: 0.5,  y: 0.20 }, // 3 = top-center
-  { x: 0.75, y: 0.28 }, // 4 = top-right
-  { x: 0.90, y: 0.55 }, // 5 = right
+  { x: 0.50, y: 0.90 }, // 0  = human
+  { x: 0.08, y: 0.55 }, // 1
+  { x: 0.18, y: 0.30 }, // 2
+  { x: 0.35, y: 0.18 }, // 3
+  { x: 0.50, y: 0.14 }, // 4
+  { x: 0.65, y: 0.18 }, // 5
+  { x: 0.82, y: 0.30 }, // 6
+  { x: 0.92, y: 0.55 }, // 7
+  { x: 0.90, y: 0.72 }, // 8
+  { x: 0.08, y: 0.72 }, // 9
+  { x: 0.50, y: 0.10 }, // 10
+  { x: 0.28, y: 0.13 }, // 11
+  { x: 0.72, y: 0.13 }, // 12
+  { x: 0.15, y: 0.45 }, // 13
+  { x: 0.85, y: 0.45 }, // 14
+  { x: 0.25, y: 0.75 }, // 15
+  { x: 0.75, y: 0.75 }, // 16
+  { x: 0.50, y: 0.78 }, // 17
 ];
 
 function getElCenter(el) {
@@ -7682,7 +7809,7 @@ function showRules() {
   const sections = [
     { h:'🎮 MATERIALS & SETUP', body:`
       <b>Deck:</b> 2 full decks (108 cards) + 4 suited Jokers (Spade, Diamond, Clover, Heart).<br>
-      <b>Players:</b> 2–6. Solo (FFA), Duos (2v2 across), Synergy Duos (2v2 next to each other), Royal Roulette (2v2v2).<br>
+      <b>Players:</b> 2–18. Solo FFA (2–6), Regal Duos (4 or 6 as 2v2 or 2v2v2), Synergy Duos (4, partners adjacent), Roulette (6–18, teams of 2).<br>
       <b>Starting hand:</b> 9 cards each. One Face Card flipped to start.<br>
       <b>Teams sit ACROSS from each other</b> (except Synergy Duos — sit next to partner).
     `},
