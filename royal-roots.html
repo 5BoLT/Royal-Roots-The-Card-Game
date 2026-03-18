@@ -246,9 +246,10 @@ button{cursor:pointer;font-family:inherit}
 .opp-meta{display:flex;gap:10px;font-size:9px;color:rgba(240,192,64,.7);font-family:monospace}
 .opp-cards{display:flex;margin-top:4px;opacity:.75}
 .opp-cards .card-back-mini{
-  width:22px;height:30px;background:linear-gradient(135deg,var(--bg2),var(--bg3));
-  border:1px solid rgba(240,192,64,.35);border-radius:3px;margin-left:-8px;
-  box-shadow:1px 1px 3px rgba(0,0,0,.4)
+  width:22px;height:30px;
+  background:#1a0a2e url('/card-back.png') center/cover no-repeat;
+  border:1px solid rgba(240,192,64,.45);border-radius:3px;margin-left:-8px;
+  box-shadow:1px 1px 3px rgba(0,0,0,.5)
 }
 .opp-cards .card-back-mini:first-child{margin-left:0}
 .opp-traps{display:flex;align-items:center;justify-content:center;gap:5px;min-height:34px;margin-top:4px;max-width:220px;flex-wrap:wrap}
@@ -260,7 +261,7 @@ button{cursor:pointer;font-family:inherit}
   color:#d6eaf8;background:rgba(52,73,94,.62);
   box-shadow:0 0 8px rgba(93,173,226,.26)
 }
-.opp-trap.facedown{background:linear-gradient(145deg,#0f1722,#1a2737);border-color:rgba(98,132,166,.65);color:rgba(190,215,238,.88)}
+.opp-trap.facedown{background:#1a0a2e url('/card-back.png') center/cover no-repeat;border-color:rgba(240,192,64,.5);color:transparent;box-shadow:0 1px 4px rgba(0,0,0,.5)}
 .opp-trap.faceup{background:rgba(93,173,226,.28);border-color:#a7d2f1;color:#f1f8ff}
 .opp-trap.trap-new{animation:trapSetPop .55s cubic-bezier(.2,.8,.2,1)}
 .opp-trap-empty{font-size:8px;color:rgba(133,193,233,.45);letter-spacing:1px}
@@ -268,6 +269,36 @@ button{cursor:pointer;font-family:inherit}
   0%{transform:translateY(-8px) scale(.6);opacity:0}
   70%{transform:translateY(1px) scale(1.08);opacity:1}
   100%{transform:translateY(0) scale(1);opacity:1}
+}
+/* Player trap bar cards */
+.player-trap-card{
+  width:36px;height:50px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid rgba(133,193,233,.6);
+  font-size:13px;line-height:1;font-family:monospace;
+  color:#d6eaf8;background:rgba(52,73,94,.7);
+  box-shadow:0 0 10px rgba(93,173,226,.3);
+  flex-shrink:0;
+}
+.player-trap-card.facedown{background:#1a0a2e url('/card-back.png') center/cover no-repeat;border-color:rgba(240,192,64,.55);color:transparent;box-shadow:0 1px 6px rgba(0,0,0,.5)}
+.player-trap-card.faceup{background:rgba(93,173,226,.32);border-color:#a7d2f1;color:#f1f8ff}
+.player-trap-card.trap-new{animation:trapSetPop .55s cubic-bezier(.2,.8,.2,1)}
+/* Trap card fly animation from hand to trap bar */
+@keyframes trapCardFly{
+  0%  {transform:translate(0,0) scale(1);opacity:1}
+  50% {transform:translate(calc(var(--tx,0px)*.55),calc(var(--ty,0px)*.55)) scale(1.2);opacity:1}
+  85% {transform:translate(calc(var(--tx,0px)*.92),calc(var(--ty,0px)*.92)) scale(1.05);opacity:1}
+  100%{transform:translate(var(--tx,0px),var(--ty,0px)) scale(0.95);opacity:0}
+}
+.trap-fly-card{
+  position:fixed;pointer-events:none;z-index:500;
+  width:36px;height:50px;border-radius:6px;
+  display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px;
+  border:2px solid rgba(240,192,64,.75);
+  font-size:10px;font-family:'Cinzel',serif;color:rgba(240,192,64,.9);
+  background:#1a0a2e url('/card-back.png') center/cover no-repeat;
+  box-shadow:0 4px 18px rgba(0,0,0,.7),0 0 12px rgba(180,120,255,.4);
+  animation:trapCardFly 0.48s cubic-bezier(.2,.8,.2,1) forwards;
 }
 
 .trap-zone-head{font-size:9px;color:rgba(174,214,241,.95);letter-spacing:1px;line-height:1.25}
@@ -282,7 +313,7 @@ button{cursor:pointer;font-family:inherit}
   font-size:8px;font-family:monospace;line-height:1;
   color:#d8ecfc;background:rgba(93,173,226,.25)
 }
-.tz-trap.facedown{background:linear-gradient(145deg,#121c29,#1e2e41);border-color:rgba(98,132,166,.7);color:rgba(190,215,238,.84)}
+.tz-trap.facedown{background:#1a0a2e url('/card-back.png') center/cover no-repeat;border-color:rgba(240,192,64,.5);color:transparent}
 .tz-trap.faceup{background:rgba(93,173,226,.32);border-color:#9ac9ea;color:#f2f8ff}
 .tz-none{font-size:8px;color:rgba(133,193,233,.5);letter-spacing:.6px}
 
@@ -295,15 +326,17 @@ button{cursor:pointer;font-family:inherit}
 .board-item{display:flex;flex-direction:column;align-items:center;gap:6px}
 .board-label{font-size:9px;color:rgba(240,192,64,.4);letter-spacing:3px;text-transform:uppercase;font-family:'Cinzel',serif}
 .draw-pile-btn{
-  width:72px;height:98px;background:var(--bg2);border-radius:10px;
-  border:4px solid var(--gold);display:flex;align-items:center;justify-content:center;
-  font-family:'Cinzel Decorative',cursive;font-size:28px;color:var(--gold);
-  cursor:pointer;transition:all .2s;box-shadow:0 4px 20px rgba(0,0,0,.5);
+  width:72px;height:98px;
+  background:#1a0a2e url('/card-back.png') center/cover no-repeat;
+  border-radius:10px;border:3px solid var(--gold);
+  display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;
+  cursor:pointer;transition:all .2s;
+  box-shadow:0 4px 20px rgba(0,0,0,.6),0 0 0 1px rgba(240,192,64,.2),inset 0 -18px 28px rgba(0,0,0,.55);
   position:relative
 }
 .draw-pile-btn::before{
-  content:'';position:absolute;inset:-6px;background:rgba(240,192,64,.08);
-  border-radius:14px;filter:blur(8px);opacity:0;transition:opacity .2s
+  content:'';position:absolute;inset:-6px;background:rgba(240,192,64,.12);
+  border-radius:14px;filter:blur(10px);opacity:0;transition:opacity .2s
 }
 .draw-pile-btn:hover::before{opacity:1}
 
@@ -365,10 +398,10 @@ button{cursor:pointer;font-family:inherit}
 
 /* ACTION LOG */
 .action-log{
-  position:fixed;bottom:clamp(8px,2vw,28px);right:clamp(6px,2vw,28px);
-  width:clamp(140px,28vw,300px);height:clamp(100px,20vh,240px);
+  position:fixed;bottom:clamp(6px,1.5vw,20px);right:clamp(5px,1.5vw,20px);
+  width:clamp(130px,24vw,260px);height:clamp(90px,17vh,200px);
   background:rgba(0,0,0,.88);backdrop-filter:blur(8px);
-  border-radius:clamp(10px,2vw,20px);
+  border-radius:clamp(8px,1.5vw,16px);
   border:1px solid rgba(240,192,64,.2);box-shadow:0 4px 20px rgba(0,0,0,.5);
   display:flex;flex-direction:column;z-index:200;
   touch-action:none;
@@ -376,30 +409,31 @@ button{cursor:pointer;font-family:inherit}
 }
 .action-log.mobile-docked{
   left:auto!important;
-  top:calc(50px + env(safe-area-inset-top))!important;
-  right:6px!important;
+  top:calc(48px + env(safe-area-inset-top))!important;
+  right:5px!important;
   bottom:auto!important;
-  width:min(52vw,260px)!important;
-  height:min(34dvh,190px)!important;
-  max-width:260px;
-  border-radius:10px;
+  width:min(46vw,210px)!important;
+  height:min(26dvh,155px)!important;
+  max-width:210px;
+  border-radius:8px;
 }
 .log-header{
-  padding:10px 16px;border-bottom:1px solid rgba(240,192,64,.1);
-  display:flex;align-items:center;justify-content:space-between
+  padding:6px 10px;border-bottom:1px solid rgba(240,192,64,.1);
+  display:flex;align-items:center;justify-content:space-between;
+  cursor:grab;user-select:none;touch-action:none
 }
-.log-title{display:flex;align-items:center;gap:8px;color:var(--gold);font-size:11px;letter-spacing:3px;text-transform:uppercase}
-.log-live{font-size:9px;border:1px solid rgba(240,192,64,.2);color:rgba(240,192,64,.4);padding:2px 8px;border-radius:10px;text-transform:uppercase}
-.log-body{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
+.log-title{display:flex;align-items:center;gap:6px;color:var(--gold);font-size:11px;letter-spacing:3px;text-transform:uppercase}
+.log-live{font-size:9px;border:1px solid rgba(240,192,64,.2);color:rgba(240,192,64,.4);padding:2px 6px;border-radius:10px;text-transform:uppercase}
+.log-body{flex:1;overflow-y:auto;padding:6px;display:flex;flex-direction:column;gap:4px}
 .log-body::-webkit-scrollbar{width:4px}
 .log-body::-webkit-scrollbar-track{background:transparent}
 .log-body::-webkit-scrollbar-thumb{background:rgba(240,192,64,.2);border-radius:2px}
-.log-entry-item{font-size:clamp(8px,1.8vw,10px);padding:clamp(4px,1vw,8px);border-radius:8px;line-height:1.5;color:rgba(240,192,64,.7)}
+.log-entry-item{font-size:clamp(8px,1.8vw,10px);padding:clamp(4px,1vw,7px);border-radius:6px;line-height:1.5;color:rgba(240,192,64,.7)}
 .log-entry-item.hi{background:rgba(240,192,64,.1);color:var(--gold);font-weight:700;border-left:2px solid var(--gold)}
 .log-entry-meta{display:flex;justify-content:space-between;font-size:8px;font-family:monospace;opacity:.4;margin-bottom:2px;text-transform:uppercase}
 .log-footer{
-  padding:clamp(4px,1vw,8px) clamp(8px,2vw,16px);background:rgba(0,0,0,.4);
-  border-radius:0 0 18px 18px;border-top:1px solid rgba(240,192,64,.1)
+  padding:clamp(3px,0.8vw,6px) clamp(6px,1.5vw,12px);background:rgba(0,0,0,.4);
+  border-radius:0 0 14px 14px;border-top:1px solid rgba(240,192,64,.1)
 }
 .log-next{font-size:9px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;display:flex;align-items:center;gap:6px}
 
@@ -716,7 +750,7 @@ button{cursor:pointer;font-family:inherit}
 }
 .trap-sapper-card:hover{border-color:#aed6f1;transform:translateY(-2px)}
 .trap-sapper-card.selected{border-color:#5dade2;box-shadow:0 0 0 1px rgba(93,173,226,.65),0 0 12px rgba(93,173,226,.28)}
-.trap-sapper-card.facedown{background:linear-gradient(145deg,#0e1622,#1b2a3b);color:#c8dbef}
+.trap-sapper-card.facedown{background:#1a0a2e url('/card-back.png') center/cover no-repeat;border-color:rgba(240,192,64,.5);color:transparent}
 .trap-sapper-card[disabled]{opacity:.4;cursor:not-allowed;transform:none}
 .trap-sapper-owner{font-size:9px;letter-spacing:1px;color:rgba(174,214,241,.75);font-family:'Cinzel',serif;text-transform:uppercase}
 
@@ -752,10 +786,11 @@ button{cursor:pointer;font-family:inherit}
 .card.free-drew{box-shadow:0 0 15px rgba(201,162,39,.6)!important;border-color:var(--gold-light)!important}
 .card-back{
   width:64px;height:90px;border-radius:9px;
-  background:linear-gradient(135deg,var(--bg2),var(--bg3));
-  border:2px solid rgba(240,192,64,.4);flex-shrink:0;position:relative
+  background:#1a0a2e url('/card-back.png') center/cover no-repeat;
+  border:2px solid rgba(240,192,64,.65);flex-shrink:0;position:relative;
+  box-shadow:0 2px 10px rgba(0,0,0,.6),0 0 0 1px rgba(240,192,64,.15)
 }
-.card-back::after{content:'';position:absolute;inset:5px;border:1px solid rgba(240,192,64,.1);border-radius:5px;opacity:.4;background:repeating-linear-gradient(45deg,transparent,transparent 4px,rgba(240,192,64,.03) 4px,rgba(240,192,64,.03) 5px)}
+.card-back::after{display:none}
 .card .corner{position:absolute;font-size:9px;font-weight:700;line-height:1.3;text-align:left}
 .card .corner.tl{top:4px;left:6px}
 .card .corner.br{bottom:4px;right:6px;transform:rotate(180deg)}
@@ -993,22 +1028,22 @@ button{cursor:pointer;font-family:inherit}
   .card-back{width:42px!important;height:58px!important}
   /* Keep action log compact and docked on phones */
   .action-log{
-    width:clamp(110px,28vw,180px);height:clamp(80px,18vh,140px);
-    bottom:6px;right:6px;border-radius:10px
+    width:clamp(100px,26vw,170px);height:clamp(70px,16vh,130px);
+    bottom:5px;right:5px;border-radius:8px
   }
   .action-log.mobile-docked{
     top:calc(42px + env(safe-area-inset-top))!important;
     right:4px!important;
-    width:min(56vw,210px)!important;
-    height:min(30dvh,150px)!important;
+    width:min(46vw,190px)!important;
+    height:min(24dvh,135px)!important;
   }
-  .log-header{padding:5px 8px}
+  .log-header{padding:4px 7px}
   .log-title{font-size:9px;letter-spacing:1px}
   .log-live{font-size:7px;padding:1px 5px}
-  .log-body{padding:4px}
-  .log-entry-item{font-size:8px;padding:4px;line-height:1.4}
+  .log-body{padding:3px}
+  .log-entry-item{font-size:8px;padding:3px;line-height:1.4}
   .log-entry-meta{font-size:7px}
-  .log-footer{padding:4px 8px}
+  .log-footer{padding:3px 7px}
   .log-next{font-size:8px}
   /* Tighter oval */
   .oval-table{aspect-ratio:3/2}
@@ -1310,7 +1345,7 @@ button{cursor:pointer;font-family:inherit}
           <div class="board-item" style="min-width:72px">
             <div class="board-label">Draw Pile</div>
             <div class="draw-pile-btn" id="drawPile" onclick="freeDraw()">
-              <span id="drawCount" style="font-size:32px">0</span>
+              <span id="drawCount" style="font-size:14px;font-family:'Cinzel',serif;font-weight:700;color:var(--gold);background:rgba(0,0,0,.65);border:1px solid rgba(240,192,64,.4);border-radius:10px;padding:1px 7px;letter-spacing:1px;text-shadow:0 1px 4px #000">0</span>
             </div>
           </div>
           <!-- FACE CARD -->
@@ -1340,7 +1375,7 @@ button{cursor:pointer;font-family:inherit}
       </div>
       <!-- resize handle -->
       <div id="logResizeHandle"
-        style="position:absolute;bottom:0;right:0;width:32px;height:32px;cursor:nwse-resize;opacity:.5;display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(240,192,64,.7);user-select:none;touch-action:none"
+        style="position:absolute;bottom:0;right:0;width:36px;height:36px;cursor:nwse-resize;opacity:.6;display:flex;align-items:center;justify-content:center;font-size:18px;color:rgba(240,192,64,.8);user-select:none;touch-action:none;-webkit-user-select:none"
       >◢</div>
     </div>
 
@@ -1571,9 +1606,12 @@ button{cursor:pointer;font-family:inherit}
     </div>
   </div>
 
+  <!-- PLAYER TRAP BAR (above footer gold line) -->
+  <div id="playerTrapBar" style="display:none;align-items:center;justify-content:center;gap:6px;padding:4px 12px;background:rgba(0,0,0,.92);border-top:1px solid rgba(133,193,233,.2);flex-wrap:wrap;position:relative;z-index:49"></div>
+
   <!-- PLAYER FOOTER -->
   <div class="player-footer">
-    <div id="playerInfoBar" style="display:flex;justify-content:space-between;align-items:center;padding:2px 12px;font-family:Cinzel,serif;font-size:10px;color:rgba(240,192,64,.8);letter-spacing:1px;border-bottom:1px solid rgba(240,192,64,.12);flex-shrink:0;line-height:1.8;position:relative;z-index:10"><span id="playerPtsBar">⭐ 0 pts</span><span id="playerChipsBar"></span></div><div id="trapZoneBar" style="padding:3px 12px;font-family:Cinzel,serif;font-size:9px;color:rgba(174,214,241,.9);letter-spacing:1px;border-bottom:1px solid rgba(133,193,233,.15);min-height:38px;line-height:1.35;white-space:normal;overflow:visible"></div><div class="player-footer-inner">
+    <div id="playerInfoBar" style="display:flex;justify-content:space-between;align-items:center;padding:2px 12px;font-family:Cinzel,serif;font-size:10px;color:rgba(240,192,64,.8);letter-spacing:1px;border-bottom:1px solid rgba(240,192,64,.12);flex-shrink:0;line-height:1.8;position:relative;z-index:10"><span id="playerPtsBar">⭐ 0 pts</span><span id="playerChipsBar"></span></div><div id="trapZoneBar" style="padding:2px 12px;font-family:Cinzel,serif;font-size:9px;color:rgba(174,214,241,.9);letter-spacing:1px;border-bottom:1px solid rgba(133,193,233,.1);line-height:1.35"></div><div class="player-footer-inner">
       <div class="player-hand-zone" id="playerHand"></div>
       <div class="controls-zone">
         <div class="combo-status" id="turnStatus">YOUR TURN ▶</div>
@@ -6431,18 +6469,27 @@ function renderTrapZoneBar() {
     const lbl = i === 0 ? 'YOU' : p.name;
     return `${lbl}:${zone.length}`;
   });
-  const strips = G.players.map((p,i) => {
-    const zone = G.traps && G.traps[i] ? G.traps[i] : [];
-    const lbl = i === 0 ? 'YOU' : p.name;
-    const cards = zone.map(t => {
-      const cls = `tz-trap ${t.faceUp ? 'faceup' : 'facedown'}`;
-      const txt = t.faceUp ? `${t.card.rank}${t.card.suit}` : '🂠';
-      const tt = t.faceUp ? `${lbl} trap ${t.card.rank}${t.card.suit}` : `${lbl} face-down trap`;
-      return `<span class="${cls}" title="${tt}">${txt}</span>`;
-    }).join('');
-    return `<div class="tz-player"><span class="tz-name">${lbl}</span><div class="tz-stack">${cards || '<span class="tz-none">NO TRAPS</span>'}</div></div>`;
+  el.innerHTML = `<span style="font-size:9px;color:rgba(174,214,241,.9);letter-spacing:1px">🎭 ${chunks.join('  |  ')}</span>`;
+  renderPlayerTrapBar();
+}
+
+function renderPlayerTrapBar() {
+  const el = document.getElementById('playerTrapBar');
+  if (!el || !G.players || !G.players.length) return;
+  const zone = G.traps && G.traps[0] ? G.traps[0] : [];
+  if (zone.length === 0) {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = 'flex';
+  const now = Date.now();
+  el.innerHTML = zone.map((t, idx) => {
+    const fresh = t.animUntil && t.animUntil > now;
+    const cls = `player-trap-card ${t.faceUp ? 'faceup' : 'facedown'}${fresh ? ' trap-new' : ''}`;
+    const txt = t.faceUp ? `${t.card.rank}${t.card.suit}` : '🂠';
+    const tt = t.faceUp ? `Your trap: ${t.card.rank}${t.card.suit}` : 'Your face-down trap';
+    return `<div class="${cls}" title="${tt}" data-idx="${idx}">${txt}</div>`;
   }).join('');
-  el.innerHTML = `<div class="trap-zone-head">🎭 TRAPS · ${chunks.join('  |  ')}</div><div class="trap-zone-cards">${strips}</div>`;
 }
 
 function setSelectedTraps(faceUp=false) {
@@ -6457,6 +6504,14 @@ function setSelectedTraps(faceUp=false) {
   if (picks.length > trapSpace) { addLog(`Only ${trapSpace} trap slot(s) left (max 5 total).`, false); return; }
   if (!picks.every(canSetTrapCard)) { addLog('Only 3, 4, 5, 6, 10, or Joker cards can be set as traps.', false); return; }
 
+  // Capture hand card positions for fly animation before removing them
+  const cardPositions = picks.map(card => {
+    const cardEl = document.querySelector(`[data-id="${card.id}"]`);
+    if (!cardEl) return null;
+    const r = cardEl.getBoundingClientRect();
+    return { x: r.left + r.width/2, y: r.top + r.height/2, txt: `${card.rank}${card.suit}` };
+  });
+
   const ids = new Set(picks.map(c => c.id));
   G.players[0].hand = G.players[0].hand.filter(c => !ids.has(c.id));
   G.sel = [];
@@ -6465,12 +6520,43 @@ function setSelectedTraps(faceUp=false) {
   picks.forEach(card => G.traps[0].push({ card, faceUp: !!faceUp, animUntil }));
   G.trapPlacedThisTurn = true;
   G.turnPhase = 'done';
+
   if (G.players[0].hand.length === 0) { checkWin(0); return; }
   const trapList = picks.map(c => `${c.rank}${c.suit}`).join(', ');
   addLog(`🎭 You set ${picks.length} trap(s) ${faceUp ? 'face-up' : 'face-down'} [${trapList}] and cannot play a face-card combo this turn. Trigger rule: Face Card same rank or ±1. Exact match takes next turn; ±1 covers face card only.`, true);
   renderGame();
   renderLog();
   updateBtns();
+
+  // Fly animation: start at hand card, land exactly on new trap card slot
+  requestAnimationFrame(() => {
+    const newSlots = document.querySelectorAll('#playerTrapBar .player-trap-card.trap-new');
+    cardPositions.forEach((pos, i) => {
+      if (!pos) return;
+      const slot = newSlots[i];
+      if (!slot) return;
+      const destR = slot.getBoundingClientRect();
+      if (!destR.width) return;
+      const destX = destR.left + destR.width / 2;
+      const destY = destR.top + destR.height / 2;
+      const tx = destX - pos.x;
+      const ty = destY - pos.y;
+      // Briefly hide the real trap card slot so it appears when fly card lands
+      slot.style.opacity = '0';
+      const revealDelay = 430 + i * 80;
+      setTimeout(() => { slot.style.opacity = ''; slot.style.transition = 'opacity 0.18s'; }, revealDelay);
+      // Create fly element starting at hand card position
+      const flyEl = document.createElement('div');
+      flyEl.className = 'trap-fly-card';
+      flyEl.style.left = `${pos.x - 18}px`;
+      flyEl.style.top  = `${pos.y - 25}px`;
+      flyEl.style.setProperty('--tx', `${tx}px`);
+      flyEl.style.setProperty('--ty', `${ty}px`);
+      flyEl.style.animationDelay = `${i * 80}ms`;
+      document.body.appendChild(flyEl);
+      setTimeout(() => flyEl.remove(), 600 + i * 80);
+    });
+  });
 }
 
 function aiSetTraps(pidx) {
@@ -7977,16 +8063,14 @@ function renderOpponents() {
       const tt = t.faceUp ? `Trap ${t.card.rank}${t.card.suit}` : 'Face-down trap';
       return `<div class="${cls}" title="${tt}">${txt}</div>`;
     }).join('');
-    const chipsStr = (G.styles&&G.styles.money&&G.chips) ? ` · ${G.chips[pidx]||0}💰` : '';
-    const winsStr = G.wins ? ` · ${G.wins[pidx]||0}W` : '';
+    const trapCount = trapZone.length;
     return `<div class="opponent-seat${active?' active':''}" style="left:${pPos.x}%;top:${pPos.y}%;transform:translate(-50%,-50%)">
       <div class="opponent-avatar">${p.emoji}</div>
       <div class="opponent-label">
         <span class="opp-name">${p.name}${p.isPartner?' 🤝':''}</span>
-        <div class="opp-meta"><span>${p.hand.length} CARDS</span><span>${G.pts[pidx]||0}PTS${winsStr}${chipsStr}</span></div>
+        <div class="opp-meta"><span>${trapCount} TRAP${trapCount!==1?'S':''}</span></div>
       </div>
       <div class="opp-cards">${backs}</div>
-      <div class="opp-traps">${trapHtml || '<span class="opp-trap-empty">NO TRAPS</span>'}</div>
     </div>`;
   }).join('');
 }
@@ -9017,18 +9101,16 @@ function _applyActionLogResponsiveState() {
   if (!log) return;
   const mobileLike = _isTouchMobileLike();
   log.classList.toggle('mobile-docked', mobileLike);
-  if (mobileLike) {
-    log.dataset.mobileLocked = '1';
-    if (handle) handle.style.cursor = 'default';
-    if (resH) resH.style.display = 'none';
+  // Always allow drag and resize — mobileLocked removed
+  log.dataset.mobileLocked = '0';
+  if (handle) handle.style.cursor = 'grab';
+  if (resH && log.dataset.minimized !== '1') resH.style.display = '';
+  if (mobileLike && !log._userMoved) {
+    // Set default docked position only if user hasn't dragged it yet
     log.style.left = 'auto';
-    log.style.top = 'calc(50px + env(safe-area-inset-top))';
-    log.style.right = '6px';
+    log.style.top = 'calc(48px + env(safe-area-inset-top))';
+    log.style.right = '5px';
     log.style.bottom = 'auto';
-  } else {
-    log.dataset.mobileLocked = '0';
-    if (handle) handle.style.cursor = 'grab';
-    if (resH && log.dataset.minimized !== '1') resH.style.display = '';
   }
   _clampActionLogToViewport();
 }
@@ -9063,7 +9145,6 @@ function initActionLog() {
   handle.style.cursor = 'grab';
 
   handle.addEventListener('pointerdown', e => {
-    if (log.dataset.mobileLocked === '1') return;
     if (dragId !== -1) return;
     e.preventDefault(); e.stopPropagation();
     dragId = e.pointerId;
@@ -9090,6 +9171,7 @@ function initActionLog() {
     const maxT = window.innerHeight - log.offsetHeight;
     log.style.left = Math.max(0, Math.min(maxL, newL)) + 'px';
     log.style.top  = Math.max(0, Math.min(maxT, newT)) + 'px';
+    log._userMoved = true;
   });
 
   const stopDrag = e => { if (e.pointerId === dragId) { dragId = -1; handle.style.cursor = 'grab'; } };
@@ -9106,7 +9188,6 @@ function initActionLog() {
     resH.textContent = '◢'; // Clearer resize icon
 
     resH.addEventListener('pointerdown', e => {
-      if (log.dataset.mobileLocked === '1') return;
       if (resId !== -1) return;
       e.preventDefault(); e.stopPropagation();
       resId = e.pointerId;
@@ -9117,10 +9198,9 @@ function initActionLog() {
 
     resH.addEventListener('pointermove', e => {
       if (e.pointerId !== resId) return;
-      if (log.dataset.mobileLocked === '1') return;
       e.preventDefault();
-      log.style.width  = Math.max(160, resStartW + (e.clientX - resStartX)) + 'px';
-      log.style.height = Math.max(90,  resStartH + (e.clientY - resStartY)) + 'px';
+      log.style.width  = Math.max(140, resStartW + (e.clientX - resStartX)) + 'px';
+      log.style.height = Math.max(70,  resStartH + (e.clientY - resStartY)) + 'px';
     });
 
     const stopRes = e => { if (e.pointerId === resId) resId = -1; };
@@ -9148,7 +9228,7 @@ function toggleLogMinimize() {
     log.dataset.minimized = '0';
     if (body)   { body.style.display = ''; }
     if (footer) { footer.style.display = ''; }
-    if (resH)   { resH.style.display = log.dataset.mobileLocked === '1' ? 'none' : ''; }
+    if (resH)   { resH.style.display = ''; }
     log.style.height = log._savedH || '';
     if (btn) { btn.textContent = '—'; btn.title = 'Minimize'; }
   } else {
