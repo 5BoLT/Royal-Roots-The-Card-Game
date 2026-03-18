@@ -15,6 +15,9 @@
   --green:#27ae60; --purple:#9b59b6;
   --card-bg:#1e1e1e; --card-border:#444;
   --modal-bg:#1a052a; --modal-border:#F0C040;
+  /* Regal card back: royal purple + gold RR/crown (draw pile & face-down traps) */
+  --regal-purple:#2d1b4e;
+  --card-back-bg:var(--regal-purple) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 168'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23d4af37'/%3E%3Cstop offset='100%25' style='stop-color:%238b6914'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='168' rx='10' ry='10' fill='%232d1b4e' stroke='url(%23g)' stroke-width='3'/%3E%3Cpath fill='url(%23g)' d='M60 28 L52 48 L60 44 L68 48 Z' opacity='.95'/%3E%3Ctext x='60' y='98' text-anchor='middle' fill='url(%23g)' font-family='Cinzel,serif' font-size='32' font-weight='700'%3ERR%3C/text%3E%3Cpath fill='none' stroke='url(%23g)' stroke-width='1.2' opacity='.6' d='M24 50 Q60 45 96 50 M24 118 Q60 123 96 118 M50 24 Q55 84 50 144 M70 24 Q65 84 70 144'/%3E%3C/svg%3E") center/cover no-repeat;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Cinzel',serif;overflow:hidden}
 button{cursor:pointer;font-family:inherit}
@@ -247,7 +250,7 @@ button{cursor:pointer;font-family:inherit}
 .opp-cards{display:flex;margin-top:4px;opacity:.75}
 .opp-cards .card-back-mini{
   width:22px;height:30px;
-  background:#1a0a2e url('/card-back.png') center/cover no-repeat;
+  background:var(--card-back-bg);
   border:1px solid rgba(240,192,64,.45);border-radius:3px;margin-left:-8px;
   box-shadow:1px 1px 3px rgba(0,0,0,.5)
 }
@@ -261,7 +264,7 @@ button{cursor:pointer;font-family:inherit}
   color:#d6eaf8;background:rgba(52,73,94,.62);
   box-shadow:0 0 8px rgba(93,173,226,.26)
 }
-.opp-trap.facedown{background:#1a0a2e url('/card-back.png') center/cover no-repeat;border-color:rgba(240,192,64,.5);color:transparent;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.opp-trap.facedown{background:var(--card-back-bg);border-color:rgba(240,192,64,.5);color:transparent;box-shadow:0 1px 4px rgba(0,0,0,.5)}
 .opp-trap.faceup{background:rgba(93,173,226,.28);border-color:#a7d2f1;color:#f1f8ff}
 .opp-trap.trap-new{animation:trapSetPop .55s cubic-bezier(.2,.8,.2,1)}
 .opp-trap-empty{font-size:8px;color:rgba(133,193,233,.45);letter-spacing:1px}
@@ -280,15 +283,14 @@ button{cursor:pointer;font-family:inherit}
   box-shadow:0 0 10px rgba(93,173,226,.3);
   flex-shrink:0;
 }
-.player-trap-card.facedown{background:#1a0a2e url('/card-back.png') center/cover no-repeat;border-color:rgba(240,192,64,.55);color:transparent;box-shadow:0 1px 6px rgba(0,0,0,.5)}
+.player-trap-card.facedown{background:var(--card-back-bg);border-color:rgba(240,192,64,.55);color:transparent;box-shadow:0 1px 6px rgba(0,0,0,.5)}
 .player-trap-card.faceup{background:rgba(93,173,226,.32);border-color:#a7d2f1;color:#f1f8ff}
 .player-trap-card.trap-new{animation:trapSetPop .55s cubic-bezier(.2,.8,.2,1)}
-/* Trap card fly animation from hand to trap bar */
+/* Trap card fly: hand → trap bar slot (direct path, lands exactly on slot) */
 @keyframes trapCardFly{
-  0%  {transform:translate(0,0) scale(1);opacity:1}
-  50% {transform:translate(calc(var(--tx,0px)*.55),calc(var(--ty,0px)*.55)) scale(1.2);opacity:1}
-  85% {transform:translate(calc(var(--tx,0px)*.92),calc(var(--ty,0px)*.92)) scale(1.05);opacity:1}
-  100%{transform:translate(var(--tx,0px),var(--ty,0px)) scale(0.95);opacity:0}
+  0%   {transform:translate(0,0) scale(1);opacity:1}
+  90%  {transform:translate(var(--tx,0px),var(--ty,0px)) scale(1);opacity:1}
+  100% {transform:translate(var(--tx,0px),var(--ty,0px)) scale(0.98);opacity:0}
 }
 .trap-fly-card{
   position:fixed;pointer-events:none;z-index:500;
@@ -296,9 +298,9 @@ button{cursor:pointer;font-family:inherit}
   display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px;
   border:2px solid rgba(240,192,64,.75);
   font-size:10px;font-family:'Cinzel',serif;color:rgba(240,192,64,.9);
-  background:#1a0a2e url('/card-back.png') center/cover no-repeat;
+  background:var(--card-back-bg);
   box-shadow:0 4px 18px rgba(0,0,0,.7),0 0 12px rgba(180,120,255,.4);
-  animation:trapCardFly 0.48s cubic-bezier(.2,.8,.2,1) forwards;
+  animation:trapCardFly 0.5s cubic-bezier(0.25,0.1,0.25,1) forwards;
 }
 
 .trap-zone-head{font-size:9px;color:rgba(174,214,241,.95);letter-spacing:1px;line-height:1.25}
@@ -313,7 +315,7 @@ button{cursor:pointer;font-family:inherit}
   font-size:8px;font-family:monospace;line-height:1;
   color:#d8ecfc;background:rgba(93,173,226,.25)
 }
-.tz-trap.facedown{background:#1a0a2e url('/card-back.png') center/cover no-repeat;border-color:rgba(240,192,64,.5);color:transparent}
+.tz-trap.facedown{background:var(--card-back-bg);border-color:rgba(240,192,64,.5);color:transparent}
 .tz-trap.faceup{background:rgba(93,173,226,.32);border-color:#9ac9ea;color:#f2f8ff}
 .tz-none{font-size:8px;color:rgba(133,193,233,.5);letter-spacing:.6px}
 
@@ -327,7 +329,7 @@ button{cursor:pointer;font-family:inherit}
 .board-label{font-size:9px;color:rgba(240,192,64,.4);letter-spacing:3px;text-transform:uppercase;font-family:'Cinzel',serif}
 .draw-pile-btn{
   width:72px;height:98px;
-  background:#1a0a2e url('/card-back.png') center/cover no-repeat;
+  background:var(--card-back-bg);
   border-radius:10px;border:3px solid var(--gold);
   display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;
   cursor:pointer;transition:all .2s;
@@ -396,31 +398,33 @@ button{cursor:pointer;font-family:inherit}
 }
 @keyframes pulse{0%,100%{opacity:1;transform:translateX(-50%) scale(1)}50%{opacity:.7;transform:translateX(-50%) scale(1.1)}}
 
-/* ACTION LOG */
+/* ACTION LOG — slightly smaller overall, same font; draggable, minimizable, resize on mobile */
 .action-log{
   position:fixed;bottom:clamp(6px,1.5vw,20px);right:clamp(5px,1.5vw,20px);
-  width:clamp(130px,24vw,260px);height:clamp(90px,17vh,200px);
+  width:clamp(115px,21vw,230px);height:clamp(82px,15vh,175px);
   background:rgba(0,0,0,.88);backdrop-filter:blur(8px);
   border-radius:clamp(8px,1.5vw,16px);
   border:1px solid rgba(240,192,64,.2);box-shadow:0 4px 20px rgba(0,0,0,.5);
   display:flex;flex-direction:column;z-index:200;
-  touch-action:none;
-  pointer-events:auto
+  touch-action:none;pointer-events:auto;
+  overflow:visible
 }
+/* Mobile: start above Chips/pot bar, below table (Solenne) — draggable/minimize/resize work on touch */
 .action-log.mobile-docked{
   left:auto!important;
-  top:calc(48px + env(safe-area-inset-top))!important;
-  right:5px!important;
-  bottom:auto!important;
-  width:min(46vw,210px)!important;
-  height:min(26dvh,155px)!important;
-  max-width:210px;
+  top:auto!important;
+  right:8px!important;
+  bottom:clamp(200px,28vh,320px)!important;
+  width:min(42vw,195px)!important;
+  height:min(24dvh,140px)!important;
+  max-width:195px;
   border-radius:8px;
 }
 .log-header{
   padding:6px 10px;border-bottom:1px solid rgba(240,192,64,.1);
   display:flex;align-items:center;justify-content:space-between;
-  cursor:grab;user-select:none;touch-action:none
+  cursor:grab;user-select:none;touch-action:none;-webkit-user-select:none;
+  min-height:28px
 }
 .log-title{display:flex;align-items:center;gap:6px;color:var(--gold);font-size:11px;letter-spacing:3px;text-transform:uppercase}
 .log-live{font-size:9px;border:1px solid rgba(240,192,64,.2);color:rgba(240,192,64,.4);padding:2px 6px;border-radius:10px;text-transform:uppercase}
@@ -750,7 +754,7 @@ button{cursor:pointer;font-family:inherit}
 }
 .trap-sapper-card:hover{border-color:#aed6f1;transform:translateY(-2px)}
 .trap-sapper-card.selected{border-color:#5dade2;box-shadow:0 0 0 1px rgba(93,173,226,.65),0 0 12px rgba(93,173,226,.28)}
-.trap-sapper-card.facedown{background:#1a0a2e url('/card-back.png') center/cover no-repeat;border-color:rgba(240,192,64,.5);color:transparent}
+.trap-sapper-card.facedown{background:var(--card-back-bg);border-color:rgba(240,192,64,.5);color:transparent}
 .trap-sapper-card[disabled]{opacity:.4;cursor:not-allowed;transform:none}
 .trap-sapper-owner{font-size:9px;letter-spacing:1px;color:rgba(174,214,241,.75);font-family:'Cinzel',serif;text-transform:uppercase}
 
@@ -781,12 +785,12 @@ button{cursor:pointer;font-family:inherit}
 .card.playable{cursor:pointer;border-color:rgba(240,192,64,.5)}
 .card.playable:hover{border-color:var(--gold);transform:translateY(-6px)}
 .card.unplayable{opacity:.3;filter:grayscale(.8);transform:scale(.94);cursor:not-allowed}
-.card.trap-card{box-shadow:0 0 0 1px rgba(133,193,233,.85),0 0 12px rgba(133,193,233,.32),0 4px 14px rgba(0,0,0,.8)}
+.card.trap-card{border:2px solid rgba(133,193,233,.85)!important;box-shadow:0 2px 8px rgba(0,0,0,.5)}
 .card.trap-card.unplayable{opacity:.62;filter:grayscale(.2)}
 .card.free-drew{box-shadow:0 0 15px rgba(201,162,39,.6)!important;border-color:var(--gold-light)!important}
 .card-back{
   width:64px;height:90px;border-radius:9px;
-  background:#1a0a2e url('/card-back.png') center/cover no-repeat;
+  background:var(--card-back-bg);
   border:2px solid rgba(240,192,64,.65);flex-shrink:0;position:relative;
   box-shadow:0 2px 10px rgba(0,0,0,.6),0 0 0 1px rgba(240,192,64,.15)
 }
@@ -1026,25 +1030,27 @@ button{cursor:pointer;font-family:inherit}
   .player-hand-zone{max-height:calc(40vh - 72px)}
   .card{width:42px!important;height:58px!important}
   .card-back{width:42px!important;height:58px!important}
-  /* Keep action log compact and docked on phones */
+  /* Keep action log compact and docked on phones; same font size as desktop */
   .action-log{
-    width:clamp(100px,26vw,170px);height:clamp(70px,16vh,130px);
+    width:clamp(100px,24vw,165px);height:clamp(68px,15vh,125px);
     bottom:5px;right:5px;border-radius:8px
   }
   .action-log.mobile-docked{
-    top:calc(42px + env(safe-area-inset-top))!important;
-    right:4px!important;
-    width:min(46vw,190px)!important;
-    height:min(24dvh,135px)!important;
+    top:auto!important;
+    bottom:clamp(200px,28vh,320px)!important;
+    right:8px!important;
+    width:min(42vw,185px)!important;
+    height:min(22dvh,128px)!important;
   }
-  .log-header{padding:4px 7px}
-  .log-title{font-size:9px;letter-spacing:1px}
-  .log-live{font-size:7px;padding:1px 5px}
-  .log-body{padding:3px}
-  .log-entry-item{font-size:8px;padding:3px;line-height:1.4}
-  .log-entry-meta{font-size:7px}
+  #logResizeHandle{width:44px;height:44px;min-width:44px;min-height:44px;font-size:22px}
+  .log-header{padding:4px 8px}
+  .log-title{font-size:10px;letter-spacing:1px}
+  .log-live{font-size:8px;padding:1px 5px}
+  .log-body{padding:4px}
+  .log-entry-item{font-size:clamp(8px,1.8vw,10px);padding:3px;line-height:1.4}
+  .log-entry-meta{font-size:8px}
   .log-footer{padding:3px 7px}
-  .log-next{font-size:8px}
+  .log-next{font-size:9px}
   /* Tighter oval */
   .oval-table{aspect-ratio:3/2}
   /* Game header: hide badge */
@@ -1090,7 +1096,7 @@ button{cursor:pointer;font-family:inherit}
 @media(min-width:1200px){
   .card{width:64px;height:90px}
   .player-footer{padding:24px 32px}
-  .action-log{width:300px;height:240px;position:fixed}
+  .action-log{width:260px;height:200px;position:fixed}
 }
 </style>
 </head>
@@ -1373,9 +1379,10 @@ button{cursor:pointer;font-family:inherit}
       <div class="log-footer">
         <div class="log-next" id="logNext">⏩ Waiting...</div>
       </div>
-      <!-- resize handle -->
+      <!-- resize handle (crop/resize corner — visible and tappable on mobile) -->
       <div id="logResizeHandle"
-        style="position:absolute;bottom:0;right:0;width:36px;height:36px;cursor:nwse-resize;opacity:.6;display:flex;align-items:center;justify-content:center;font-size:18px;color:rgba(240,192,64,.8);user-select:none;touch-action:none;-webkit-user-select:none"
+        style="position:absolute;bottom:0;right:0;width:40px;height:40px;cursor:nwse-resize;opacity:.85;display:flex;align-items:flex-end;justify-content:flex-end;padding:0 2px 2px 0;font-size:20px;color:rgba(240,192,64,.9);user-select:none;touch-action:none;-webkit-user-select:none;z-index:10;border-radius:0 0 8px 0"
+        title="Resize log"
       >◢</div>
     </div>
 
@@ -2091,6 +2098,7 @@ function checkSpecialHandWin(pidx, source = '') {
   if (isOverpassHand(hand)) {
     G.pts[pidx] = (G.pts[pidx] || 0) + 1000;
     addLog(`🚀 OVERPASS! ${player.name} reveals 2-10 via ${sourceLabel} and wins instantly (+1000pts + match).`, true);
+    if (COMBO_EFFECT_DESC && COMBO_EFFECT_DESC.overpass) addLog(`   → ${COMBO_EFFECT_DESC.overpass}`, false);
     if (pidx === 0) floatPts('+1000 OVERPASS!', 'LEGENDARY');
     endMatch(pidx);
     return true;
@@ -2200,7 +2208,7 @@ function tryStraight(cards) {
       return { valid:false, reason:'Aces in straights only work in A-2-3-4-5 or 10-J-Q-K-A' };
     }
     const W = jokers.length > 0 ? ' 🃏' : '';
-    let result = R(`Straight (5)${W}`, 25, 'COMMON', 'straight');
+    let result = R(`Straight (5)${W}`, 45, 'COMMON', 'straight');
     if (jokers.length > 0) result.pts += 10;
     return result;
   }
@@ -2226,16 +2234,16 @@ function tryStraight(cards) {
     const runMin = vals[0], runMax = vals[vals.length-1];
     const adjacent = fcVal === runMin - 1 || fcVal === runMax + 1;
     if (!adjacent) return { valid:false, reason:'4-card straight must connect to the face card' };
-    return { ...R('Straight (4) ⚠️', 20, 'COMMON', 'straight'), faceCardPenalty:true };
+    return { ...R('Straight (4) ⚠️', 45, 'COMMON', 'straight'), faceCardPenalty:true }; // -5 in core → 40
   }
 
-  const basePts = 25;
-  const ext = n > 5 ? (n - 5) * 5 : 0; // +5 per extension card
+  const basePts = 45; // 45 base, +5 per card extension (6 card +5, 7 card +10, etc.)
+  const ext = n > 5 ? (n - 5) * 5 : 0;
   const W = jokers.length > 0 ? ' 🃏' : '';
   const sevenPlus = n >= 7;
   let result = R(`Straight (${n})${W}`, basePts+ext, 'COMMON', 'straight');
   if (jokers.length > 0) result.pts += 10; // Joker extension bonus
-  if (sevenPlus) result.sevenPlus = true; // 7+ triggers draw 3 for all players
+  if (sevenPlus) result.sevenPlus = true; // 7+ all opponents draw 3
   return result;
 }
  
@@ -2255,16 +2263,16 @@ function tryFlush(cards) {
     if (jokers.length > 0) return { valid:false, reason:'Jokers cannot fill a 4-card flush' };
     const fc = G.faceCard;
     if (!fc || fc.suit !== suit) return { valid:false, reason:'4-card flush must connect to the face card suit' };
-    return { ...R('Flush (4) ⚠️', 25, 'COMMON', 'flush'), faceCardPenalty:true };
+    return { ...R('Flush (4) ⚠️', 55, 'COMMON', 'flush'), faceCardPenalty:true }; // -5 in core → 50
   }
 
-  const basePts = 30;
-  const ext = n > 5 ? (n - 5) * 5 : 0; // +5 per extension card
+  const basePts = 55; // 55 base, +5 per card extension (6 card +5, 7 card +10, etc.)
+  const ext = n > 5 ? (n - 5) * 5 : 0;
   const W = jokers.length > 0 ? ' 🃏' : '';
   const sevenPlus = n >= 7;
   let result = R(`Flush (${n})${W}`, basePts+ext, 'COMMON', 'flush');
   if (jokers.length > 0) result.pts += 10; // Joker extension bonus
-  if (sevenPlus) result.sevenPlus = true; // 7+ triggers flush 2 cards (solo) or partner flushes 2
+  if (sevenPlus) result.sevenPlus = true; // 7+ flush 2 cards (solo) or partner flushes 2
   result.cardCount = n;
   return result;
 }
@@ -2284,7 +2292,7 @@ function tryStraightFlush(cards) {
       return { valid:false, reason:'Aces in straight flushes only work in A-2-3-4-5 or 10-J-Q-K-A' };
     }
     const W = jokers.length > 0 ? ' 🃏' : '';
-    let result = R(`Straight Flush (5)${W}`, 70, 'EPIC', 'straight_flush');
+    let result = R(`Straight Flush (5)${W}`, 75, 'EPIC', 'straight_flush');
     if (jokers.length > 0) result.pts += 10;
     return result;
   }
@@ -2304,11 +2312,11 @@ function tryStraightFlush(cards) {
   if (gaps > jokers.length) return { valid:false };
  
   const W = jokers.length > 0 ? ' 🃏' : '';
-  const basePts = 70;
-  const ext = n > 5 ? (n - 5) * 10 : 0; // +10 per extension card
+  const basePts = 75; // 75 base, +10 per card extension (6 card +10, 7 card +20, etc.)
+  const ext = n > 5 ? (n - 5) * 10 : 0;
   let result = R(`Straight Flush (${n})${W}`, basePts+ext, 'EPIC', 'straight_flush');
   if (jokers.length > 0) result.pts += 10; // Joker extension bonus
-  if (n >= 7) result.sevenPlus = true;
+  if (n >= 7) result.sevenPlus = true; // 7+ flush 3 and enemies draw 3
   return result;
 }
  
@@ -2385,7 +2393,7 @@ function tryEvenSteven(cards) {
   const missing = [...evens].filter(r => !covered.has(r));
   if (missing.length > jokers.length) return { valid:false };
   const W = jokers.length > 0 ? ' 🃏' : '';
-  return R('Even Steven (2-4-6-8-10)'+W, 60, 'RARE', 'even_steven');
+  return R('Even Steven (2-4-6-8-10)'+W, 80, 'RARE', 'even_steven');
 }
  
 // ── CASCADE HOUSE: 44499 or 44999 ───────────────────────────────────
@@ -2405,7 +2413,7 @@ function tryCascadeHouse(cards) {
     const cnts  = entries.map(e=>e[1]).sort((a,b)=>a-b);
     if (!ranks.includes('4')||!ranks.includes('9')) return { valid:false };
     if (JSON.stringify(cnts)!=='[2,3]') return { valid:false };
-    return R('Cascade House (4s & 9s)', 100, 'RARE', 'cascade_house');
+    return R('Cascade House (4s & 9s)', 120, 'RARE', 'cascade_house');
   }
   // With jokers: nonJ must all be 4s or 9s, fill to make [2,3] pattern
   if (!nonJ.every(c=>c.rank==='4'||c.rank==='9')) return { valid:false };
@@ -2416,7 +2424,7 @@ function tryCascadeHouse(cards) {
   for (let j4=0;j4<=jN;j4++){
     const j9=jN-j4;
     const t4=c4+j4, t9=c9+j9;
-    if((t4===2&&t9===3)||(t4===3&&t9===2)) return R('Cascade House 🃏', 100, 'RARE', 'cascade_house');
+    if((t4===2&&t9===3)||(t4===3&&t9===2)) return R('Cascade House 🃏', 120, 'RARE', 'cascade_house');
   }
   return { valid:false };
 }
@@ -2429,7 +2437,7 @@ function tryRoots(cards) {
   const hasK   = cards.some(c=>c.rank==='K');
   const hasA   = cards.some(c=>c.rank==='A');
   const hasJKR = cards.some(c=>c.rank==='JKR');
-  if (hasJ&&hasQ&&hasK&&hasA&&hasJKR) return R('Roots (J-Q-K-A-Joker)', 85, 'EPIC', 'roots');
+  if (hasJ&&hasQ&&hasK&&hasA&&hasJKR) return R('Roots (J-Q-K-A-Joker)', 100, 'EPIC', 'roots');
   return { valid:false };
 }
  
@@ -2486,6 +2494,28 @@ function tryRoyalDeadMan(cards) {
 }
  
 function getComboPoints(cards) { return evalCombo(cards).pts || 0; }
+
+// Combo effect descriptions for Action Log (name + info when triggered)
+const COMBO_EFFECT_DESC = {
+  even_steven: 'Even Steven (2-4-6-8-10): Flush 2, pick 2 from discard, teammate plays any 2',
+  roots: 'Roots (J-Q-K-A-Joker): Pick 2 enemies — they draw 4, others draw 2',
+  cascade_house: 'Cascade House (44499/44999): Switch hands with an enemy; they draw 4 after',
+  royal_five: 'Royal Five (5-of-a-kind): Banish enemy 2,3,J,Q,K,A,Joker to discard; 3oaK skill',
+  joker_house: 'Joker House (3J+2Joker): Enemies draw 2, dismiss 4, both Joker effects cascade',
+  royal_flush: 'Royal Flush: Flush 4 cards (can flush hand clean)',
+  royal_joker_house: 'Royal Joker House (2J+3Joker): Enemies draw 2, dismiss 4, 3 Joker effects, skip 2',
+  dead_mans_hand: 'Dead Man\'s Hand: Auto-match win. Enemies +1 card next match',
+  calamity_mary_jane: 'Calamity Mary Jane: Auto-match win. Enemies +1 card next match',
+  royal_roots: 'Royal Roots (in suit): Auto-match win. Winner starts with 3 flushed next match',
+  joker_cascade: 'Joker Cascade (4 Jokers): Auto-match win (2 match wins)',
+  royal_six: 'Royal Six: Auto-match win (2 wins). Winner/teammate start with 6 cards',
+  royal_dead_man: 'Royal Dead Man: Auto-match win. You 6 cards, enemies +2 next match',
+  bloody_mary_jane: 'Bloody Mary Jane: Auto-match win. You 6 cards, enemies +2 next match',
+  royal_seven: 'Royal Seven: Auto-match win (4 match wins)',
+  royal_eight: 'Royal Eight: Auto-match win (10 match wins)',
+  royal_jacksons: 'Royal Jacksons (4J+4Joker): Auto-match win (20 match wins)',
+  overpass: 'The Overpass (2-10): Auto-match win. +2 Dice Rolls next match',
+};
  
 // ========== EFFECTS ==========
 // Called after a valid combo is played. Uses ev.effect to route.
@@ -2688,7 +2718,7 @@ function applyEffect(ev, cards, pidx) {
     return;
   }
   if (eff === 'roots') {
-    addLog('🌱 Roots! Pick 2 enemies — 2 random cards taken from each, they draw 2!', true);
+    addLog('🌱 Roots! Pick 2 enemies — they draw 4 each; all other enemies draw 2!', true);
     if (pidx === 0) openRootsModal(false);
     else aiRootsEffect(pidx);
     return;
@@ -2793,28 +2823,37 @@ function applyEffect(ev, cards, pidx) {
   }
   if (eff === 'straight_flush') {
     const isSevenPlus = ev.sevenPlus || cards.length >= 7;
-    const drawCount = isSevenPlus ? 3 : 2;
-    // All others draw 2 (or 3 at 7+)
-    G.players.forEach((_,i) => { if (i !== pidx) forceDraw(i, drawCount); });
-    addLog('💥 Straight Flush! Everyone draws ' + drawCount + '!', true);
-    // Partner + self flush: normal = 2 partner / 1 self; 7+ = 3 total
-    if (G.mode === 'duos' && G.players[0].partnerIdx !== undefined) {
-      const partner = G.players[G.players[0].partnerIdx];
-      const toFlush = Math.min(isSevenPlus ? 3 : 2, partner.hand.length);
-      if (toFlush > 0) {
-        partner.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
-        G.discard.push(...partner.hand.splice(0, toFlush));
-        addLog('Partner flushes ' + toFlush + ' card(s)!', false);
-      }
+    // All others draw 2; at 7+ enemies draw 3. You and teammate flush 2 (or 3 at 7+).
+    const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+    const partnerIdx = G.players[pidx].partnerIdx;
+    const enemyDraw = isSevenPlus ? 3 : 2;
+    G.players.forEach((_,i) => {
+      if (i === pidx) return;
+      if (isTeam && i === partnerIdx) return; // partner doesn't draw
+      forceDraw(i, enemyDraw);
+    });
+    addLog('💥 Straight Flush! ' + (isSevenPlus ? '7+ — Enemies draw 3!' : 'All others draw 2!') + ' You & partner flush ' + (isSevenPlus ? 3 : 2) + '!', true);
+    const flushCount = isSevenPlus ? 3 : 2; // you and teammate each flush 2, or 3 at 7+
+    if (pidx === 0) {
+      G._flushHasPartner = isTeam && partnerIdx != null;
+      G._flushPartnerCount = flushCount;
+      openSFFlushModal(Math.min(flushCount, G.players[0].hand.length));
     } else {
-      // Solo: player flushes 1 (or 3 at 7+)
-      const flushCount = isSevenPlus ? 3 : 1;
-      if (pidx === 0) openSFFlushModal(flushCount);
-      else if (G.players[pidx].hand.length >= flushCount) {
-        const h = G.players[pidx].hand;
+      const h = G.players[pidx].hand;
+      const toFlush = Math.min(flushCount, h.length);
+      if (toFlush > 0) {
         h.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
-        G.discard.push(...h.splice(0, flushCount));
-        addLog(G.players[pidx].name + ' flushes ' + flushCount + ' card(s)!', false);
+        G.discard.push(...h.splice(0, toFlush));
+        addLog(G.players[pidx].name + ' flushes ' + toFlush + ' card(s)!', false);
+      }
+      if (isTeam && partnerIdx != null) {
+        const ph = G.players[partnerIdx].hand;
+        const pFlush = Math.min(flushCount, ph.length);
+        if (pFlush > 0) {
+          ph.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+          G.discard.push(...ph.splice(0, pFlush));
+          addLog(G.players[partnerIdx].name + ' (partner) flushes ' + pFlush + '!', false);
+        }
       }
     }
     _queueJokersFromCards(cards, pidx);
@@ -2859,42 +2898,23 @@ function applyEffect(ev, cards, pidx) {
  
   // ── FULL HOUSE ──
   if (eff === 'full_house') {
-    addLog('🏠 Full House! House Party! Give 2 cards, take 2 random, they draw 2!', true);
+    addLog('🏠 Full House! House Party! Give 2 cards away — whoever receives a card draws 2.', true);
     if (pidx === 0) {
       openFullHouseModal();
     } else {
-      // AI: give 1 lowest card each to up to 2 opponents (non-deterministic picks)
+      // AI: give 2 cards away; each recipient draws 2 per card received
       const me = G.players[pidx];
       me.hand.sort((a,b) => (RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
-      const opponents = G.players.map((_,i)=>i).filter(i=>i!==pidx);
-      const pool = [...opponents];
-      const targets = [];
-      for (let pick = 0; pick < 2; pick++) {
-        if (pool.length > 0) {
-          const r = Math.floor(Math.random() * pool.length);
-          targets.push(pool.splice(r, 1)[0]);
-        } else if (opponents.length > 0) {
-          targets.push(opponents[Math.floor(Math.random() * opponents.length)]);
-        }
-      }
-      const targetsSeen = new Set();
-      targets.forEach((tIdx, round) => {
-        if (me.hand.length === 0) return;
+      const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+      const partnerIdx = me.partnerIdx;
+      const opponents = G.players.map((_,i)=>i).filter(i=>i!==pidx && (!isTeam || i!==partnerIdx));
+      for (let pick = 0; pick < 2 && me.hand.length > 0; pick++) {
+        const tIdx = opponents[Math.floor(Math.random() * opponents.length)];
         const card = me.hand.shift();
         G.players[tIdx].hand.push(card);
         addLog(`${me.name} gives ${card.rank}${card.suit} to ${G.players[tIdx].name}!`, false);
-        if (!targetsSeen.has(tIdx)) {
-          targetsSeen.add(tIdx);
-          const them = G.players[tIdx];
-          if (them.hand.length > 0) {
-            const r = Math.floor(Math.random() * them.hand.length);
-            const taken = them.hand.splice(r, 1)[0];
-            me.hand.push(taken);
-            addLog(`${me.name} takes ${taken.rank}${taken.suit} from ${them.name}!`, false);
-          }
-          forceDraw(tIdx, 1);
-        }
-      });
+        forceDraw(tIdx, 2);
+      }
       addLog(`${me.name} House Party done!`, true);
     }
     return;
@@ -4744,13 +4764,12 @@ function rootsPickEnemy(idx) {
 }
  
 function rootsConfirm() {
+  const others = G.players.map((_,i)=>i).filter(i=>i!==0 && !G._rootsPicked.includes(i));
   G._rootsPicked.forEach(targetIdx => {
-    const them = G.players[targetIdx];
-    const n = Math.min(2, them.hand.length);
-    for (let i=0;i<n;i++) { const r=Math.floor(Math.random()*them.hand.length); G.discard.push(them.hand.splice(r,1)[0]); }
-    forceDraw(targetIdx, 3);
-    addLog('Roots: Took '+n+' random cards from '+them.name+' — they draw 3!', true);
+    forceDraw(targetIdx, 4);
+    addLog('Roots: '+G.players[targetIdx].name+' draws 4!', true);
   });
+  others.forEach(idx => { forceDraw(idx, 2); addLog('Roots: '+G.players[idx].name+' draws 2!', false); });
   document.getElementById('rootsModal').style.display = 'none';
   G._rootsPicked = []; G.phase = 'play'; G.turnPhase = 'done';
   renderGame(); updateBtns();
@@ -4758,13 +4777,13 @@ function rootsConfirm() {
 }
  
 function aiRootsEffect(pidx) {
-  const opponents = G.players.map((p,i)=>({p,i})).filter(({i})=>i!==pidx).sort((a,b)=>b.p.hand.length-a.p.hand.length);
-  opponents.slice(0,2).forEach(({p,i}) => {
-    const n = Math.min(2, p.hand.length);
-    for (let j=0;j<n;j++) { const r=Math.floor(Math.random()*p.hand.length); G.discard.push(p.hand.splice(r,1)[0]); }
-    forceDraw(i,2);
-    addLog('Roots: '+G.players[pidx].name+' targets '+p.name+' — they draw 2!', true);
-  });
+  const isTeam = G.mode==='duos'||G.mode==='synergy'||G.mode==='roulette';
+  const partnerIdx = G.players[pidx].partnerIdx;
+  const enemyIndices = G.players.map((_,i)=>i).filter(i=>i!==pidx && (!isTeam || i!==partnerIdx));
+  const twoPicked = enemyIndices.slice(0,2);
+  const others = enemyIndices.filter(i=>!twoPicked.includes(i));
+  twoPicked.forEach(i=>{ forceDraw(i,4); addLog('Roots: '+G.players[pidx].name+' targets '+G.players[i].name+' — they draw 4!', true); });
+  others.forEach(i=>{ forceDraw(i,2); addLog('Roots: '+G.players[i].name+' draws 2!', false); });
 }
  
 // =====================================================================
@@ -4800,9 +4819,18 @@ function cascadeDirection(dir) {
 }
  
 function aiCascadeEffect() {
-  const hands = G.players.map(p=>[...p.hand]);
-  G.players.forEach((p,i) => { p.hand = hands[(i+1)%G.numPlayers]; });
-  addLog('Cascade House: All hands passed left!', true);
+  const pidx = G.cur; // caller is current player
+  const isTeam = G.mode==='duos'||G.mode==='synergy'||G.mode==='roulette';
+  const partnerIdx = G.players[pidx].partnerIdx;
+  const enemies = G.players.map((_,i)=>i).filter(i=>i!==pidx && (!isTeam || i!==partnerIdx));
+  if (enemies.length === 0) { addLog('Cascade House: No enemy to switch with!', false); return; }
+  const targetIdx = enemies[Math.floor(Math.random()*enemies.length)];
+  const myHand = [...G.players[pidx].hand];
+  const theirHand = [...G.players[targetIdx].hand];
+  G.players[pidx].hand = theirHand;
+  G.players[targetIdx].hand = myHand;
+  forceDraw(targetIdx, 4);
+  addLog('Cascade House: '+G.players[pidx].name+' switched hands with '+G.players[targetIdx].name+'! They draw 4!', true);
 }
  
 
@@ -5274,6 +5302,7 @@ function openFlushModal(selfFlushCount, hasPartner, isSevenPlus) {
   // Flush effects should allow flushing down to empty hand when possible.
   G._flushMinKeep = 0;
   G._flushHasPartner = hasPartner || false;
+  G._flushPartnerCount = 2; // Flush: partner always flushes 2
   G._flushIsSevenPlus = isSevenPlus || false;
   G._flushTitle = 'Flush';
   const label = selfFlushCount === 1 ? 'FLUSH 1 CARD' : 'FLUSH 2 CARDS';
@@ -5319,13 +5348,14 @@ function flushDiscardPick(idx) {
   if (G._flushLeft > 0 && hand.length > minKeep) {
     renderFlushModal();
   } else {
-    // Partner flushes 2 automatically in team modes (if flagged)
+    // Partner flushes (Straight Flush: 2 or 3 at 7+; Flush effect: 2)
     if (G._flushHasPartner) {
       const partnerIdx = G.players[0].partnerIdx;
       if (partnerIdx !== null && partnerIdx !== undefined) {
         const p = G.players[partnerIdx];
         const pMinKeep = (G._flushMinKeep !== undefined ? G._flushMinKeep : 1);
-        const pFlush = Math.min(2, Math.max(0, p.hand.length - pMinKeep));
+        const partnerCount = G._flushPartnerCount !== undefined ? G._flushPartnerCount : 2;
+        const pFlush = Math.min(partnerCount, Math.max(0, p.hand.length - pMinKeep));
         if (pFlush > 0) {
           p.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
           G.discard.push(...p.hand.splice(0, pFlush));
@@ -6360,6 +6390,10 @@ function _triggerTrapActivationByFaceCard(enderIdx) {
 
   if (firedExact.length === 0 && firedNear.length === 0) return false;
 
+  // Trap Cards (3,4,5,6,10): +5 pts to owner when triggered
+  firedExact.forEach(f => { G.pts[f.ownerIdx] = (G.pts[f.ownerIdx]||0) + 5; });
+  firedNear.forEach(f => { G.pts[f.ownerIdx] = (G.pts[f.ownerIdx]||0) + 5; });
+
   // Near-match traps are activated but cannot override exact-match traps or cut the line.
   // They are moved behind exact traps in discard ordering.
   if (firedNear.length > 0) {
@@ -6504,9 +6538,10 @@ function setSelectedTraps(faceUp=false) {
   if (picks.length > trapSpace) { addLog(`Only ${trapSpace} trap slot(s) left (max 5 total).`, false); return; }
   if (!picks.every(canSetTrapCard)) { addLog('Only 3, 4, 5, 6, 10, or Joker cards can be set as traps.', false); return; }
 
-  // Capture hand card positions for fly animation before removing them
+  // Capture hand card positions for fly animation (use player hand only)
   const cardPositions = picks.map(card => {
-    const cardEl = document.querySelector(`[data-id="${card.id}"]`);
+    const handEl = document.getElementById('playerHand');
+    const cardEl = handEl ? handEl.querySelector(`[data-id="${card.id}"]`) : document.querySelector(`[data-id="${card.id}"]`);
     if (!cardEl) return null;
     const r = cardEl.getBoundingClientRect();
     return { x: r.left + r.width/2, y: r.top + r.height/2, txt: `${card.rank}${card.suit}` };
@@ -6528,33 +6563,35 @@ function setSelectedTraps(faceUp=false) {
   renderLog();
   updateBtns();
 
-  // Fly animation: start at hand card, land exactly on new trap card slot
+  // Fly animation: start at hand card, land exactly on trap bar slot (double rAF so layout is complete)
   requestAnimationFrame(() => {
-    const newSlots = document.querySelectorAll('#playerTrapBar .player-trap-card.trap-new');
-    cardPositions.forEach((pos, i) => {
-      if (!pos) return;
-      const slot = newSlots[i];
-      if (!slot) return;
-      const destR = slot.getBoundingClientRect();
-      if (!destR.width) return;
-      const destX = destR.left + destR.width / 2;
-      const destY = destR.top + destR.height / 2;
-      const tx = destX - pos.x;
-      const ty = destY - pos.y;
-      // Briefly hide the real trap card slot so it appears when fly card lands
-      slot.style.opacity = '0';
-      const revealDelay = 430 + i * 80;
-      setTimeout(() => { slot.style.opacity = ''; slot.style.transition = 'opacity 0.18s'; }, revealDelay);
-      // Create fly element starting at hand card position
-      const flyEl = document.createElement('div');
-      flyEl.className = 'trap-fly-card';
-      flyEl.style.left = `${pos.x - 18}px`;
-      flyEl.style.top  = `${pos.y - 25}px`;
-      flyEl.style.setProperty('--tx', `${tx}px`);
-      flyEl.style.setProperty('--ty', `${ty}px`);
-      flyEl.style.animationDelay = `${i * 80}ms`;
-      document.body.appendChild(flyEl);
-      setTimeout(() => flyEl.remove(), 600 + i * 80);
+    requestAnimationFrame(() => {
+      const trapBar = document.getElementById('playerTrapBar');
+      if (!trapBar || trapBar.style.display === 'none') return;
+      const newSlots = trapBar.querySelectorAll('.player-trap-card.trap-new');
+      cardPositions.forEach((pos, i) => {
+        if (!pos) return;
+        const slot = newSlots[i];
+        if (!slot) return;
+        const destR = slot.getBoundingClientRect();
+        if (!destR.width || !destR.height) return;
+        const destCenterX = destR.left + destR.width / 2;
+        const destCenterY = destR.top + destR.height / 2;
+        const tx = destCenterX - pos.x;
+        const ty = destCenterY - pos.y;
+        slot.style.opacity = '0';
+        const revealDelay = 480 + i * 90;
+        setTimeout(() => { slot.style.opacity = ''; slot.style.transition = 'opacity 0.2s'; }, revealDelay);
+        const flyEl = document.createElement('div');
+        flyEl.className = 'trap-fly-card';
+        flyEl.style.left = `${pos.x - 18}px`;
+        flyEl.style.top  = `${pos.y - 25}px`;
+        flyEl.style.setProperty('--tx', `${tx}px`);
+        flyEl.style.setProperty('--ty', `${ty}px`);
+        flyEl.style.animationDelay = `${i * 90}ms`;
+        document.body.appendChild(flyEl);
+        setTimeout(() => flyEl.remove(), 550 + i * 90);
+      });
     });
   });
 }
@@ -6674,6 +6711,7 @@ function _doPlayCardsCore(pidx, cards) {
     }
   }
   G.pts[pidx] = (G.pts[pidx]||0) + pts;
+  G._lastPlayWasSingle = (ev.effect === 'single'); // single card cannot win the match (empty hand must be 2+ combo)
   const TIER_ICONS = { LEGENDARY:'👑', MYTHICAL:'🔥', EPIC:'⚡', RARE:'💎', COMMON:'' };
   const icon = TIER_ICONS[ev.tier] || '';
   let penaltyTag = '';
@@ -6683,6 +6721,7 @@ function _doPlayCardsCore(pidx, cards) {
     else penaltyTag = ' ⚠️(-5 face card penalty, effects negated)';
   }
   addLog(`${icon} ${player.name} plays ${ev.name}${pts>0?` (+${pts}pts)`:''}${penaltyTag}`, pts>=20);
+  if (COMBO_EFFECT_DESC[ev.effect]) addLog(`   → ${COMBO_EFFECT_DESC[ev.effect]}`, false);
   if (pidx===0 && pts>0) floatPts(`+${pts}`, ev.tier);
   else if (pidx!==0 && pts>0) floatPtsAt(pidx, `+${pts}pts`, ev.tier || 'COMMON');
   // Update opponent display immediately so pts show in real-time
@@ -6779,6 +6818,8 @@ function _doPlayCardsCore(pidx, cards) {
 function checkWin(pidx) {
   const player = G.players[pidx];
   if (player.hand.length > 0) return false;
+  // Single card cannot end the match — last play must be 2+ card combo
+  if (G._lastPlayWasSingle) { G._lastPlayWasSingle = false; return false; }
   // Reset Royal Roll for this player when they empty their hand
   if (G.royalRollUsed) G.royalRollUsed[pidx] = false;
 
@@ -6809,6 +6850,7 @@ function endMatch(winnerIdx) {
   if (trapSapperModal) trapSapperModal.style.display = 'none';
   const w = G.players[winnerIdx];
   G.wins[winnerIdx] = (G.wins[winnerIdx]||0) + 1;
+  G.pts[winnerIdx] = (G.pts[winnerIdx]||0) + 200; // Match-Win: +200 pts (empty hand or mythic combo)
   awardBettingPots(winnerIdx); // pay out Match Pot + Point Pot
  
   const humanWon = winnerIdx === 0;
@@ -9091,6 +9133,7 @@ function _clampActionLogToViewport() {
     log.style.top = top + 'px';
     log.style.right = 'auto';
     log.style.bottom = 'auto';
+    log._userMoved = true; // keep log in place after clamp
   }
 }
 
@@ -9106,11 +9149,12 @@ function _applyActionLogResponsiveState() {
   if (handle) handle.style.cursor = 'grab';
   if (resH && log.dataset.minimized !== '1') resH.style.display = '';
   if (mobileLike && !log._userMoved) {
-    // Set default docked position only if user hasn't dragged it yet
+    // Default: above Chips/pot, below Solenne
+    const bottomPx = Math.min(320, Math.max(200, Math.round(window.innerHeight * 0.28)));
     log.style.left = 'auto';
-    log.style.top = 'calc(48px + env(safe-area-inset-top))';
-    log.style.right = '5px';
-    log.style.bottom = 'auto';
+    log.style.top = 'auto';
+    log.style.right = '8px';
+    log.style.bottom = bottomPx + 'px';
   }
   _clampActionLogToViewport();
 }
@@ -9174,7 +9218,13 @@ function initActionLog() {
     log._userMoved = true;
   });
 
-  const stopDrag = e => { if (e.pointerId === dragId) { dragId = -1; handle.style.cursor = 'grab'; } };
+  const stopDrag = e => {
+    if (e.pointerId === dragId) {
+      try { handle.releasePointerCapture(dragId); } catch (_) {}
+      dragId = -1;
+      handle.style.cursor = 'grab';
+    }
+  };
   handle.addEventListener('pointerup',     stopDrag);
   handle.addEventListener('pointercancel', stopDrag);
 
@@ -9203,7 +9253,12 @@ function initActionLog() {
       log.style.height = Math.max(70,  resStartH + (e.clientY - resStartY)) + 'px';
     });
 
-    const stopRes = e => { if (e.pointerId === resId) resId = -1; };
+    const stopRes = e => {
+      if (e.pointerId === resId) {
+        try { resH.releasePointerCapture(resId); } catch (_) {}
+        resId = -1;
+      }
+    };
     resH.addEventListener('pointerup',     stopRes);
     resH.addEventListener('pointercancel', stopRes);
   }
@@ -9407,8 +9462,16 @@ function advanceBetting() {
   if (pidx === 0) {
     showHumanBetActions();
   } else {
-    setTimeout(() => aiBet(pidx), 200); // small buffer before thinking delay kicks in
+    hideHumanBetActions(); // disable human buttons so double-tap doesn't advance
+    setTimeout(() => aiBet(pidx), 200); // small buffer before AI acts
   }
+}
+
+function hideHumanBetActions() {
+  const turnLbl = document.getElementById('betTurnLabel');
+  if (turnLbl) turnLbl.style.display = 'none';
+  const acts = document.getElementById('betActions');
+  if (acts) acts.innerHTML = '<div style="font-size:10px;color:rgba(240,192,64,.4);text-align:center;padding:12px">Waiting for other players...</div>';
 }
 
 function showHumanBetActions() {
@@ -9463,6 +9526,7 @@ function showHumanBetActions() {
 }
 
 function humanBetCall() {
+  if (!G.bet || G.bet.bettingOrder[G.bet.betIdx] !== 0) return; // not your turn or already advanced
   const needed = Math.max(0, G.bet.currentBet - (G.bet.bets[0]||0));
   const pay = Math.min(needed, G.chips[0]);
   G.chips[0] -= pay;
@@ -9472,6 +9536,8 @@ function humanBetCall() {
   addLog(`You ${needed===0?'check':'call '+pay+'💰'}. Pot: ${G.bet.matchPot}`, false);
   G.bet.acted.add(0);
   G.bet.betIdx++;
+  renderBettingUI(); // keep pot/bar in sync immediately
+  hideHumanBetActions(); // disable buttons so double-tap doesn't advance twice
   advanceBetting();
 }
 
@@ -9532,7 +9598,7 @@ function aiBet(pidx) {
   }
   document.getElementById('betRoundLabel').textContent = `${G.players[pidx].name} is thinking...`;
 
-  const delay = 1800 + Math.random() * 1200; // 1.8-3s
+  const delay = Math.min(2000, 800 + Math.random() * 800); // max 2s for AI betting
   setTimeout(() => {
     if (!G.bet) return;
     let action = '';
