@@ -174,7 +174,7 @@ button{cursor:pointer;font-family:inherit}
 /* ══════════════════════════════════════════════════════════════════ */
 /*  GAME SCREEN                                                       */
 /* ══════════════════════════════════════════════════════════════════ */
-#game{background:var(--bg);flex-direction:column;overflow:hidden}
+#game{background:var(--bg);flex-direction:column;overflow:hidden;min-height:100dvh}
 
 /* HEADER */
 .game-header{
@@ -357,6 +357,16 @@ button{cursor:pointer;font-family:inherit}
   display:flex;flex-direction:column;z-index:200;
   touch-action:none;
   pointer-events:auto
+}
+.action-log.mobile-docked{
+  left:auto!important;
+  top:calc(50px + env(safe-area-inset-top))!important;
+  right:6px!important;
+  bottom:auto!important;
+  width:min(52vw,260px)!important;
+  height:min(34dvh,190px)!important;
+  max-width:260px;
+  border-radius:10px;
 }
 .log-header{
   padding:10px 16px;border-bottom:1px solid rgba(240,192,64,.1);
@@ -949,10 +959,16 @@ button{cursor:pointer;font-family:inherit}
   .player-hand-zone{max-height:calc(40vh - 72px)}
   .card{width:42px!important;height:58px!important}
   .card-back{width:42px!important;height:58px!important}
-  /* Hide action log on very small screens — use game log in center area */
+  /* Keep action log compact and docked on phones */
   .action-log{
     width:clamp(110px,28vw,180px);height:clamp(80px,18vh,140px);
     bottom:6px;right:6px;border-radius:10px
+  }
+  .action-log.mobile-docked{
+    top:calc(42px + env(safe-area-inset-top))!important;
+    right:4px!important;
+    width:min(56vw,210px)!important;
+    height:min(30dvh,150px)!important;
   }
   .log-header{padding:5px 8px}
   .log-title{font-size:9px;letter-spacing:1px}
@@ -982,6 +998,24 @@ button{cursor:pointer;font-family:inherit}
   .oval-table{aspect-ratio:1.6/1;border-width:6px;border-radius:clamp(50px,15vw,200px)}
   .board-label{font-size:8px;letter-spacing:1px}
   .draw-pile-btn span{font-size:clamp(14px,5vw,28px)}
+}
+@media (orientation:landscape) and (max-height:560px){
+  .game-header{padding:6px 10px}
+  .header-left{gap:8px}
+  .header-right{gap:8px}
+  .header-brand{font-size:12px;letter-spacing:2px}
+  .header-badge{font-size:8px;padding:2px 8px;letter-spacing:1px}
+  .table-area{padding:4px 8px}
+  .oval-table{max-width:min(92vw,820px);border-width:8px;padding-bottom:4px}
+  .opponent-avatar{width:44px;height:44px;font-size:20px}
+  .opp-name{font-size:8px;letter-spacing:1px}
+  .opp-meta{font-size:7px;gap:6px}
+  .player-footer{max-height:48dvh;padding:2px 0}
+  .player-footer-inner{gap:6px;padding:0 6px}
+  .player-hand-zone{max-height:calc(44dvh - 54px);padding:8px 2px 2px 2px}
+  .controls-zone{width:min(45vw,220px);gap:3px}
+  .card{width:38px!important;height:54px!important}
+  .card-back{width:38px!important;height:54px!important}
 }
 @media(min-width:1200px){
   .card{width:64px;height:90px}
@@ -1523,7 +1557,7 @@ const SUITS = ['♠','♥','♦','♣'];
 const SUIT_NAMES = {'♠':'Spades','♥':'Hearts','♦':'Diamonds','♣':'Clovers'};
 const JOKER_SUIT_NAMES = {'♠':'Spades','♥':'Hearts','♦':'Diamond','♣':'Clovers'};
 const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
-const RANK_VAL = {'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14,'JKR':15};
+const RANK_VAL = {'0':0,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14,'JKR':15};
  
 // ========== STATE ==========
 let G = {};
@@ -1574,6 +1608,15 @@ function initGame(mode, numPlayers) {
     trapPlacedThisTurn: false,
     _forcedNextTurn: null,
     buriedTrapCards: 0,
+    _selectionTouchedThisTurn: false,
+    _twoPairPending: null,
+    _skipLawDrawFor: null,
+    _zeroReplaySuit: null,
+    _zeroReplayOwner: null,
+    _warVictorMomentum: null,
+    bloodyMaryVictim: undefined,
+    bloodyMaryWinner: undefined,
+    royalSixWinner: undefined,
   };
 
   // Build players with correct partner indices
@@ -1624,6 +1667,13 @@ function buildAndDeal() {
   // 4 suited jokers
   for (const s of SUITS)
     G.deck.push({ rank:'JKR', suit:s, id:`JKR${s}`, wild:true });
+
+  // 8 Zero cards (2 per suit)
+  for (const s of SUITS) {
+    for (let z = 0; z < 2; z++) {
+      G.deck.push({ rank:'0', suit:s, id:`0${s}${z}` });
+    }
+  }
  
   shuffle(G.deck);
  
@@ -1724,14 +1774,21 @@ function evalCombo(cards) {
   const njRanks = nonJ.map(c => c.rank);
   const njSuits = nonJ.map(c => c.suit);
   const jCount  = jokers.length;
+
+  // Zero cards can either be pure Zero Protocol OR Mary Jane (QQ42 + 0).
+  if (cards.some(c => c.rank === '0')) {
+    const mj = tryMaryJane(cards);
+    if (mj.valid) return mj;
+    return evalZeroProtocol(cards);
+  }
  
   // ── SINGLE CARD ──────────────────────────────────────────────
   if (n === 1) {
     const r = cards[0].rank;
-    if (r === 'JKR') return R(`${SUIT_NAMES[cards[0].suit]} Joker 🃏`, 10, 'COMMON', 'joker_single');
-    if (r === 'K')   return R('King', 4, 'COMMON', 'king');
-    if (r === 'Q')   return R('Queen', 4, 'COMMON', 'queen');
-    if (r === 'J')   return R('Jack', 4, 'COMMON', 'jack');
+    if (r === 'JKR') return R(`${SUIT_NAMES[cards[0].suit]} Joker 🃏`, 13, 'COMMON', 'joker_single');
+    if (r === 'K')   return R('King', 5, 'COMMON', 'king');
+    if (r === 'Q')   return R('Queen', 5, 'COMMON', 'queen');
+    if (r === 'J')   return R('Jack', 5, 'COMMON', 'jack');
     return R('Single', 0, 'COMMON', 'single');
   }
  
@@ -1751,13 +1808,18 @@ function evalCombo(cards) {
   // Joker Cascade: all 4 jokers
   if (jCount === 4 && n === 4) return R('Joker Cascade (4x) 🃏🃏🃏🃏', 2000, 'LEGENDARY', 'joker_cascade');
  
-  // Royal Joker House: 2A + 3J
-  if (jCount === 3 && nonJ.filter(c=>c.rank==='A').length === 2 && n === 5)
+  // Royal Joker House: 2J + 3 Jokers
+  if (jCount === 3 && nonJ.filter(c=>c.rank==='J').length === 2 && n === 5)
     return R('Royal Joker House 🃏🃏🃏', 500, 'LEGENDARY', 'royal_joker_house');
- 
-  // Joker House: 3A + 2J
-  if (jCount === 2 && nonJ.filter(c=>c.rank==='A').length === 3 && n === 5)
+
+  // Joker House: 3J + 2 Jokers
+  if (jCount === 2 && nonJ.filter(c=>c.rank==='J').length === 3 && n === 5)
     return R('Joker House 🃏🃏', 200, 'MYTHICAL', 'joker_house');
+
+  // Royal Jacksons: 4 Jacks + 4 Jokers
+  if (n === 8 && jCount === 4 && nonJ.length === 4 && nonJ.every(c => c.rank === 'J')) {
+    return R('Royal Jacksons (4J + 4Joker) 👑🃏', 20000, 'LEGENDARY', 'royal_jacksons');
+  }
  
   // Royal Roots: J-Q-K-A-Joker all same suit
   const rRoots = tryRoyalRoots(cards);
@@ -1852,6 +1914,112 @@ function evalCombo(cards) {
 function R(name, pts, tier, effect='') {
   return { valid:true, name, pts, tier, effect };
 }
+
+function evalZeroProtocol(cards) {
+  if (!cards || cards.length === 0) return { valid:false };
+  if (!cards.every(c => c && c.rank === '0')) {
+    return { valid:false, reason:'0 cards only play as Zero Protocol, or in Mary Jane after QQ42 is selected first' };
+  }
+  const n = cards.length;
+  if (n === 1) return R('Zero Ghost ⭕', 5, 'COMMON', 'zero_single');
+  if (n === 2) {
+    const sameSuit = cards[0].suit === cards[1].suit;
+    return sameSuit
+      ? R('Zero Flush (Suit Purge) ⭕⭕', 10, 'RARE', 'zero_pair_suit')
+      : R('Zero Pair (Choice Flush 2) ⭕⭕', 10, 'COMMON', 'zero_pair_diff');
+  }
+  if (n === 3) {
+    const suits = new Set(cards.map(c => c.suit));
+    if (suits.size !== 3) return { valid:false, reason:'Three 0s must be different suits' };
+    return R('Zero Triple (Choice Flush 4) ⭕⭕⭕', 30, 'RARE', 'zero_triple_diff');
+  }
+  if (n === 4) {
+    const suits = new Set(cards.map(c => c.suit));
+    if (suits.size !== 4) return { valid:false, reason:'Four 0s must all be different suits' };
+    return R('Zero Quad (Choice Flush 6) ⭕⭕⭕⭕', 70, 'EPIC', 'zero_quad_diff');
+  }
+  return { valid:false, reason:'Zero combos support up to 4 cards' };
+}
+
+function isMaryJaneUnlockPrefix(cards) {
+  if (!Array.isArray(cards) || cards.length !== 4) return false;
+  const counts = {};
+  cards.forEach(c => { counts[c.rank] = (counts[c.rank] || 0) + 1; });
+  if (counts['Q'] !== 2 || counts['4'] !== 1 || counts['2'] !== 1) return false;
+  const queens = cards.filter(c => c.rank === 'Q');
+  return queens.every(c => c.suit === '♥' || c.suit === '♠');
+}
+
+function tryMaryJane(cards) {
+  if (!cards || cards.length !== 5) return { valid:false };
+  const counts = {};
+  cards.forEach(c => { counts[c.rank] = (counts[c.rank] || 0) + 1; });
+  const only = ['Q','4','2','0'];
+  const keys = Object.keys(counts);
+  if (!keys.every(k => only.includes(k))) return { valid:false };
+  if (counts['Q'] !== 2 || counts['4'] !== 1 || counts['2'] !== 1 || counts['0'] !== 1) return { valid:false };
+
+  const queens = cards.filter(c => c.rank === 'Q');
+  const others = cards.filter(c => c.rank !== 'Q');
+  if (!queens.every(c => c.suit === '♥' || c.suit === '♠')) return { valid:false };
+  if (!others.every(c => c.suit === '♥' || c.suit === '♠')) return { valid:false };
+
+  const qSameSuit = queens[0].suit === queens[1].suit;
+  if (!qSameSuit) {
+    const hasHeartQ = queens.some(c => c.suit === '♥');
+    const hasSpadeQ = queens.some(c => c.suit === '♠');
+    if (!hasHeartQ || !hasSpadeQ) return { valid:false };
+    return R('Calamity Mary Jane (♥♠QQ420)', 666, 'LEGENDARY', 'calamity_mary_jane');
+  }
+
+  const lockSuit = queens[0].suit;
+  if (!others.every(c => c.suit === lockSuit)) return { valid:false };
+  return R(`Bloody Mary Jane (${lockSuit}${lockSuit}QQ420)`, 3000, 'LEGENDARY', 'bloody_mary_jane');
+}
+
+function isOverpassHand(hand) {
+  if (!Array.isArray(hand) || hand.length !== 9) return false;
+  const counts = new Map();
+  hand.forEach(c => counts.set(c.rank, (counts.get(c.rank) || 0) + 1));
+  const needed = ['2','3','4','5','6','7','8','9','10'];
+  return needed.every(r => counts.get(r) === 1) && counts.size === needed.length;
+}
+
+function isLawPassHand(hand) {
+  if (!Array.isArray(hand) || hand.length !== 2) return false;
+  const ranks = hand.map(c => c.rank).sort();
+  return ranks[0] === '2' && ranks[1] === '3';
+}
+
+function checkSpecialHandWin(pidx, source = '') {
+  if (!G || G.phase !== 'play') return false;
+  const player = G.players[pidx];
+  if (!player) return false;
+  const hand = player.hand || [];
+  const sourceLabelMap = {
+    turn_start: 'turn start',
+    free_draw: 'free draw',
+    law_draw: 'Law Draw',
+    war_momentum: "Victor's Right",
+  };
+  const sourceLabel = sourceLabelMap[source] || source || 'turn check';
+
+  if (isOverpassHand(hand)) {
+    G.pts[pidx] = (G.pts[pidx] || 0) + 1000;
+    addLog(`🚀 OVERPASS! ${player.name} reveals 2-10 via ${sourceLabel} and wins instantly (+1000pts + match).`, true);
+    if (pidx === 0) floatPts('+1000 OVERPASS!', 'LEGENDARY');
+    endMatch(pidx);
+    return true;
+  }
+
+  if (isLawPassHand(hand)) {
+    addLog(`📜 LAW PASS! ${player.name} reveals 2+3 via ${sourceLabel} and wins instantly (match claimed).`, true);
+    endMatch(pidx);
+    return true;
+  }
+
+  return false;
+}
  
 // ── SAME-RANK TABLE ──────────────────────────────────────────────────
 function evalSameRank(r, n, hasJoker) {
@@ -1865,51 +2033,97 @@ function evalSameRank(r, n, hasJoker) {
   };
   const nm = nameMap[r] || `${r}s`;
   const label = n===2?`Pair of ${nm}`:n===3?`Three ${nm}`:n===4?`Four ${nm}`:`${n}x ${nm}`;
- 
+
+  if (n >= 5) {
+    if (n === 5) return R(`Royal Five (${nm})`, 150, 'MYTHICAL', 'royal_five');
+    if (n === 6) return R(`Royal Six (${nm})`, 3000, 'LEGENDARY', 'royal_six');
+    if (n === 7) return R(`Royal Seven (${nm})`, 4000, 'LEGENDARY', 'royal_seven');
+    if (n === 8) return R(`Royal Eight (${nm})`, 10000, 'LEGENDARY', 'royal_eight');
+    return { valid:false, reason:'Max same-rank combo size is 8' };
+  }
+
   // Face cards: K / Q / J — 4 / 9 / 15 / 40
   if (FACE[r]) {
     // Kings / Queens / Jacks all share the same scoring:
-    // 1 card = 5, pair = 10, trips = 30, quads = 70
-    const pts = n===1 ? 5 : n===2 ? 10 : n===3 ? 30 : 70;
+    // 1 card = 5, pair = 10, trips = 35, quads = 70
+    const pts = n===1 ? 5 : n===2 ? 10 : n===3 ? 35 : 70;
     const tier = n===4 ? 'RARE' : n===3 ? 'RARE' : 'COMMON';
     const eff = n===1 ? r.toLowerCase() : `${n}x_${r.toLowerCase()}`;
     return R(label+W, pts, tier, eff);
   }
   // Sixes — 11 / 33 / 66: Law Draw +1 per 6 played (stacks to 4 law draws)
   if (r === '6') {
-    const pts = n===2?11 : n===3?33 : 66;
+    const pts = n===2?11 : n===3?39 : 96;
     const tier = n===4?'RARE':n===3?'COMMON':'COMMON';
     return R(label+W, pts, tier, `power_6_${n}`);
   }
-  // Power pairs: 2s 7s 8s 9s — 8 / 20 / 50
+  // Power pairs: 2s = 8/25/65; 7s/8s/9s = 8/30/65
   if (POWER[r]) {
-    const pts = n===2?8 : n===3?20 : 50;
+    const pts = r === '2'
+      ? (n===2 ? 8 : n===3 ? 25 : 65)
+      : (n===2 ? 8 : n===3 ? 30 : 65);
     return R(label+W, pts, 'COMMON', `power_${r}_${n}`);
   }
-  // Aces — 10 / 25 / 60
+  // Aces — 11 / 37 / 75
   if (r === 'A') {
-    const pts = n===2?10 : n===3?25 : 60;
+    const pts = n===2?11 : n===3?37 : 75;
     return R(label+W, pts, n>=3?'EPIC':'COMMON', `ace_${n}`);
   }
   // Normal ranks — 5 / 18 / 30
   if (r === '4' && n >= 2) {
-    const pts4 = n===2 ? 5 : n===3 ? 15 : 50;
+    const pts4 = n===2 ? 8 : n===3 ? 30 : 65;
     const tier4 = n===4 ? 'RARE' : 'COMMON';
     return R(label+W, pts4, tier4, `power_4_${n}`);
   }
-  const pts = n===2?5 : n===3?15 : 50;
+  const pts = n===2?5 : n===3?25 : 55;
   const tier = n===4?'RARE':n===3?'COMMON':'COMMON';
   return R(label+W, pts, tier, 'normal_set');
 }
  
 // ── STRAIGHT (4+ cards, jokers fill, NO face cards in numeric run) ───
+function _isAceBoundStraightPattern(cards) {
+  if (!cards || cards.length !== 5) return false;
+  const jokers = cards.filter(c => c.rank === 'JKR');
+  const nonJ = cards.filter(c => c.rank !== 'JKR');
+  if (nonJ.length === 0) return false;
+  const ranks = nonJ.map(c => c.rank);
+  if (new Set(ranks).size !== ranks.length) return false;
+
+  const targets = [
+    ['A','2','3','4','5'],
+    ['10','J','Q','K','A']
+  ];
+
+  for (const target of targets) {
+    const targetSet = new Set(target);
+    if (!ranks.every(r => targetSet.has(r))) continue;
+    const missing = target.filter(r => !ranks.includes(r)).length;
+    if (missing <= jokers.length) return true;
+  }
+  return false;
+}
+
 function tryStraight(cards) {
   const jokers  = cards.filter(c => c.rank==='JKR');
   const nonJ    = cards.filter(c => c.rank!=='JKR');
-  const numeric = nonJ.filter(c => !['J','Q','K','A'].includes(c.rank));
-  if (numeric.length === 0) return { valid:false };
   const n = cards.length;
   if (n < 4) return { valid:false };
+  if (jokers.length > 1) return { valid:false, reason:'Straight supports at most 1 Joker' };
+
+  const hasAce = nonJ.some(c => c.rank === 'A');
+  if (hasAce) {
+    if (!_isAceBoundStraightPattern(cards)) {
+      return { valid:false, reason:'Aces in straights only work in A-2-3-4-5 or 10-J-Q-K-A' };
+    }
+    const W = jokers.length > 0 ? ' 🃏' : '';
+    let result = R(`Straight (5)${W}`, 25, 'COMMON', 'straight');
+    if (jokers.length > 0) result.pts += 10;
+    return result;
+  }
+
+  const numeric = nonJ.filter(c => !['J','Q','K','A'].includes(c.rank));
+  if (nonJ.length !== numeric.length) return { valid:false };
+  if (numeric.length === 0) return { valid:false };
 
   const vals = numeric.map(c => rv(c.rank)).sort((a,b)=>a-b);
   const unique = [...new Set(vals)];
@@ -1945,6 +2159,7 @@ function tryStraight(cards) {
 function tryFlush(cards) {
   const jokers = cards.filter(c => c.rank==='JKR');
   const nonJ   = cards.filter(c => c.rank!=='JKR');
+  if (jokers.length > 1) return { valid:false, reason:'Flush supports at most 1 Joker' };
   if (nonJ.length === 0) return { valid:false };
   const suit = nonJ[0].suit;
   if (!nonJ.every(c => c.suit===suit)) return { valid:false };
@@ -1974,11 +2189,24 @@ function tryFlush(cards) {
 function tryStraightFlush(cards) {
   const jokers  = cards.filter(c => c.rank==='JKR');
   const nonJ    = cards.filter(c => c.rank!=='JKR');
+  if (jokers.length > 1) return { valid:false, reason:'Straight Flush supports at most 1 Joker' };
   if (nonJ.length === 0) return { valid:false };
   const suit = nonJ[0].suit;
   if (!nonJ.every(c => c.suit===suit)) return { valid:false }; // all non-jokers same suit
- 
+
+  const hasAce = nonJ.some(c => c.rank === 'A');
+  if (hasAce) {
+    if (!_isAceBoundStraightPattern(cards)) {
+      return { valid:false, reason:'Aces in straight flushes only work in A-2-3-4-5 or 10-J-Q-K-A' };
+    }
+    const W = jokers.length > 0 ? ' 🃏' : '';
+    let result = R(`Straight Flush (5)${W}`, 70, 'EPIC', 'straight_flush');
+    if (jokers.length > 0) result.pts += 10;
+    return result;
+  }
+
   const numeric = nonJ.filter(c => !['J','Q','K','A'].includes(c.rank));
+  if (nonJ.length !== numeric.length) return { valid:false };
   if (numeric.length === 0) return { valid:false };
   const n = cards.length;
   if (n < 4) return { valid:false };
@@ -2029,7 +2257,7 @@ function tryTripleDouble(cards) {
   if (Object.keys(counts).length === 2) {
     const [a,b] = vals;
     const needed = (3-a)+(3-b);
-    if (needed <= jokers) return R('Triple Double ✌️', 40, 'RARE', 'triple_double');
+    if (needed <= jokers) return R('Triple Double ✌️', 65, 'RARE', 'triple_double');
   }
   return { valid:false };
 }
@@ -2045,20 +2273,20 @@ function tryFullHouse(cards) {
   const W = jokers.length > 0 ? ' 🃏' : '';
  
   // Exact: [2,3]
-  if (jokers.length===0 && JSON.stringify(vals)==='[2,3]') return R('Full House'+W, 30, 'RARE', 'full_house');
+  if (jokers.length===0 && JSON.stringify(vals)==='[2,3]') return R('Full House'+W, 40, 'RARE', 'full_house');
   // 1 joker: [2,2]→[2,3] or [1,3]→[2,3] or [4]→FH (4+1 one rank, Joker makes pair)
   if (jokers.length===1) {
-    if (vals.length===2 && vals[0]===2 && vals[1]===2) return R('Full House'+W, 30, 'RARE', 'full_house');
-    if (vals.length===2 && ((vals[0]===1&&vals[1]===3)||(vals[0]===3&&vals[1]===1))) return R('Full House'+W, 30, 'RARE', 'full_house');
-    if (vals.length===1 && vals[0]===4) return R('Full House'+W, 30, 'RARE', 'full_house');
+    if (vals.length===2 && vals[0]===2 && vals[1]===2) return R('Full House'+W, 40, 'RARE', 'full_house');
+    if (vals.length===2 && ((vals[0]===1&&vals[1]===3)||(vals[0]===3&&vals[1]===1))) return R('Full House'+W, 40, 'RARE', 'full_house');
+    if (vals.length===1 && vals[0]===4) return R('Full House'+W, 40, 'RARE', 'full_house');
   }
   // 2 jokers: [1,2]→[3,2] or [3]→[3,2] or [2,1]
   if (jokers.length===2) {
-    if (vals.length===2) return R('Full House'+W, 30, 'RARE', 'full_house');
-    if (vals.length===1 && vals[0]===3) return R('Full House'+W, 30, 'RARE', 'full_house');
+    if (vals.length===2) return R('Full House'+W, 40, 'RARE', 'full_house');
+    if (vals.length===1 && vals[0]===3) return R('Full House'+W, 40, 'RARE', 'full_house');
   }
   // 3 jokers: any 2 non-jokers of different ranks → FH
-  if (jokers.length===3 && nonJ.length===2 && vals.length===2) return R('Full House'+W, 30, 'RARE', 'full_house');
+  if (jokers.length===3 && nonJ.length===2 && vals.length===2) return R('Full House'+W, 40, 'RARE', 'full_house');
   return { valid:false };
 }
  
@@ -2073,7 +2301,7 @@ function tryEvenSteven(cards) {
   const missing = [...evens].filter(r => !covered.has(r));
   if (missing.length > jokers.length) return { valid:false };
   const W = jokers.length > 0 ? ' 🃏' : '';
-  return R('Even Steven (2-4-6-8-10)'+W, 50, 'RARE', 'even_steven');
+  return R('Even Steven (2-4-6-8-10)'+W, 60, 'RARE', 'even_steven');
 }
  
 // ── CASCADE HOUSE: 44499 or 44999 ───────────────────────────────────
@@ -2093,7 +2321,7 @@ function tryCascadeHouse(cards) {
     const cnts  = entries.map(e=>e[1]).sort((a,b)=>a-b);
     if (!ranks.includes('4')||!ranks.includes('9')) return { valid:false };
     if (JSON.stringify(cnts)!=='[2,3]') return { valid:false };
-    return R('Cascade House (4s & 9s)', 80, 'RARE', 'cascade_house');
+    return R('Cascade House (4s & 9s)', 100, 'RARE', 'cascade_house');
   }
   // With jokers: nonJ must all be 4s or 9s, fill to make [2,3] pattern
   if (!nonJ.every(c=>c.rank==='4'||c.rank==='9')) return { valid:false };
@@ -2104,7 +2332,7 @@ function tryCascadeHouse(cards) {
   for (let j4=0;j4<=jN;j4++){
     const j9=jN-j4;
     const t4=c4+j4, t9=c9+j9;
-    if((t4===2&&t9===3)||(t4===3&&t9===2)) return R('Cascade House 🃏', 60, 'RARE', 'cascade_house');
+    if((t4===2&&t9===3)||(t4===3&&t9===2)) return R('Cascade House 🃏', 100, 'RARE', 'cascade_house');
   }
   return { valid:false };
 }
@@ -2117,7 +2345,7 @@ function tryRoots(cards) {
   const hasK   = cards.some(c=>c.rank==='K');
   const hasA   = cards.some(c=>c.rank==='A');
   const hasJKR = cards.some(c=>c.rank==='JKR');
-  if (hasJ&&hasQ&&hasK&&hasA&&hasJKR) return R('Roots (J-Q-K-A-Joker)', 70, 'EPIC', 'roots');
+  if (hasJ&&hasQ&&hasK&&hasA&&hasJKR) return R('Roots (J-Q-K-A-Joker)', 85, 'EPIC', 'roots');
   return { valid:false };
 }
  
@@ -2166,9 +2394,9 @@ function tryRoyalDeadMan(cards) {
   const total8 = cards.filter(c=>c.rank==='8').length;
   const totalA = cards.filter(c=>c.rank==='A').length;
   if (total8===2 && totalA===2 &&
-      cards.filter(c=>c.rank==='8').every(c=>blacks.includes(c.suit)) &&
-      cards.filter(c=>c.rank==='A').every(c=>blacks.includes(c.suit))) {
-    return R('ROYAL DEAD MAN 💀👑 GAME OVER', 9999, 'LEGENDARY', 'royal_dead_man');
+      cards.filter(c=>c.rank==='8').every(c=>c.suit===suit) &&
+      cards.filter(c=>c.rank==='A').every(c=>c.suit===suit)) {
+    return R('ROYAL DEAD MAN 💀👑 GAME OVER', 3000, 'LEGENDARY', 'royal_dead_man');
   }
   return { valid:false };
 }
@@ -2182,9 +2410,53 @@ function applyEffect(ev, cards, pidx) {
   const eff = ev.effect;
   const n   = cards.length;
   const nextIdx = nxt(pidx);
+
+  // ── ZERO PROTOCOL ──
+  if (eff.startsWith('zero_')) {
+    G._skipLawDrawFor = pidx;
+
+    if (eff === 'zero_single') {
+      const suit = cards[0].suit;
+      G._zeroReplaySuit = suit;
+      G._zeroReplayOwner = pidx;
+      addLog(`⭕ Zero Ghost! Law Draw bypassed. ${G.players[pidx].name} must replay in ${suit}.`, true);
+      return;
+    }
+
+    if (eff === 'zero_pair_suit') {
+      const suit = cards[0].suit;
+      const hand = G.players[pidx].hand;
+      const flushed = hand.filter(c => c.suit === suit);
+      G.players[pidx].hand = hand.filter(c => c.suit !== suit);
+      if (flushed.length > 0) G.discard.push(...flushed);
+      addLog(`⭕⭕ Zero Suit Purge! ${G.players[pidx].name} flushes ${flushed.length} ${suit} card(s).`, true);
+      return;
+    }
+
+    const choiceFlush = eff === 'zero_pair_diff' ? 2 : eff === 'zero_triple_diff' ? 4 : 6;
+    if (pidx === 0) {
+      G.phase = 'flush_discard';
+      G._flushLeft = Math.min(choiceFlush, G.players[0].hand.length);
+      G._flushMinKeep = 0;
+      document.getElementById('flushDiscardTitle').textContent = `ZERO PROTOCOL — FLUSH ${choiceFlush}`;
+      renderFlushModal();
+      document.getElementById('flushDiscardModal').style.display = 'flex';
+      addLog(`⭕ Zero Protocol: flush up to ${choiceFlush} card(s). Law Draw bypassed this turn.`, true);
+    } else {
+      const flushed = _flushLowestCards(pidx, choiceFlush, 'Zero Protocol');
+      addLog(`⭕ ${G.players[pidx].name} Zero Protocol flushes ${flushed} card(s). Law Draw bypassed.`, true);
+    }
+    return;
+  }
  
   // ── LEGENDARY ──
-  if (eff === 'royal_dead_man') { endGameRoyalDeadMan(pidx); return; }
+  if (eff === 'royal_dead_man') {
+    addLog('💀👑 ROYAL DEAD MAN! Auto-match win! Winner starts next match with 6 cards; enemies cursed with +2 cards.', true);
+    G.bloodyMaryWinner = pidx;
+    G.bloodyMaryVictim = pidx;
+    endMatch(pidx);
+    return;
+  }
   if (eff === 'royal_flush') {
     addLog('👑 ROYAL FLUSH! Flush 4 cards!', true);
     if (pidx === 0) {
@@ -2216,11 +2488,13 @@ function applyEffect(ev, cards, pidx) {
   if (eff === 'royal_joker_house') {
     // All others draw 2
     G.players.forEach((_,i) => { if (i !== pidx) forceDraw(i, 2); });
-    addLog('👑🃏🃏🃏 Royal Joker House! All others draw 2 — dismiss 4, all 3 Joker effects, play again!', true);
+    advSkip(2);
+    addLog('👑🃏🃏🃏 Royal Joker House! All others draw 2 — dismiss 4, all 3 Joker effects cascade, play any combo, skip 2!', true);
     const rjhJokers = cards.filter(c=>c.rank==='JKR');
     if (pidx === 0) {
       // Dismiss 4 from hand (+ partner auto-dismisses 4 in duos)
-      if (G.mode === 'duos' && G.players[0].partnerIdx !== undefined) {
+      const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+      if (isTeam && G.players[0].partnerIdx !== undefined && G.players[0].partnerIdx !== null) {
         const partner = G.players[G.players[0].partnerIdx];
         const pDismiss = Math.min(4, partner.hand.length);
         partner.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
@@ -2238,18 +2512,87 @@ function applyEffect(ev, cards, pidx) {
     return;
   }
   if (eff === 'joker_house') {
-    forceDraw(pidx,2);
-    addLog('🃏🃏 Joker House! Drew 2 — now discard 2, then Joker effects cascade!', true);
+    G.players.forEach((_,i) => { if (i !== pidx) forceDraw(i, 2); });
+    addLog('🃏🃏 Joker House! Enemies draw 2 — dismiss 4, then both Joker effects cascade in order!', true);
     const jhJokers = cards.filter(c=>c.rank==='JKR');
     if (pidx === 0) {
-      openJHDiscard(2, () => queueJokerEffects(jhJokers, pidx, () => { G.extraTurn = true; resumeAfterEffects(pidx); }));
+      const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+      if (isTeam && G.players[0].partnerIdx !== undefined && G.players[0].partnerIdx !== null) {
+        const partner = G.players[G.players[0].partnerIdx];
+        const pDismiss = Math.min(4, partner.hand.length);
+        partner.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+        G.discard.push(...partner.hand.splice(0, pDismiss));
+        addLog(`Partner dismisses ${pDismiss} cards!`, false);
+      }
+      openJHDiscard(4, () => queueJokerEffects(jhJokers, pidx, () => { G.extraTurn = true; resumeAfterEffects(pidx); }));
     } else {
-      // AI: discard 2 lowest
+      // AI: discard 4 lowest
       const hand = G.players[pidx].hand;
       hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
-      G.discard.push(...hand.splice(0, Math.min(2, hand.length)));
+      G.discard.push(...hand.splice(0, Math.min(4, hand.length)));
+      const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+      const partnerIdx = G.players[pidx].partnerIdx;
+      if (isTeam && partnerIdx !== undefined && partnerIdx !== null) {
+        const ph = G.players[partnerIdx].hand;
+        ph.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+        G.discard.push(...ph.splice(0, Math.min(4, ph.length)));
+      }
       queueJokerEffects(jhJokers, pidx, () => { G.extraTurn = true; });
     }
+    return;
+  }
+  if (eff === 'royal_five') {
+    const banishRanks = new Set(['2','3','J','Q','K','A','JKR']);
+    const banished = [];
+    for (let i = 0; i < G.numPlayers; i++) {
+      if (!isEnemy(pidx, i)) continue;
+      const hand = G.players[i].hand;
+      const keep = [];
+      hand.forEach(c => {
+        if (banishRanks.has(c.rank)) banished.push(c);
+        else keep.push(c);
+      });
+      G.players[i].hand = keep;
+    }
+    if (banished.length) {
+      G.discard.unshift(...banished);
+      addLog(`👑 Royal Five! Banished ${banished.length} enemy card(s) (2,3,J,Q,K,A,JKR) to discard back.`, true);
+    } else {
+      addLog('👑 Royal Five! No enemy cards matched the banish list.', false);
+    }
+    const baseRank = cards.find(c => c.rank !== 'JKR')?.rank;
+    if (baseRank) {
+      const tripEv = evalSameRank(baseRank, 3, false);
+      if (tripEv.valid) {
+        addLog(`👑 Royal Five triggers ${tripEv.name} (3-of-a-kind skill)!`, true);
+        applyEffect(tripEv, cards.slice(0, 3), pidx);
+      }
+    }
+    return;
+  }
+  if (eff === 'royal_six') {
+    addLog('👑 Royal Six! Auto-match win, counts as 2 match wins. Winner (and teammate) start next match with 6 cards.', true);
+    G.royalSixWinner = pidx;
+    G.wins[pidx] = (G.wins[pidx]||0) + 1;
+    endMatch(pidx);
+    return;
+  }
+  if (eff === 'royal_seven') {
+    addLog('👑 Royal Seven! Auto-match win, counts as 4 match wins!', true);
+    G.wins[pidx] = (G.wins[pidx]||0) + 3;
+    endMatch(pidx);
+    return;
+  }
+  if (eff === 'royal_eight') {
+    addLog('👑 Royal Eight! Auto-match win, counts as 10 match wins!', true);
+    G.wins[pidx] = (G.wins[pidx]||0) + 9;
+    endMatch(pidx);
+    return;
+  }
+  if (eff === 'royal_jacksons') {
+    addLog('👑 Royal Jacksons! Auto-match win, counts as 20 match wins!', true);
+    G.wins[pidx] = (G.wins[pidx]||0) + 19;
+    endMatch(pidx);
     return;
   }
   if (eff === 'double_joker') {
@@ -2330,6 +2673,19 @@ function applyEffect(ev, cards, pidx) {
     addLog('💀💀 DEAD MAN\'S HAND! Auto-match win! Enemies get +1 card next match!', true);
     // Flag enemies to receive an extra card on next deal
     G.deadMansVictim = pidx;
+    endMatch(pidx);
+    return;
+  }
+  if (eff === 'calamity_mary_jane') {
+    addLog('🌪️ CALAMITY MARY JANE! Auto-match win! Enemies are cursed with +1 card next match!', true);
+    G.deadMansVictim = pidx;
+    endMatch(pidx);
+    return;
+  }
+  if (eff === 'bloody_mary_jane') {
+    addLog('🩸 BLOODY MARY JANE! Auto-match win! Winner starts next match with 6 cards; enemies cursed with +2 cards!', true);
+    G.bloodyMaryWinner = pidx;
+    G.bloodyMaryVictim = pidx;
     endMatch(pidx);
     return;
   }
@@ -2429,13 +2785,20 @@ function applyEffect(ev, cards, pidx) {
     if (pidx === 0) {
       openFullHouseModal();
     } else {
-      // AI: give 1 lowest card each to 2 different opponents (or same if only 1 opponent)
+      // AI: give 1 lowest card each to up to 2 opponents (non-deterministic picks)
       const me = G.players[pidx];
       me.hand.sort((a,b) => (RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
       const opponents = G.players.map((_,i)=>i).filter(i=>i!==pidx);
-      const targets = opponents.length >= 2
-        ? [opponents[0], opponents[1]]
-        : [opponents[0], opponents[0]];
+      const pool = [...opponents];
+      const targets = [];
+      for (let pick = 0; pick < 2; pick++) {
+        if (pool.length > 0) {
+          const r = Math.floor(Math.random() * pool.length);
+          targets.push(pool.splice(r, 1)[0]);
+        } else if (opponents.length > 0) {
+          targets.push(opponents[Math.floor(Math.random() * opponents.length)]);
+        }
+      }
       const targetsSeen = new Set();
       targets.forEach((tIdx, round) => {
         if (me.hand.length === 0) return;
@@ -2750,7 +3113,7 @@ function applyEffect(ev, cards, pidx) {
       // Human picks who gets taxed
       openKingTaxModal(n, cards[0].suit, taxAmt);
     } else {
-      // AI: tax the current leader/threat (highest wins, then pts, then fewest cards)
+      // AI: prefer leader/threat, but avoid deterministic dogpiling every time.
       const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
       const partnerIdx = G.players[pidx].partnerIdx;
       const candidates = G.players
@@ -2759,7 +3122,15 @@ function applyEffect(ev, cards, pidx) {
       candidates.sort((a,b) =>
         (b.wins - a.wins) || (b.pts - a.pts) || (a.hand - b.hand)
       );
-      const tIdx = candidates.length ? candidates[0].i : nextIdx;
+      let tIdx = nextIdx;
+      if (candidates.length > 0) {
+        if (Math.random() < 0.60) {
+          tIdx = candidates[0].i;
+        } else {
+          const topBand = candidates.slice(0, Math.min(3, candidates.length));
+          tIdx = topBand[Math.floor(Math.random() * topBand.length)].i;
+        }
+      }
       applyKingTax(tIdx, n, cards[0].suit, taxAmt, pidx);
     }
     return;
@@ -2820,12 +3191,12 @@ function applyEffect(ev, cards, pidx) {
         const play = findBestPlay(G.players[pidx].hand);
         if (play) {
           const single = [play[0]];
-          doPlayCards(pidx, single);
+          doPlayCards(pidx, single, { skipAnimation:true });
         }
       } else if (n === 4) {
         // Play best combo
         const play = findBestPlay(G.players[pidx].hand);
-        if (play) doPlayCards(pidx, play);
+        if (play) doPlayCards(pidx, play, { skipAnimation:true });
       }
     }
     return;
@@ -2835,6 +3206,7 @@ function applyEffect(ev, cards, pidx) {
   if (eff === 'two_pairs') {
     // Queue both pair effects — fire first, then second after first resolves
     const tp1 = ev._ev1, tc1 = ev._c1, tp2 = ev._ev2, tc2 = ev._c2;
+    const phaseBefore = G.phase;
     if (tp1 && tc1) {
       addLog(`✌️ Two Pairs — ${tp1.name}:`, false);
       applyEffect(tp1, tc1, pidx);
@@ -2853,7 +3225,7 @@ function applyEffect(ev, cards, pidx) {
       'joker_single','double_joker','triple_joker',
       'flush','straight','full_house'
     ]);
-    const firstIsInteractive = tp1 && INTERACTIVE.has(tp1.effect);
+    const firstIsInteractive = tp1 && INTERACTIVE.has(tp1.effect) && (phaseBefore === 'play' && G.phase !== 'play');
     if (firstIsInteractive && tp2 && tc2) {
       // Store second effect to fire after modal closes
       G._twoPairPending = { ev: tp2, cards: tc2, pidx };
@@ -3453,6 +3825,7 @@ function showAIWarOkayBtn() {
   if (!btn) return;
   // Snapshot winner info NOW while G.war is still alive
   const w = G.war;
+  const winnerIdx = w ? w._winnerIdx : null;
   const defIdx = w ? w.defenderIdx : 0;
   btn.style.display = 'block';
   btn.textContent = '✅ OKAY — CONTINUE';
@@ -3467,7 +3840,14 @@ function showAIWarOkayBtn() {
     const pnameEl = document.querySelector('#warModal .war-player:first-child .war-pname');
     if (pnameEl) pnameEl.textContent = 'YOU';
     G.war = null; G.pendingWar = null; G.phase = 'play';
-    G.cur = nxt(defIdx);
+    if (winnerIdx !== null && winnerIdx !== undefined) {
+      G._warVictorMomentum = winnerIdx;
+      if (winnerIdx === 0) G._aceComboFree = true;
+      G.cur = winnerIdx;
+      addLog(`⚔️ Victor's Right: ${G.players[winnerIdx].name} immediately plays any legal combo!`, true);
+    } else {
+      G.cur = nxt(defIdx);
+    }
     G.turnPhase = 'playing'; G.freeDrewId = null;
     G.sel = [];
     renderGame(); renderLog();
@@ -3714,14 +4094,14 @@ function showWarOutcome(winnerIdx, loserIdx, winningCard = null) {
   const drawCount = w.cardsPlayed;
  
   // Award points
-  G.pts[winnerIdx] = (G.pts[winnerIdx]||0) + 30;
-  if (winnerIdx === 0) floatPts('+30 WAR WIN!', 'RARE');
+  G.pts[winnerIdx] = (G.pts[winnerIdx]||0) + 10;
+  if (winnerIdx === 0) floatPts('+10 WAR WIN!', 'RARE');
  
   // Loser draws replacement cards
   forceDraw(loserIdx, drawCount);
  
   // Winner controls face card (for joker/king war)
-  addLog(`⚔️ ${winName} WINS THE WAR! +30pts — ${loseName} draws ${drawCount} cards.`, true);
+  addLog(`⚔️ ${winName} WINS THE WAR! +10pts — ${loseName} draws ${drawCount} cards.`, true);
  
   if (!winningCard) {
     winningCard = winnerIdx === 0 ? w.lastHumanCard : w.lastEnemyCard;
@@ -3786,17 +4166,20 @@ function warFinish(winnerIdx, loserIdx) {
   document.getElementById('warModal').style.display = 'none';
   G.war = null;
   G.pendingWar = null;
- 
+
   G.phase = 'play';
- 
-  // Play resumes with the player AFTER the challenger (defenderIdx)
-  G.cur = nxt(w.defenderIdx);
+
+  // Victor's Right: winner immediately gets a free-combo turn.
+  G._warVictorMomentum = winnerIdx;
+  if (winnerIdx === 0) G._aceComboFree = true;
+  G.cur = winnerIdx;
   G.turnPhase = 'playing';
   G.freeDrewId = null;
- 
+  addLog(`⚔️ Victor's Right: ${G.players[winnerIdx].name} immediately plays any legal combo!`, true);
+
   renderGame();
   renderLog();
- 
+
   if (G.cur === 0) {
     G.sel = []; // clear stale selection before human turn
     // G.cur is already 0 here — startHumanTurn will use it
@@ -5671,6 +6054,7 @@ function takeCardFromDiscard(actorIdx, discardIdx, reasonText='') {
 }
 
 function _triggerTrapActivationByFaceCard(enderIdx) {
+  if (!Array.isArray(G.traps)) G.traps = G.players.map(() => []);
   if (!G.faceCard) return false;
   const faceVal = RANK_VAL[G.faceCard.rank] || null;
   if (!faceVal) return false;
@@ -5679,6 +6063,7 @@ function _triggerTrapActivationByFaceCard(enderIdx) {
   for (let ownerIdx = 0; ownerIdx < G.numPlayers; ownerIdx++) {
     const zone = G.traps[ownerIdx] || [];
     zone.forEach((t, tidx) => {
+      if (!t || !t.card) return;
       const trapVal = _trapNumericValue(t.card);
       if (!trapVal) return;
       const diff = Math.abs(faceVal - trapVal);
@@ -5696,7 +6081,8 @@ function _triggerTrapActivationByFaceCard(enderIdx) {
   const diamondOwner = _findFirstEnemyJokerTrap(pick.ownerIdx, '♦');
   if (diamondOwner !== null && diamondOwner !== undefined) {
     const dj = _consumeJokerTrap(diamondOwner, '♦');
-    const removedTrap = G.traps[pick.ownerIdx].splice(pick.tidx, 1)[0];
+    const ownerZone = G.traps[pick.ownerIdx] || [];
+    const removedTrap = ownerZone.splice(pick.tidx, 1)[0];
     if (dj) G.discard.push(dj.card);
     if (removedTrap) G.discard.push(removedTrap.card);
     forcePts(diamondOwner, 20);
@@ -5704,11 +6090,14 @@ function _triggerTrapActivationByFaceCard(enderIdx) {
     return true;
   }
 
-  const fired = G.traps[pick.ownerIdx].splice(pick.tidx, 1)[0];
+  const ownerZone = G.traps[pick.ownerIdx] || [];
+  const fired = ownerZone.splice(pick.tidx, 1)[0];
   if (!fired) return false;
   G.discard.push(fired.card);
   G.faceCard = fired.card;
-  addLog(`🎭 Trap triggered! ${G.players[pick.ownerIdx].name} springs ${fired.card.rank}${fired.card.suit}.`, true);
+  const triggerName = enderIdx === 0 ? 'YOU' : G.players[enderIdx]?.name || 'A player';
+  const triggerType = pick.diff === 0 ? 'exact match' : 'near match (±1)';
+  addLog(`🎭 Trap triggered! ${G.players[pick.ownerIdx].name} springs ${fired.card.rank}${fired.card.suit} on ${triggerName}'s face card (${triggerType}). Face Card becomes ${fired.card.rank}${fired.card.suit}.`, true);
 
   if (pick.diff === 0) {
     G._forcedNextTurn = pick.ownerIdx;
@@ -5745,7 +6134,9 @@ function setSelectedTraps(faceUp=false) {
   picks.forEach(card => G.traps[0].push({ card, faceUp: !!faceUp, animUntil }));
   G.trapPlacedThisTurn = true;
   G.turnPhase = 'done';
-  addLog(`🎭 You set ${picks.length} trap(s) ${faceUp ? 'face-up' : 'face-down'}. Sacrifice made — no combo play this turn.`, true);
+  if (G.players[0].hand.length === 0) { checkWin(0); return; }
+  const trapList = picks.map(c => `${c.rank}${c.suit}`).join(', ');
+  addLog(`🎭 You set ${picks.length} trap(s) ${faceUp ? 'face-up' : 'face-down'} [${trapList}]. Trigger rule: Face Card matches same rank or ±1. Exact rank grants your next turn immediately.`, true);
   renderGame();
   renderLog();
   updateBtns();
@@ -5765,7 +6156,9 @@ function aiSetTraps(pidx) {
   if (!G.traps) G.traps = G.players.map(() => []);
   const animUntil = Date.now() + 1400;
   picks.forEach(card => G.traps[pidx].push({ card, faceUp: false, animUntil }));
-  addLog(`🎭 ${G.players[pidx].name} sets ${picks.length} trap card(s).`, false);
+  if (G.players[pidx].hand.length === 0) { checkWin(pidx); }
+  const trapList = picks.map(c => `${c.rank}${c.suit}`).join(', ');
+  addLog(`🎭 ${G.players[pidx].name} sets ${picks.length} trap card(s) [${trapList}] (same rank or ±1 trigger; exact rank steals next turn).`, false);
   return picks.length > 0;
 }
  
@@ -5806,7 +6199,8 @@ function animateCardsToFaceCard(cards, onDone) {
   landNext();
 }
 
-function doPlayCards(pidx, cards) {
+function doPlayCards(pidx, cards, opts = {}) {
+  const skipAnimation = !!opts.skipAnimation;
   // Validate first without side effects
   const ev = evalCombo(cards);
   if (!ev.valid) return false;
@@ -5818,10 +6212,14 @@ function doPlayCards(pidx, cards) {
   G.players[pidx].hand = G.players[pidx].hand.filter(c => !ids.has(c.id));
   G.sel = G.sel.filter(id => !ids.has(id));
   renderHand(); // immediately remove from UI
-  // Animate cards landing on face card, then apply game logic
-  animateCardsToFaceCard(validCards, () => {
+  if (skipAnimation) {
     _doPlayCardsCore(pidx, validCards);
-  });
+  } else {
+    // Animate cards landing on face card, then apply game logic
+    animateCardsToFaceCard(validCards, () => {
+      _doPlayCardsCore(pidx, validCards);
+    });
+  }
   return true;
 }
 
@@ -5837,7 +6235,8 @@ function _doPlayCardsCore(pidx, cards) {
   // Set new face card (top card of play)
   const top = cards[cards.length-1];
   G.faceCard = top;
-  G.discard.push(top);
+  G.discard.push(...cards);
+  G.freshDiscardCount = (G.freshDiscardCount || 0) + cards.length;
  
   // Points — check Face Card penalty (-5pts, effects negated if face card starts combo)
   let pts = ev.pts || 0;
@@ -5853,7 +6252,7 @@ function _doPlayCardsCore(pidx, cards) {
     }
     if (matchesFC) {
       if (ev.effect === 'royal_flush') { pts = Math.max(0, pts - 300); }
-      else if (ev.effect === 'straight_flush') pts = Math.max(0, pts - 10);
+      else if (ev.effect === 'straight_flush') pts = Math.max(0, pts - 15);
       else pts = Math.max(0, pts - 5);
       faceCardPenalty = true;
     }
@@ -5861,7 +6260,12 @@ function _doPlayCardsCore(pidx, cards) {
   G.pts[pidx] = (G.pts[pidx]||0) + pts;
   const TIER_ICONS = { LEGENDARY:'👑', MYTHICAL:'🔥', EPIC:'⚡', RARE:'💎', COMMON:'' };
   const icon = TIER_ICONS[ev.tier] || '';
-  const penaltyTag = faceCardPenalty ? ' ⚠️(-5 face card penalty, effects negated)' : '';
+  let penaltyTag = '';
+  if (faceCardPenalty) {
+    if (ev.effect === 'royal_flush') penaltyTag = ' ⚠️(-300 face card penalty, effects negated)';
+    else if (ev.effect === 'straight_flush') penaltyTag = ' ⚠️(-15 face card penalty, effects negated)';
+    else penaltyTag = ' ⚠️(-5 face card penalty, effects negated)';
+  }
   addLog(`${icon} ${player.name} plays ${ev.name}${pts>0?` (+${pts}pts)`:''}${penaltyTag}`, pts>=20);
   if (pidx===0 && pts>0) floatPts(`+${pts}`, ev.tier);
   else if (pidx!==0 && pts>0) floatPtsAt(pidx, `+${pts}pts`, ev.tier || 'COMMON');
@@ -6091,10 +6495,16 @@ function nextMatch() {
   G._royalDiceFreeCombo = false;
   G._royalDiceDoubleDown = false;
   G._royalDiceExtraMoves = 0;
+  G._selectionTouchedThisTurn = false;
+  G._twoPairPending = null;
   G.traps = G.players.map(() => []);
   G.trapPlacedThisTurn = false;
   G._forcedNextTurn = null;
   G.buriedTrapCards = 0;
+  G._skipLawDrawFor = null;
+  G._zeroReplaySuit = null;
+  G._zeroReplayOwner = null;
+  G._warVictorMomentum = null;
   buildAndDeal();
 
   // Dead Man's Hand curse: enemies of winner draw 1 extra card
@@ -6107,6 +6517,54 @@ function nextMatch() {
       }
     });
     G.deadMansVictim = undefined;
+  }
+
+  // Bloody Mary Jane curse: enemies of winner draw 2 extra cards
+  if (G.bloodyMaryVictim !== undefined) {
+    const bv = G.bloodyMaryVictim;
+    G.players.forEach((_,i) => {
+      if (i !== bv) {
+        let drew = 0;
+        while (drew < 2 && G.deck.length > 0) {
+          G.players[i].hand.push(G.deck.pop());
+          drew++;
+        }
+        if (drew > 0) addLog(`🩸 Bloody Mary curse: ${G.players[i].name} starts with +${drew} card(s)!`, false);
+      }
+    });
+    G.bloodyMaryVictim = undefined;
+  }
+
+  // Bloody Mary Jane winner boon: start with 6 cards
+  if (G.bloodyMaryWinner !== undefined) {
+    const bm = G.bloodyMaryWinner;
+    const hand = G.players[bm].hand;
+    if (hand.length > 6) {
+      hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+      const flushCount = hand.length - 6;
+      G.discard.push(...hand.splice(0, flushCount));
+      addLog(`🩸 Bloody Mary boon: ${G.players[bm].name} starts with 6 cards (dealer flushes ${flushCount}).`, true);
+    }
+    G.bloodyMaryWinner = undefined;
+  }
+
+  // Royal Six winner boon: winner (and teammate in team modes) start with 6 cards
+  if (G.royalSixWinner !== undefined) {
+    const rw = G.royalSixWinner;
+    const applySixBoon = (idx) => {
+      const hand = G.players[idx].hand;
+      if (hand.length > 6) {
+        hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+        const flushCount = hand.length - 6;
+        G.discard.push(...hand.splice(0, flushCount));
+        addLog(`👑 Royal Six boon: ${G.players[idx].name} starts with 6 cards (dealer flushes ${flushCount}).`, true);
+      }
+    };
+    applySixBoon(rw);
+    const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+    const partnerIdx = G.players[rw].partnerIdx;
+    if (isTeam && partnerIdx !== null && partnerIdx !== undefined) applySixBoon(partnerIdx);
+    G.royalSixWinner = undefined;
   }
 
   // Royal Roots: flush 3 of winner's starting hand
@@ -6167,6 +6625,16 @@ function aiTurn(pidx) {
     // If they play the matching card type, doPlayCards detects it and starts war.
     // If they play anything else, the pendingWar counter-detect block resolves it as a pass.
     const player = G.players[pidx];
+    const hasWarMomentum = G._warVictorMomentum === pidx;
+    if (hasWarMomentum) G._warVictorMomentum = null;
+
+    if (!(G.pendingWar && G.pendingWar.defenderIdx === pidx)) {
+      if (checkSpecialHandWin(pidx, hasWarMomentum ? 'war_momentum' : 'turn_start')) {
+        renderGame();
+        renderLog();
+        return;
+      }
+    }
 
     // ── AI Root Out decision ─────────────────────────────────
     if (!G.rootOutUsed && player.hand.length >= 2 && player.hand.length <= 5 && Math.random() < 0.25) {
@@ -6188,15 +6656,14 @@ function aiTurn(pidx) {
     }
 
     let didPlay = false;
-    if (!G.pendingWar && Math.random() < 0.20) {
+    if (!hasWarMomentum && !G.pendingWar && Math.random() < 0.20) {
       didPlay = aiSetTraps(pidx);
     }
 
-    const play = didPlay ? null : findBestPlay(player.hand);
+    const play = didPlay ? null : (hasWarMomentum ? findBestPlayIgnoreFC(player.hand) : findBestPlay(player.hand));
  
     if (play && play.length > 0) {
-      doPlayCards(pidx, play);
-      didPlay = true;
+      didPlay = doPlayCards(pidx, play, { skipAnimation:true }) || didPlay;
     } else {
       // Draw and try again once
       if (G.deck.length===0) reshuffleDiscard();
@@ -6206,12 +6673,25 @@ function aiTurn(pidx) {
         addLog(`${player.name} draws.`);
         aiDrawAnim(pidx, 1, null);
         if (answersFC(drawn)) {
-          doPlayCards(pidx, [drawn]);
-          didPlay = true;
+          didPlay = doPlayCards(pidx, [drawn], { skipAnimation:true }) || didPlay;
         } else {
           addLog(`${player.name} can't play.`);
         }
       }
+    }
+
+    if (G.phase === 'play' && G._zeroReplayOwner === pidx && G._zeroReplaySuit) {
+      const zSuit = G._zeroReplaySuit;
+      const suited = player.hand.filter(c => c && c.suit === zSuit);
+      const replay = findBestPlay(suited);
+      if (replay && replay.length > 0) {
+        addLog(`⭕ ${player.name} Zero Replay in ${zSuit}.`, false);
+        didPlay = doPlayCards(pidx, replay, { skipAnimation:true }) || didPlay;
+      } else {
+        addLog(`⭕ ${player.name} has no ${zSuit} replay after Zero Ghost.`, false);
+      }
+      G._zeroReplayOwner = null;
+      G._zeroReplaySuit = null;
     }
 
     if (!didPlay && G.pendingWar && G.pendingWar.defenderIdx === pidx) {
@@ -6228,19 +6708,36 @@ function aiTurn(pidx) {
       }
     }
 
+    if (G.phase !== 'play') {
+      renderGame();
+      renderLog();
+      return;
+    }
+
     // pendingWar set by THIS AI: the next player will handle it on their own turn.
     // Human defender → startHumanTurn shows war prompt.
     // AI defender → their aiTurn will play naturally; doPlayCards handles counter detection.
  
     // Mandatory end-of-turn draw (+ extra from 6s if AI played them)
-    const aiLawDrawCount = 1 + (G._extraLawDraws || 0);
+    let aiLawDrawCount = 1 + (G._extraLawDraws || 0);
+    if (G._skipLawDrawFor === pidx) {
+      aiLawDrawCount = 0;
+      G._skipLawDrawFor = null;
+      addLog(`⭕ ${player.name} bypasses Law Draw (Zero Protocol).`, false);
+    }
     G._extraLawDraws = 0;
     for (let ld = 0; ld < aiLawDrawCount; ld++) {
       if (G.deck.length===0) reshuffleDiscard();
       if (G.deck.length>0) player.hand.push(G.deck.pop());
     }
     // Show law draw animation
-    aiDrawAnim(pidx, aiLawDrawCount, null);
+    if (aiLawDrawCount > 0) aiDrawAnim(pidx, aiLawDrawCount, null);
+
+    if (checkSpecialHandWin(pidx, 'law_draw')) {
+      renderGame();
+      renderLog();
+      return;
+    }
 
     // Trap activation check at end of turn face card state
     _triggerTrapActivationByFaceCard(pidx);
@@ -6374,6 +6871,24 @@ function findBestPlay(hand) {
   }
   return best;
 }
+
+function findBestPlayIgnoreFC(hand) {
+  if (!hand || hand.length === 0) return null;
+  let best = null, bestPts = -1;
+  const maxN = Math.min(7, hand.length);
+  for (let n = 1; n <= maxN; n++) {
+    const combos = getCombinations(hand, n);
+    for (const combo of combos) {
+      const ev = evalComboIgnoreFC(combo);
+      if (ev.valid && (ev.pts || 0) > bestPts) {
+        bestPts = ev.pts || 0;
+        best = combo;
+      }
+    }
+  }
+  if (!best) return [hand[0]];
+  return best;
+}
  
 // ========== HUMAN TURN FLOW ==========
 // Turn phases for the human player:
@@ -6410,6 +6925,17 @@ function startHumanTurn() {
   G.forceSingleEndDraw = false;
   G.freeDrewId = null;
   G.sel = [];
+  G._selectionTouchedThisTurn = false;
+
+  if (!(G.pendingWar && G.pendingWar.defenderIdx === 0)) {
+    if (checkSpecialHandWin(0, G._warVictorMomentum === 0 ? 'war_momentum' : 'turn_start')) {
+      renderGame();
+      renderLog();
+      return;
+    }
+  }
+
+  if (G._warVictorMomentum === 0) G._warVictorMomentum = null;
   renderGame();
   updateBtns();
   updateComboInfo();
@@ -6435,6 +6961,8 @@ function startHumanTurn() {
     } else {
       // Human can't counter — auto-resolve silently (effect fires, may advSkip)
       resolvePendingWarAsPass(0);
+      // Effects fired during auto-pass may have changed your hand (draw/give/take).
+      renderGame(); updateBtns(); updateComboInfo();
       // Check if human was skipped by the effect (e.g. pair of 2s from previous AI)
       if (_skipCount > 0) {
         const nextCur = advanceTurnIdx(0);
@@ -6463,7 +6991,30 @@ function toggleSelect(id) {
   if (G.phase!=='play' || G.cur!==0) return;
   if (G.turnPhase === 'done' || G.aceState) return; // already played, waiting for end turn
   const idx = G.sel.indexOf(id);
-  if (idx>=0) G.sel.splice(idx,1); else G.sel.push(id);
+  if (idx>=0) {
+    G.sel.splice(idx,1);
+  } else {
+    const picked = G.players[0].hand.find(c => c.id === id);
+    if (picked) {
+      const curCards = G.sel.map(cid => G.players[0].hand.find(c => c.id === cid)).filter(Boolean);
+      const hasZeroInSel = curCards.some(c => c.rank === '0');
+      const allZeroSel = curCards.length > 0 && curCards.every(c => c.rank === '0');
+
+      if (picked.rank === '0' && curCards.length > 0 && !allZeroSel) {
+        if (!isMaryJaneUnlockPrefix(curCards)) {
+          addLog('⭕ Mary Jane unlock required: select QQ42 first (Queens must be ♥/♠), then add 0.', false);
+          return;
+        }
+      }
+
+      if (picked.rank !== '0' && hasZeroInSel) {
+        addLog('⭕ 0 can only join Mary Jane after QQ42 is already selected.', false);
+        return;
+      }
+    }
+    G.sel.push(id);
+  }
+  G._selectionTouchedThisTurn = true;
   renderHand();
   updateComboInfo();
   updateBtns();
@@ -6592,10 +7143,11 @@ function updateBtns() {
   // Free draw button — only available if haven't drawn yet this turn
   if (db) {
     const alreadyDrew = !!G.freeDrewId;
-    db.disabled = alreadyDrew;
-    db.textContent = alreadyDrew ? 'DREW ✓' : 'FREE DRAW';
-    db.style.borderColor = alreadyDrew ? '#333' : '#666';
-    db.style.color = alreadyDrew ? '#444' : '#aaa';
+    const zeroReplayLocked = G._zeroReplayOwner === 0 && !!G._zeroReplaySuit;
+    db.disabled = alreadyDrew || zeroReplayLocked;
+    db.textContent = zeroReplayLocked ? 'REPLAY FIRST' : (alreadyDrew ? 'DREW ✓' : 'FREE DRAW');
+    db.style.borderColor = (alreadyDrew || zeroReplayLocked) ? '#333' : '#666';
+    db.style.color = (alreadyDrew || zeroReplayLocked) ? '#444' : '#aaa';
   }
 
   if (tdb && tub) {
@@ -6610,7 +7162,12 @@ function updateBtns() {
   // Play button
   if (G.sel.length === 0) { pb.disabled=true; return; }
   const cards = G.sel.map(id=>G.players[0].hand.find(c=>c.id===id)).filter(Boolean);
-  pb.disabled = !evalCombo(cards).valid;
+  const ev = evalCombo(cards);
+  let valid = !!ev.valid;
+  if (valid && G._zeroReplayOwner === 0 && G._zeroReplaySuit) {
+    valid = cards.every(c => c.suit === G._zeroReplaySuit);
+  }
+  pb.disabled = !valid;
 }
  
 // Free draw at start of turn — card is added and IS playable this turn
@@ -6622,6 +7179,11 @@ function freeDraw() {
   G.players[0].hand.push(drawn);
   G.freeDrewId = drawn.id;
   addLog(`You draw a card — ${drawn.rank}${drawn.suit}. ${answersFC(drawn)?'It can be played!':'(Can\'t play it this turn)'}`, answersFC(drawn));
+  if (checkSpecialHandWin(0, 'free_draw')) {
+    renderGame();
+    renderLog();
+    return;
+  }
   renderGame();
   updateBtns();
 }
@@ -6654,6 +7216,14 @@ function playSelected() {
     return;
   }
   const cards = G.sel.map(id=>G.players[0].hand.find(c=>c.id===id)).filter(Boolean);
+  const replayWasActive = G._zeroReplayOwner === 0 && !!G._zeroReplaySuit;
+  if (G._zeroReplayOwner === 0 && G._zeroReplaySuit) {
+    const badSuit = cards.some(c => c.suit !== G._zeroReplaySuit);
+    if (badSuit) {
+      addLog(`⭕ Zero Replay: cards must match ${G._zeroReplaySuit}.`, false);
+      return;
+    }
+  }
   // Three 8s enforcement
   if (G.limitNext && cards.length > G.limitNext) {
     addLog('Three 8s: you may only play ' + G.limitNext + ' card this turn!', false);
@@ -6708,6 +7278,22 @@ function playSelected() {
 
   doPlayCards(0, cards);
   G.sel = [];
+
+  if (replayWasActive) {
+    G._zeroReplayOwner = null;
+    G._zeroReplaySuit = null;
+  }
+
+  if (!replayWasActive && G._zeroReplayOwner === 0 && G._zeroReplaySuit && G.phase === 'play') {
+    G.turnPhase = 'playing';
+    renderGame();
+    addLog(`⭕ Zero Replay active: play again in ${G._zeroReplaySuit}.`, true);
+    renderLog();
+    updateBtns();
+    updateComboInfo();
+    return;
+  }
+
   // Consume one queen bonus play if active
   if (G.queenBonus > 0) { G.queenBonus--; }
  
@@ -6727,6 +7313,11 @@ function playSelected() {
     G._queenSuit = null; // bonus exhausted
     G.turnPhase = 'done';
     renderGame();
+    fireTwoPairPending(0);
+    if (G.phase !== 'play' || G.turnPhase !== 'done') {
+      renderLog(); updateBtns(); updateComboInfo();
+      return;
+    }
     addLog('Played! Click END TURN to draw & pass.', false);
     renderLog(); updateBtns(); updateComboInfo();
   }
@@ -6736,20 +7327,47 @@ function endTurn() {
   const ASYNC = ['war_prompt','jack_flush','ace','joker_effect','roots_pick','cascade_pick','even_steven','war','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','royal_roots_choice','root_out','dealing','royal_dice'];
   if (ASYNC.includes(G.phase)||G.cur!==0||G.war||G.jackFlush||G.aceState) return;
 
+  if (G._zeroReplayOwner === 0 && G._zeroReplaySuit) {
+    const canReplay = G.players[0].hand.some(c => c && c.suit === G._zeroReplaySuit);
+    if (canReplay) {
+      addLog(`⭕ Zero Replay pending: play again in ${G._zeroReplaySuit} before ending turn.`, false);
+      return;
+    }
+    addLog(`⭕ No ${G._zeroReplaySuit} cards available — Zero Replay is cleared.`, false);
+    G._zeroReplayOwner = null;
+    G._zeroReplaySuit = null;
+  }
+
   // If a pending war trigger is awaiting this player and they end turn without matching,
   // that counts as a pass and the prior effect resolves now.
   if (G.pendingWar && G.pendingWar.defenderIdx === 0 && G.turnPhase !== 'done') {
     resolvePendingWarAsPass(0);
   }
 
+  // Safety: never carry Two Pair pending effects into a later unrelated turn.
+  if (G._twoPairPending && G._twoPairPending.pidx === 0) {
+    G._twoPairPending = null;
+  }
+
   // THE LAW DRAW: 1 mandatory card + any extra from 6s (up to 4 extra)
-  const lawDrawCount = 1 + (G._extraLawDraws || 0);
+  let lawDrawCount = 1 + (G._extraLawDraws || 0);
+  if (G._skipLawDrawFor === 0) {
+    lawDrawCount = 0;
+    G._skipLawDrawFor = null;
+    addLog('⭕ Zero Protocol: Law Draw bypassed.', false);
+  }
   G._extraLawDraws = 0; // reset after applying
   for (let ld = 0; ld < lawDrawCount; ld++) {
     if (G.deck.length===0) reshuffleDiscard();
     if (G.deck.length>0) G.players[0].hand.push(G.deck.pop());
   }
   if (lawDrawCount > 1) addLog('6️⃣ Law Draw ×' + lawDrawCount + ' (6s bonus)!', false);
+
+  if (checkSpecialHandWin(0, 'law_draw')) {
+    renderGame();
+    renderLog();
+    return;
+  }
 
   // Trap activation check at end-of-turn face card state
   _triggerTrapActivationByFaceCard(0);
@@ -6766,6 +7384,8 @@ function endTurn() {
   G._royalDiceFreeCombo = false;  // single play only
   G._royalDiceDoubleDown = false;
   G.trapPlacedThisTurn = false;
+  G._zeroReplayOwner = null;
+  G._zeroReplaySuit = null;
   if (!G._royalDiceExtraMoves) G._royalDiceExtraMoves = 0;
   // Three 9s: reverse direction AFTER the player ends their extra turn
   if (G._nineReverseAfterTurn) {
@@ -7098,22 +7718,32 @@ function detectSelectionType(sel) {
 function canExtendSelection(card, currentSel) {
   if (currentSel.length === 0) return answersFC(card);
 
+  const hasZeroInSel = currentSel.some(c => c.rank === '0');
+  if (hasZeroInSel) {
+    const allZeroSel = currentSel.every(c => c.rank === '0');
+    if (allZeroSel) return card.rank === '0';
+    if (card.rank === '0') return false;
+    return false;
+  }
+
+  if (card.rank === '0') {
+    return isMaryJaneUnlockPrefix(currentSel);
+  }
+
   const type = detectSelectionType(currentSel);
   const nonJoker = currentSel.filter(c => c.rank !== 'JKR');
   const isJoker  = card.rank === 'JKR';
-
-  // Joker extension rule: max 1 Joker in non-Joker combos.
-  // If selection already has 1+ Joker and this card is also a Joker,
-  // only allow if the whole selection is Jokers (pure Joker combo).
   const jokerCountInSel = currentSel.filter(c => c.rank === 'JKR').length;
+
+  // Joker extension rule:
+  // Allow multiple jokers so humans can build official mixed-joker combos
+  // (Joker House / Royal Joker House / Royal Jacksons, etc.).
   if (isJoker) {
-    if (jokerCountInSel === 0) return true; // first joker — always extends
-    // Already has a joker — only allow if all current cards are also jokers (pure joker combo)
-    const allJokersAlready = currentSel.every(c => c.rank === 'JKR');
-    return allJokersAlready; // 2nd+ joker only allowed in pure-joker combos
+    if (jokerCountInSel >= 1 && (type === 'straight' || type === 'straight_flush' || type === 'flush')) {
+      return false;
+    }
+    return true;
   }
-  // Non-joker card: if selection has 2+ jokers, only joker combos allowed — block normal cards
-  if (jokerCountInSel >= 2) return false;
 
   // If adding this card forms a valid combo, allow it (after joker rules pass)
   const trial = [...currentSel, card];
@@ -7203,7 +7833,11 @@ function renderHand() {
   // Safety: sanitize stale selection state before computing highlights
   if (!canSelect) {
     G.sel = [];
+    G._selectionTouchedThisTurn = false;
   } else {
+    if (!G._selectionTouchedThisTurn && G.sel.length > 0) {
+      G.sel = [];
+    }
     const handIds = new Set(player.hand.map(c => c.id));
     G.sel = G.sel.filter(id => handIds.has(id));
   }
@@ -7571,61 +8205,63 @@ function startGame() {
 
 // ── COMBO REFERENCE TABLE ──────────────────────────────────────────────
 const COMBO_TABLE = [
+  ['Match-Win','200','Empty Hand or hit a Mythic Combo'],
   ['Single Card','0','No points for ending turn with just one card'],
-  ['Normal Pair','5','Points only; no power effect'],
-  ['Normal 3-of-a-kind','15','Points only; no power effect'],
-  ['Normal 4-of-a-kind','50','Points only; no power effect'],
-  ['Pair of 2s','8','Next draws 2 & skipped'],
-  ['Three 2s','20','Next draws 3 & skipped + attacker flushes 1 card'],
-  ['Four 2s','50','Next draws 4 & skipped + attacker flushes 2 cards'],
-  ['Pair of 6s','11','Law Draw +1 (next end-of-turn draw becomes 2)'],
-  ['Three 6s','33','Law Draw +3 (next end-of-turn draws 4 total)'],
-  ['Four 6s','66','Law Draw +4 (next end-of-turn draws 5 total — capped at 4 extra)'],
+  ['Trap Cards (3,4,5,6,10)','5','Triggered by the Face Card being 1 less, 1 more, or same number as trap card; becomes Face Card; exact number grants your turn'],
+  ['Normal Pair','5','Only for points; no power effect'],
+  ['Normal 3-of-a-kind','25','Only for points; no power effect'],
+  ['Normal 4-of-a-kind','55','Only for points; no power effect'],
+  ['Zero Cards','5/10/30/70','Bypass Law Draw whenever summoned, flush 2 if pair, +2 flush per a-kind; only connect to Mary Jane combos'],
+  ['Pair of 2s','8','Next draws 2 and is skipped'],
+  ['Three 2s','25','Next draws 3 and is skipped; flush 1 card'],
+  ['Four 2s','65','Next draws 4 and is skipped; flush 2 cards'],
+  ['Trap Fours','8/30/65','Pair 4s destroy any 2 enemy traps, Three 4s destroy any 4 enemy traps, Four 4s wipe all enemy traps'],
+  ['Sixes (pair/trips/quads)','11/39/96','Law Draw +1 per 6 played; stacks up to 4 extra Law Draw cards'],
   ['Pair of 7s','8','Skip next player'],
-  ['Three 7s','20','Pick 1 card from discard (last 10) + skip 2 players'],
-  ['Four 7s','50','Skip all + you & teammate each pick up to 2 from discard + play any combo'],
-  ['Pair of 8s','8','Change suit + play any card freely'],
-  ['Three 8s','20','Change suit + teammate plays any card + you play any card (solo: play any 2)'],
-  ['Four 8s','50','Change suit + play any combo + partner plays 2 cards (solo: flush 1)'],
-  ['Pair of 9s','8','Reverse direction, next player plays'],
-  ['Three 9s','20','Play any card freely + direction reverses after'],
-  ['Four 9s','50','Play any combo + reverse to teammate (solo: play any combo + reverse + skip next)'],
-  ['Pair of Aces','10','Discard draw & replace OR force 1 opponent to draw (your choice)'],
-  ['Three Aces','25','2 Ace actions (discard/replace/force draw) + play any card freely'],
-  ['Four Aces','60','3 Ace actions (discard/replace/force draw) + play any combo freely'],
-  ['Kings','4/9/20/60','Override FC. Tax 1% pot OR 10pts to you. War if matched. Doubles per King'],
-  ['Queens','4/9/20/60','Override FC (not King). 8s wild. War if matched. +1 suit play per Queen'],
-  ['Jacks','4/9/20/60','Override FC (not Q/K). Flush 1 per Jack. War if matched. Min 1 card kept'],
-  ['Spade Joker','10','Swap a card with anyone OR pull from discard (last 10 excl. face card), play any card (war vs any Joker)'],
-  ['Diamond Joker','10','Everyone pays 1% Match Pot to player/team OR 10pts each to player/team, play any card (war vs any Joker)'],
-  ['Clover Joker','10','You & partner each play any card freely. Solo: play any 2 cards (war vs any Joker)'],
-  ['Heart Joker','10','Take up to 2 cards from any player (blind), they draw 2 replacements, play any card (war vs any Joker)'],
-  ['Double Joker','40','Both joker effects activate + free plays stacked'],
-  ['Triple Joker','100','All 3 joker effects activate + free plays stacked'],
-  ['Full House (3+2)','30','House Party: give 2, take 2 random from that player'],
-  ['Triple Double (two 3x)','40','Give 2, take 2 random, they draw 2'],
-  ['Straight (5+)','25(+5)','All opponents draw 2, partner safe. +5/card beyond 5. 7+ card: ALL players draw 3'],
-  ['Flush (5+)','30(+5)','Flush 1 card. Partner flushes 2 (solo: flush 1). 7+ card solo: flush 2. +5/card beyond 5'],
-  ['Straight Flush','100(+10)','All draw 2; partner flushes 2 (solo: 1)'],
-  ['Face Card Straight/Flush','-5','Effects negated. -5pts (-15 SF, -300 Royal Flush)'],
-  ['Even Steven (2-4-6-8-10)','50','You & partner flush 2, pick 1 from discard'],
-  ['Roots (J-Q-K-A-Joker)','70','Pick 2 enemies — they draw 3'],
-  ['Cascade House (44499/44999)','80','Switch hands with enemy; they draw 4'],
-  ['Joker House (3A + 2J)','200','Draw 2, discard 2, both Joker effects cascade, play again'],
-  ['Royal Flush','400','Flush 4 cards. Can flush hand clean'],
-  ['Royal Joker House (2A + 3J)','500','All draw 2, dismiss 4, all 3 Joker effects cascade, play again'],
-  ["Dead Man's Hand",'666','(8+A Black suit + Black Joker) Auto-match win. Enemies +1 card next match'],
-  ['Royal Roots (J-Q-K-A-Joker same suit)','777','Instant win; dealer flushes 3 of your cards next match'],
-  ['Joker Cascade (4 Jokers)','2000','Instant win; counts as 2 match wins'],
-  ['Royal Dead Man','9999','(8,8,A,A + Black Joker same suit) GAME OVER'],
-  ['🎲 ROYAL DICE (2)','—','SNAKE EYES: Draw 2 + lose turn'],
-  ['🎲 ROYAL DICE (7)','—','DOUBLE DOWN: Partner plays first OR you play 2 moves'],
-  ['🎲 ROYAL DICE (9)','—','MONEY MONEY: All enemies pay 2× min bet to pot'],
-  ['🎲 ROYAL DICE (11)','—','LUCKY BOOST: Pull from discard OR steal 1 card from any player'],
-  ['🎲 ROYAL DICE (12)','—','ROYAL ROOTS: Play any combo, ignore Face Card restriction'],
-  ['🎲 ROYAL DICE (Doubles)','—','DOUBLE UP: You + partner each discard 2 cards'],
-  ['ROOT OUT!','100/-200','Win=+100pts+match ends+pot; Fail=−200pts+draw 4+law draw, winner gets +50pts+new face card, others discard 2+draw 3, caller pays 2× min bet'],
-  ['Royal War (win)','30','Win a WAR challenge, tie-breaker, or Dice Duel'],
+  ['Three 7s','30','Pick 1 card from discard (recent 10 behind face card), skip 2 players'],
+  ['Four 7s','65','Skip all; you and teammate each pick up to 2 from discard (solo: pick up to 3), then play any combo'],
+  ['Pair of 8s','8','Change suit, play any card'],
+  ['Three 8s','30','Change suit, teammate plays any card, then you play any card (solo: play any 2 cards)'],
+  ['Four 8s','65','Change suit, play any combo, partner plays any 2 cards (solo: flush 1 card)'],
+  ['Pair of 9s','8','Reverse direction, next plays'],
+  ['Three 9s','30','Play any card, reverse direction'],
+  ['Four 9s','65','Play any combo, reverse to teammate (solo: play any combo, reverse and skip next player)'],
+  ['Pair of Aces','11','Discard draw, replace, or force 1 to draw (your choice)'],
+  ['Three Aces (Trips)','37','2 Ace actions (discard draw/replace/force draw, any combo) + play any card'],
+  ['Four Aces (Quads)','75','3 Ace actions (discard draw/replace/force draw, any combo) + play any combo'],
+  ['Kings','5/10/35/70','Override Face Card, tax enemy match pot 1% OR 10 points, declare war if matched; pair+ doubles price per a-kind'],
+  ['Queens','5/10/35/70','Override Face Card (unless King), use 8 wild property, declare war if matched; pair+ gets +1 follow-up suit play per a-kind'],
+  ['Jacks','5/10/35/70','Override Face Card (unless Queen/King), flush 1, declare war if matched; pair+ flushes +1 extra per a-kind'],
+  ['Spade Joker','13','Wildcard: swap card with anyone OR pull from discard, play any card (declare war against any joker)'],
+  ['Diamond Joker','13','Wildcard: everyone pays 1% Match Pot OR 10 points each to player/team, play any card (declare war against any joker)'],
+  ['Clover Joker','13','Wildcard: you and partner play any card (solo: play any 2 cards), declare war against any joker'],
+  ['Heart Joker','13','Wildcard: take up to 2 cards from any person, they draw 2 new cards, play any card (declare war against any joker)'],
+  ['Double Joker / Triple Joker','40/100','All played joker effects activate; joker "play any card" effects stack'],
+  ['Full House','40','House Party: you have 2 cards to give away. Whoever gets 1 must draw 2'],
+  ['Triple Double','65','Two 3-of-a-kinds: you have 2 cards to give away (or 3 solo), teammate has 2. Each given card forces draw 2'],
+  ['Straight','25(+5)','All others draw 2, partner safe; +5 each extension. At 7+ straight all players draw 3'],
+  ['Flush','30(+5)','Discard(flush) 1 card, partner flushes 2 (solo: flush 1; at 7+ flush, flush 2). +5 each extension'],
+  ['Straight Flush','70(+10)','All others draw 2; you and teammate flush 2 from partner. At 7+ straight flush 3 and enemies draw 3'],
+  ['Face Card Straight/Flush','-5','Combo effects negated; 5 fewer points for straight/flush (straight flush -15, Royal Flush -300 included)'],
+  ['All-Even (Even Steven)','60','Player and partner flush 2 cards, you pick two from discard, teammate plays any 2 cards'],
+  ['Roots (J-Q-K-A-Joker any suits)','85','Pick two enemies; they draw 4. All other enemies draw 2'],
+  ['Cascade House (44499 or 44999)','100','Switch hands with an enemy player; they draw 4 immediately after switch'],
+  ['Royal Five (5-of-a-kind)','150','Banishes enemy 2,3,J,Q,K,A,Joker cards to discard back; 3-of-a-kind skill activates'],
+  ['Joker House (3J, 2Joker)','200','Enemy players draw 2, discard 4 from your hand and partner, both Joker effects cascade in order, play any combo'],
+  ['Royal Flush','400','Flush 4 cards; can flush hand clean if possible'],
+  ['Royal Joker House (2J, 3Joker)','500','Enemy players draw 2, discard 4 from your hand and partner, all 3 Joker effects cascade in order, play any combo, skip 2 players'],
+  ["Dead Man's Hand (♠☘AA88JKR Either Suit)",'666','Auto-match win; enemies cursed with an extra card starting next match'],
+  ['Calamity Mary Jane (♥♠QQ420 Either Suit)','666','Auto-match win; enemies cursed with an extra card starting next match'],
+  ['Royal Roots (J-Q-K-A-Joker in suit)','777','Auto-match win; start next match with 3 of your 10 cards flushed by dealer'],
+  ['Joker Cascade (4 Jokers)','2000','Auto-match win; counts as 2 match wins'],
+  ['Royal Dead Man (☘♠88AAJKR Same Suit)','3000','Auto-match win; you start with 6 cards next match, enemies cursed with 2 extra cards'],
+  ['Bloody Mary Jane (♥♠QQ420 Same Suit)','3000','Auto-match win; you start with 6 cards next match, enemies cursed with 2 extra cards'],
+  ['Royal Six','3000','Auto-match win; counts as 2 match wins'],
+  ['Royal Seven','4000','Auto-match win; counts as 4 match wins'],
+  ['Royal Eight','10000','Auto-match win; counts as 10 match wins'],
+  ['Royal Jacksons (The Jacksons) (4J, 4Joker)','20000','Auto-match win; counts as 20 match wins'],
+  ['ROOT OUT!','100/-200','If called and won: +100 and match over. If failed: -200, combo effects canceled'],
+  ['Royal War','10','Win a WAR (challenge, tie-breaker, or Dice Duel)'],
 ];
 
 
@@ -8008,6 +8644,52 @@ function draftConfirm() {
 // Completely independent pointer tracking per operation
 // No shared state between drag and resize — each uses its own pointerId
 
+function _isTouchMobileLike() {
+  return window.matchMedia('(pointer:coarse)').matches && (window.innerWidth <= 1100 || window.innerHeight <= 700);
+}
+
+function _clampActionLogToViewport() {
+  const log = document.getElementById('actionLog');
+  if (!log) return;
+  if (log.dataset.mobileLocked === '1') return;
+  const r = log.getBoundingClientRect();
+  let left = r.left;
+  let top = r.top;
+  const maxL = Math.max(0, window.innerWidth - r.width);
+  const maxT = Math.max(0, window.innerHeight - r.height);
+  if (left < 0 || top < 0 || left > maxL || top > maxT) {
+    left = Math.max(0, Math.min(maxL, left));
+    top = Math.max(0, Math.min(maxT, top));
+    log.style.left = left + 'px';
+    log.style.top = top + 'px';
+    log.style.right = 'auto';
+    log.style.bottom = 'auto';
+  }
+}
+
+function _applyActionLogResponsiveState() {
+  const log = document.getElementById('actionLog');
+  const handle = document.getElementById('logDragHandle');
+  const resH = document.getElementById('logResizeHandle');
+  if (!log) return;
+  const mobileLike = _isTouchMobileLike();
+  log.classList.toggle('mobile-docked', mobileLike);
+  if (mobileLike) {
+    log.dataset.mobileLocked = '1';
+    if (handle) handle.style.cursor = 'default';
+    if (resH) resH.style.display = 'none';
+    log.style.left = 'auto';
+    log.style.top = 'calc(50px + env(safe-area-inset-top))';
+    log.style.right = '6px';
+    log.style.bottom = 'auto';
+  } else {
+    log.dataset.mobileLocked = '0';
+    if (handle) handle.style.cursor = 'grab';
+    if (resH && log.dataset.minimized !== '1') resH.style.display = '';
+  }
+  _clampActionLogToViewport();
+}
+
 function initActionLog() {
   // Always re-init (remove guard so it works after screen changes)
   const log    = document.getElementById('actionLog');
@@ -8018,6 +8700,7 @@ function initActionLog() {
   // Prevent duplicate listeners
   if (log._rrLogInited) return;
   log._rrLogInited = true;
+  _applyActionLogResponsiveState();
 
   // Block pointer events from bleeding through to game table.
   // Use BUBBLE phase (not capture) so the handle's own capture listener fires first.
@@ -8037,6 +8720,7 @@ function initActionLog() {
   handle.style.cursor = 'grab';
 
   handle.addEventListener('pointerdown', e => {
+    if (log.dataset.mobileLocked === '1') return;
     if (dragId !== -1) return;
     e.preventDefault(); e.stopPropagation();
     dragId = e.pointerId;
@@ -8079,6 +8763,7 @@ function initActionLog() {
     resH.textContent = '◢'; // Clearer resize icon
 
     resH.addEventListener('pointerdown', e => {
+      if (log.dataset.mobileLocked === '1') return;
       if (resId !== -1) return;
       e.preventDefault(); e.stopPropagation();
       resId = e.pointerId;
@@ -8089,6 +8774,7 @@ function initActionLog() {
 
     resH.addEventListener('pointermove', e => {
       if (e.pointerId !== resId) return;
+      if (log.dataset.mobileLocked === '1') return;
       e.preventDefault();
       log.style.width  = Math.max(160, resStartW + (e.clientX - resStartX)) + 'px';
       log.style.height = Math.max(90,  resStartH + (e.clientY - resStartY)) + 'px';
@@ -8098,6 +8784,9 @@ function initActionLog() {
     resH.addEventListener('pointerup',     stopRes);
     resH.addEventListener('pointercancel', stopRes);
   }
+
+  window.addEventListener('resize', _applyActionLogResponsiveState);
+  window.addEventListener('orientationchange', _applyActionLogResponsiveState);
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initActionLog);
@@ -8116,7 +8805,7 @@ function toggleLogMinimize() {
     log.dataset.minimized = '0';
     if (body)   { body.style.display = ''; }
     if (footer) { footer.style.display = ''; }
-    if (resH)   { resH.style.display = ''; }
+    if (resH)   { resH.style.display = log.dataset.mobileLocked === '1' ? 'none' : ''; }
     log.style.height = log._savedH || '';
     if (btn) { btn.textContent = '—'; btn.title = 'Minimize'; }
   } else {
@@ -8671,6 +9360,10 @@ function showRules() {
   const rdBody = document.getElementById('royalDiceBody');
   if (rdBody) { rdBody.innerHTML = _buildRoyalDiceHelp(); }
 
+  // Populate Add-Ons page
+  const adBody = document.getElementById('addonsBody');
+  if (adBody) { adBody.innerHTML = _buildAddOnsHelp(); }
+
   const rm2 = document.getElementById('rulesModal');
   rm2.style.display='flex'; rm2.style.flexDirection='column';
   rm2.style.alignItems='center'; rm2.style.justifyContent='center';
@@ -8678,23 +9371,60 @@ function showRules() {
 }
 
 function switchHelpTab(tab) {
-  [1,2,3,4].forEach(n => {
+  [1,2,3,4,5].forEach(n => {
     const page = document.getElementById('helpPage' + n);
     const btn  = document.getElementById('helpTab' + n + 'Btn');
     if (!page || !btn) return;
     const active = tab === n;
     page.style.display = active ? 'block' : 'none';
-    // Tab 4 uses orange accent (Royal Dice)
-    const isOrange = n === 4;
-    const activeColor    = isOrange ? '#e67e22' : '#000';
-    const activeBg       = isOrange ? '#e67e22' : 'var(--gold)';
-    const inactiveColor  = isOrange ? 'rgba(230,126,34,.7)' : 'rgba(240,192,64,.6)';
-    const inactiveBorder = isOrange ? '1px solid rgba(230,126,34,.35)' : '1px solid rgba(240,192,64,.3)';
+    const styleMap = {
+      4: { color:'#e67e22', inactive:'rgba(230,126,34,.7)', border:'1px solid rgba(230,126,34,.35)' },
+      5: { color:'#16a085', inactive:'rgba(22,160,133,.75)', border:'1px solid rgba(22,160,133,.35)' },
+    };
+    const st = styleMap[n] || { color:'var(--gold)', inactive:'rgba(240,192,64,.6)', border:'1px solid rgba(240,192,64,.3)' };
+    const activeColor    = n >= 4 ? st.color : '#000';
+    const activeBg       = st.color;
+    const inactiveColor  = st.inactive;
+    const inactiveBorder = st.border;
     btn.style.background = active ? activeBg    : 'transparent';
     btn.style.color      = active ? activeColor : inactiveColor;
     btn.style.border     = active ? 'none'      : inactiveBorder;
     btn.style.fontWeight = active ? '700' : '400';
   });
+}
+
+function _buildAddOnsHelp() {
+  const sec = (icon, title, body) => `
+    <div style="margin-bottom:22px">
+      <div style="font-family:'Cinzel Decorative',cursive;font-size:13px;color:#16a085;letter-spacing:2px;margin-bottom:8px;border-bottom:1px solid rgba(22,160,133,.25);padding-bottom:6px">${icon} ${title}</div>
+      <div>${body}</div>
+    </div>`;
+
+  return sec('🚀','OVERPASS (THE SCAVENGER\'S EXIT)',`
+    Reveal a clean <b>2-3-4-5-6-7-8-9-10</b> hand to claim an instant match win.<br>
+    Awards <b>+1000 points</b> and immediately closes the match.
+  `) +
+  sec('📜','LAW PASS (THE SHORTCUT VICTORY)',`
+    If your hand is exactly <b>2 + 3</b>, you instantly win the match.<br>
+    Triggers on turn checks and draw checks when legal.
+  `) +
+  sec('⭕','ZERO CARDS (THE DRAW-BUSTER)',`
+    Zero Protocol always applies a <b>Law Draw bypass</b> when a zero combo is played.<br>
+    <b>Single Zero:</b> immediate replay in the same suit.<br>
+    <b>Pair Same Suit:</b> suit purge (flush same-suit cards).<br>
+    <b>Mixed Zero sets:</b> choice flush scaling by a-kind.
+  `) +
+  sec('⚔️','ROYAL WAR WINNER COMBO (MOMENTUM SHIFT)',`
+    War winner receives <b>Victor\'s Right</b>: immediate bonus play.<br>
+    Bonus play ignores standard Face Card answer restriction for that momentum action.<br>
+    <b>Royal War score:</b> +10 points to winner.
+  `) +
+  sec('🎭','TRAP CARD ADD-ON EFFECTS',`
+    Valid trap cards include numeric trap ranks plus Joker trap variants.<br>
+    A trap triggers when Face Card is <b>same rank</b> or <b>within ±1</b> of trap rank.<br>
+    Triggered trap becomes the new Face Card. Exact-rank trigger grants immediate next turn priority.<br>
+    Joker trap counters can override, punish, or void major actions depending on suit.
+  `);
 }
 
 
@@ -9214,6 +9944,7 @@ showScreen('home');
       <button id="helpTab2Btn" onclick="switchHelpTab(2)" style="flex:1;padding:7px 2px;background:transparent;color:rgba(240,192,64,.6);border:1px solid rgba(240,192,64,.3);border-radius:8px;font-family:Cinzel,serif;font-size:9px;letter-spacing:1px;cursor:pointer;transition:all .2s">🎮 MODES</button>
       <button id="helpTab3Btn" onclick="switchHelpTab(3)" style="flex:1;padding:7px 2px;background:transparent;color:rgba(240,192,64,.6);border:1px solid rgba(240,192,64,.3);border-radius:8px;font-family:Cinzel,serif;font-size:9px;letter-spacing:1px;cursor:pointer;transition:all .2s">🌱 ROOT OUT!</button>
       <button id="helpTab4Btn" onclick="switchHelpTab(4)" style="flex:1;padding:7px 2px;background:transparent;color:rgba(230,126,34,.7);border:1px solid rgba(230,126,34,.35);border-radius:8px;font-family:Cinzel,serif;font-size:9px;letter-spacing:1px;cursor:pointer;transition:all .2s">🎲 ROYAL DICE</button>
+      <button id="helpTab5Btn" onclick="switchHelpTab(5)" style="flex:1;padding:7px 2px;background:transparent;color:rgba(22,160,133,.75);border:1px solid rgba(22,160,133,.35);border-radius:8px;font-family:Cinzel,serif;font-size:9px;letter-spacing:1px;cursor:pointer;transition:all .2s">🧩 ADD-ONS</button>
     </div>
     <!-- Page 1: How to Play -->
     <div id="helpPage1">
@@ -9230,6 +9961,10 @@ showScreen('home');
     <!-- Page 4: Royal Dice -->
     <div id="helpPage4" style="display:none">
       <div id="royalDiceBody" style="font-family:'IM Fell English',serif;font-size:16px;color:var(--text);line-height:1.85"></div>
+    </div>
+    <!-- Page 5: Add-Ons -->
+    <div id="helpPage5" style="display:none">
+      <div id="addonsBody" style="font-family:'IM Fell English',serif;font-size:16px;color:var(--text);line-height:1.85"></div>
     </div>
     <button class="ace-action-btn" style="margin-top:18px;text-align:center;width:100%" onclick="closeRulesModal()">✕ CLOSE</button>
   </div>
