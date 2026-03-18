@@ -251,17 +251,17 @@ button{cursor:pointer;font-family:inherit}
   box-shadow:1px 1px 3px rgba(0,0,0,.4)
 }
 .opp-cards .card-back-mini:first-child{margin-left:0}
-.opp-traps{display:flex;align-items:center;justify-content:center;gap:4px;min-height:18px;margin-top:3px;max-width:160px;flex-wrap:wrap}
+.opp-traps{display:flex;align-items:center;justify-content:center;gap:5px;min-height:34px;margin-top:4px;max-width:220px;flex-wrap:wrap}
 .opp-trap{
-  min-width:16px;height:18px;padding:0 4px;border-radius:4px;
+  width:26px;height:34px;border-radius:6px;
   display:flex;align-items:center;justify-content:center;
-  border:1px solid rgba(133,193,233,.45);
-  font-size:9px;line-height:1;font-family:monospace;
-  color:#d6eaf8;background:rgba(52,73,94,.5);
-  box-shadow:0 0 8px rgba(93,173,226,.2)
+  border:1px solid rgba(133,193,233,.5);
+  font-size:12px;line-height:1;font-family:monospace;
+  color:#d6eaf8;background:rgba(52,73,94,.62);
+  box-shadow:0 0 8px rgba(93,173,226,.26)
 }
-.opp-trap.facedown{background:linear-gradient(135deg,#1d2a38,#2b3f57);color:rgba(214,234,248,.9)}
-.opp-trap.faceup{background:rgba(93,173,226,.22);border-color:#85c1e9;color:#eaf4ff}
+.opp-trap.facedown{background:linear-gradient(145deg,#0f1722,#1a2737);border-color:rgba(98,132,166,.65);color:rgba(190,215,238,.88)}
+.opp-trap.faceup{background:rgba(93,173,226,.28);border-color:#a7d2f1;color:#f1f8ff}
 .opp-trap.trap-new{animation:trapSetPop .55s cubic-bezier(.2,.8,.2,1)}
 .opp-trap-empty{font-size:8px;color:rgba(133,193,233,.45);letter-spacing:1px}
 @keyframes trapSetPop{
@@ -269,6 +269,22 @@ button{cursor:pointer;font-family:inherit}
   70%{transform:translateY(1px) scale(1.08);opacity:1}
   100%{transform:translateY(0) scale(1);opacity:1}
 }
+
+.trap-zone-head{font-size:9px;color:rgba(174,214,241,.95);letter-spacing:1px;line-height:1.25}
+.trap-zone-cards{display:flex;align-items:flex-start;gap:8px;margin-top:2px;overflow-x:auto;padding-bottom:1px}
+.tz-player{display:flex;align-items:center;gap:4px;padding:1px 0;flex:0 0 auto}
+.tz-name{font-size:8px;color:rgba(174,214,241,.82);letter-spacing:.8px}
+.tz-stack{display:flex;align-items:center;gap:3px;min-height:22px}
+.tz-trap{
+  width:16px;height:22px;border-radius:4px;
+  border:1px solid rgba(133,193,233,.5);
+  display:flex;align-items:center;justify-content:center;
+  font-size:8px;font-family:monospace;line-height:1;
+  color:#d8ecfc;background:rgba(93,173,226,.25)
+}
+.tz-trap.facedown{background:linear-gradient(145deg,#121c29,#1e2e41);border-color:rgba(98,132,166,.7);color:rgba(190,215,238,.84)}
+.tz-trap.faceup{background:rgba(93,173,226,.32);border-color:#9ac9ea;color:#f2f8ff}
+.tz-none{font-size:8px;color:rgba(133,193,233,.5);letter-spacing:.6px}
 
 /* CENTRAL BOARD (deck + face card) */
 .central-board{
@@ -690,6 +706,20 @@ button{cursor:pointer;font-family:inherit}
 }
 .combo-info.invalid{color:#e74c3c}
 
+.trap-sapper-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:10px}
+.trap-sapper-card{
+  min-width:58px;padding:8px 6px;border-radius:8px;
+  border:1px solid rgba(133,193,233,.45);background:rgba(12,22,34,.85);
+  color:#d6eaf8;font-family:monospace;font-size:12px;line-height:1.2;
+  display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;
+  transition:all .16s ease
+}
+.trap-sapper-card:hover{border-color:#aed6f1;transform:translateY(-2px)}
+.trap-sapper-card.selected{border-color:#5dade2;box-shadow:0 0 0 1px rgba(93,173,226,.65),0 0 12px rgba(93,173,226,.28)}
+.trap-sapper-card.facedown{background:linear-gradient(145deg,#0e1622,#1b2a3b);color:#c8dbef}
+.trap-sapper-card[disabled]{opacity:.4;cursor:not-allowed;transform:none}
+.trap-sapper-owner{font-size:9px;letter-spacing:1px;color:rgba(174,214,241,.75);font-family:'Cinzel',serif;text-transform:uppercase}
+
 /* FLOAT PTS */
 .float-pts{
   position:absolute;pointer-events:none;font-family:'Cinzel Decorative',cursive;
@@ -717,6 +747,8 @@ button{cursor:pointer;font-family:inherit}
 .card.playable{cursor:pointer;border-color:rgba(240,192,64,.5)}
 .card.playable:hover{border-color:var(--gold);transform:translateY(-6px)}
 .card.unplayable{opacity:.3;filter:grayscale(.8);transform:scale(.94);cursor:not-allowed}
+.card.trap-card{box-shadow:0 0 0 1px rgba(133,193,233,.85),0 0 12px rgba(133,193,233,.32),0 4px 14px rgba(0,0,0,.8)}
+.card.trap-card.unplayable{opacity:.62;filter:grayscale(.2)}
 .card.free-drew{box-shadow:0 0 15px rgba(201,162,39,.6)!important;border-color:var(--gold-light)!important}
 .card-back{
   width:64px;height:90px;border-radius:9px;
@@ -1010,6 +1042,9 @@ button{cursor:pointer;font-family:inherit}
   .opponent-avatar{width:44px;height:44px;font-size:20px}
   .opp-name{font-size:8px;letter-spacing:1px}
   .opp-meta{font-size:7px;gap:6px}
+  .opp-trap{width:22px;height:30px;font-size:10px}
+  .tz-trap{width:14px;height:20px;font-size:7px}
+  .trap-zone-cards{gap:6px}
   .player-footer{max-height:48dvh;padding:2px 0}
   .player-footer-inner{gap:6px;padding:0 6px}
   .player-hand-zone{max-height:calc(44dvh - 54px);padding:8px 2px 2px 2px}
@@ -1435,6 +1470,16 @@ button{cursor:pointer;font-family:inherit}
       </div>
     </div>
 
+    <!-- TRAP SAPPER (4s) -->
+    <div class="ace-modal" id="trapSapperModal" style="display:none">
+      <div class="ace-modal-inner">
+        <div class="ace-modal-title">🔨 TRAP FOURS</div>
+        <div class="ace-modal-sub" id="trapSapperSub">Select traps to destroy</div>
+        <div id="trapSapperBody"></div>
+        <button class="ace-action-btn" id="trapSapperConfirmBtn" onclick="trapSapperConfirm()" disabled>DESTROY SELECTED TRAPS</button>
+      </div>
+    </div>
+
     <!-- CASCADE -->
     <div class="ace-modal" id="cascadeModal" style="display:none">
       <div class="ace-modal-inner">
@@ -1528,7 +1573,7 @@ button{cursor:pointer;font-family:inherit}
 
   <!-- PLAYER FOOTER -->
   <div class="player-footer">
-    <div id="playerInfoBar" style="display:flex;justify-content:space-between;align-items:center;padding:2px 12px;font-family:Cinzel,serif;font-size:10px;color:rgba(240,192,64,.8);letter-spacing:1px;border-bottom:1px solid rgba(240,192,64,.12);flex-shrink:0;line-height:1.8;position:relative;z-index:10"><span id="playerPtsBar">⭐ 0 pts</span><span id="playerChipsBar"></span></div><div id="trapZoneBar" style="padding:2px 12px;font-family:Cinzel,serif;font-size:9px;color:rgba(174,214,241,.9);letter-spacing:1px;border-bottom:1px solid rgba(133,193,233,.15);min-height:18px;line-height:1.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div class="player-footer-inner">
+    <div id="playerInfoBar" style="display:flex;justify-content:space-between;align-items:center;padding:2px 12px;font-family:Cinzel,serif;font-size:10px;color:rgba(240,192,64,.8);letter-spacing:1px;border-bottom:1px solid rgba(240,192,64,.12);flex-shrink:0;line-height:1.8;position:relative;z-index:10"><span id="playerPtsBar">⭐ 0 pts</span><span id="playerChipsBar"></span></div><div id="trapZoneBar" style="padding:3px 12px;font-family:Cinzel,serif;font-size:9px;color:rgba(174,214,241,.9);letter-spacing:1px;border-bottom:1px solid rgba(133,193,233,.15);min-height:38px;line-height:1.35;white-space:normal;overflow:visible"></div><div class="player-footer-inner">
       <div class="player-hand-zone" id="playerHand"></div>
       <div class="controls-zone">
         <div class="combo-status" id="turnStatus">YOUR TURN ▶</div>
@@ -1608,6 +1653,7 @@ function initGame(mode, numPlayers) {
     trapPlacedThisTurn: false,
     _forcedNextTurn: null,
     buriedTrapCards: 0,
+    _trapSapper: null,
     _selectionTouchedThisTurn: false,
     _twoPairPending: null,
     _skipLawDrawFor: null,
@@ -3240,28 +3286,20 @@ function applyEffect(ev, cards, pidx) {
   if (eff.startsWith('power_4_')) {
     if (!G.traps) G.traps = G.players.map(() => []);
     const destroyCap = n === 2 ? 2 : n === 3 ? 4 : Infinity;
-    const removed = [];
-
-    for (let i = 0; i < G.numPlayers; i++) {
-      if (!isEnemy(pidx, i)) continue;
-      const zone = G.traps[i] || [];
-      while (zone.length > 0 && (destroyCap === Infinity || removed.length < destroyCap)) {
-        removed.push(zone.shift().card);
-      }
-      if (destroyCap !== Infinity && removed.length >= destroyCap) break;
-    }
-
-    if (removed.length > 0) {
-      G.discard.push(...removed);
-      if (removed.length > 10) {
-        const buried = removed.length - 10;
-        G.buriedTrapCards = (G.buriedTrapCards || 0) + buried;
-        addLog(`🪦 ${buried} destroyed trap card(s) are buried at discard bottom and unreachable by Aces.`, false);
-      }
-      addLog(`🔨 ${G.players[pidx].name} destroys ${removed.length} enemy trap card(s) with ${n}x 4s!`, true);
-    } else {
+    const allTargets = _collectEnemyTrapTargets(pidx);
+    if (allTargets.length === 0) {
       addLog(`🔨 ${G.players[pidx].name} plays ${n}x 4s, but no enemy traps were available.`, false);
+      return;
     }
+
+    if (pidx === 0) {
+      openTrapSapperModal(pidx, n, destroyCap, allTargets);
+      return;
+    }
+
+    const targets = destroyCap === Infinity ? allTargets : allTargets.slice(0, destroyCap);
+    const removed = _destroyTrapTargets(targets);
+    _logTrapSapperResult(pidx, n, removed.length, destroyCap);
     return;
   }
 
@@ -3351,6 +3389,148 @@ function closeJackFlushModal() {
   updateBtns();
   fireTwoPairPending(0);
   addLog('Jack flush done! Click END TURN to draw & pass.', false);
+  renderLog();
+}
+
+function _collectEnemyTrapTargets(pidx) {
+  const targets = [];
+  if (!G.traps) return targets;
+  for (let i = 0; i < G.numPlayers; i++) {
+    if (!isEnemy(pidx, i)) continue;
+    const zone = G.traps[i] || [];
+    zone.forEach((t, trapIdx) => targets.push({ ownerIdx: i, trapIdx, trap: t }));
+  }
+  return targets;
+}
+
+function _destroyTrapTargets(targets) {
+  if (!targets || targets.length === 0) return [];
+  const byOwner = {};
+  targets.forEach(t => {
+    if (!byOwner[t.ownerIdx]) byOwner[t.ownerIdx] = [];
+    byOwner[t.ownerIdx].push(t.trapIdx);
+  });
+
+  const removed = [];
+  Object.keys(byOwner).forEach(k => {
+    const ownerIdx = Number(k);
+    const zone = (G.traps && G.traps[ownerIdx]) ? G.traps[ownerIdx] : [];
+    byOwner[ownerIdx].sort((a,b)=>b-a).forEach(idx => {
+      if (idx >= 0 && idx < zone.length) {
+        const popped = zone.splice(idx, 1)[0];
+        if (popped && popped.card) removed.push(popped.card);
+      }
+    });
+  });
+
+  if (removed.length > 0) {
+    G.discard.push(...removed);
+    if (removed.length > 10) {
+      const buried = removed.length - 10;
+      G.buriedTrapCards = (G.buriedTrapCards || 0) + buried;
+      addLog(`🪦 ${buried} destroyed trap card(s) are buried at discard bottom and unreachable by Aces.`, false);
+    }
+  }
+  return removed;
+}
+
+function _logTrapSapperResult(pidx, n, removedCount, destroyCap) {
+  if (removedCount > 0) {
+    const capText = destroyCap === Infinity ? 'all' : `${Math.min(destroyCap, removedCount)}`;
+    addLog(`🔨 ${G.players[pidx].name} destroys ${removedCount} enemy trap card(s) with ${n}x 4s (cap ${capText})!`, true);
+  } else {
+    addLog(`🔨 ${G.players[pidx].name} plays ${n}x 4s, but no enemy traps were destroyed.`, false);
+  }
+}
+
+function openTrapSapperModal(pidx, n, destroyCap, targets) {
+  const modal = document.getElementById('trapSapperModal');
+  if (!modal) {
+    const fallback = destroyCap === Infinity ? targets : targets.slice(0, destroyCap);
+    const removedFallback = _destroyTrapTargets(fallback);
+    _logTrapSapperResult(pidx, n, removedFallback.length, destroyCap);
+    return;
+  }
+
+  G._trapSapper = {
+    pidx,
+    n,
+    destroyCap,
+    targets: Array.isArray(targets) ? [...targets] : [],
+    selected: []
+  };
+  if (destroyCap === Infinity) {
+    G._trapSapper.selected = G._trapSapper.targets.map(t => `${t.ownerIdx}:${t.trapIdx}`);
+  }
+
+  G.phase = 'trap_sapper';
+  renderTrapSapperModal();
+  modal.style.display = 'flex';
+}
+
+function renderTrapSapperModal() {
+  const st = G._trapSapper;
+  if (!st) return;
+  const body = document.getElementById('trapSapperBody');
+  const sub = document.getElementById('trapSapperSub');
+  const btn = document.getElementById('trapSapperConfirmBtn');
+  if (!body || !sub || !btn) return;
+
+  const capText = st.destroyCap === Infinity ? 'Destroy ALL enemy traps.' : `Select up to ${st.destroyCap} trap card(s) to destroy.`;
+  sub.textContent = `Trap Fours (${st.n}x 4s) — ${capText}`;
+
+  const selectedSet = new Set(st.selected || []);
+  const maxReached = st.destroyCap !== Infinity && selectedSet.size >= st.destroyCap;
+
+  body.innerHTML = `<div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Enemy traps found: ${st.targets.length}</div>` +
+    `<div class="trap-sapper-grid">${st.targets.map(t => {
+      const key = `${t.ownerIdx}:${t.trapIdx}`;
+      const isSelected = selectedSet.has(key);
+      const isFaceUp = !!(t.trap && t.trap.faceUp);
+      const cardTxt = isFaceUp && t.trap && t.trap.card ? `${t.trap.card.rank}${t.trap.card.suit}` : '🂠';
+      const owner = G.players[t.ownerIdx] ? G.players[t.ownerIdx].name : `P${t.ownerIdx+1}`;
+      const disabled = st.destroyCap !== Infinity && maxReached && !isSelected;
+      const cls = `trap-sapper-card ${isSelected ? 'selected' : ''} ${isFaceUp ? 'faceup' : 'facedown'}`;
+      const click = disabled || st.destroyCap === Infinity ? '' : `onclick="trapSapperToggle(${t.ownerIdx},${t.trapIdx})"`;
+      return `<button class="${cls}" ${click} ${disabled ? 'disabled' : ''}><div>${cardTxt}</div><div class="trap-sapper-owner">${owner}</div></button>`;
+    }).join('')}</div>`;
+
+  btn.disabled = st.destroyCap === Infinity ? false : selectedSet.size === 0;
+  btn.textContent = st.destroyCap === Infinity ? 'DESTROY ALL ENEMY TRAPS' : `DESTROY SELECTED (${selectedSet.size}/${st.destroyCap})`;
+}
+
+function trapSapperToggle(ownerIdx, trapIdx) {
+  const st = G._trapSapper;
+  if (!st || st.destroyCap === Infinity) return;
+  const key = `${ownerIdx}:${trapIdx}`;
+  const set = new Set(st.selected || []);
+  if (set.has(key)) set.delete(key);
+  else if (set.size < st.destroyCap) set.add(key);
+  st.selected = [...set];
+  renderTrapSapperModal();
+}
+
+function trapSapperConfirm() {
+  const st = G._trapSapper;
+  if (!st) return;
+
+  const selectedSet = new Set(st.selected || []);
+  const targets = st.destroyCap === Infinity
+    ? st.targets
+    : st.targets.filter(t => selectedSet.has(`${t.ownerIdx}:${t.trapIdx}`));
+
+  const removed = _destroyTrapTargets(targets);
+  _logTrapSapperResult(st.pidx, st.n, removed.length, st.destroyCap);
+
+  const modal = document.getElementById('trapSapperModal');
+  if (modal) modal.style.display = 'none';
+  G._trapSapper = null;
+  G.phase = 'play';
+  G.turnPhase = 'done';
+  renderGame();
+  updateBtns();
+  fireTwoPairPending(0);
+  addLog('Trap Fours resolved! Click END TURN to draw & pass.', false);
   renderLog();
 }
  
@@ -6248,11 +6428,21 @@ function renderTrapZoneBar() {
   if (!el || !G.players || !G.players.length) return;
   const chunks = G.players.map((p,i) => {
     const zone = G.traps && G.traps[i] ? G.traps[i] : [];
-    const shown = zone.slice(0, 3).map(t => t.faceUp ? `${t.card.rank}${t.card.suit}` : '🂠').join(' ');
     const lbl = i === 0 ? 'YOU' : p.name;
-    return `${lbl}:${zone.length}${shown ? ` [${shown}]` : ''}`;
+    return `${lbl}:${zone.length}`;
   });
-  el.textContent = `🎭 TRAPS · ${chunks.join('  |  ')}`;
+  const strips = G.players.map((p,i) => {
+    const zone = G.traps && G.traps[i] ? G.traps[i] : [];
+    const lbl = i === 0 ? 'YOU' : p.name;
+    const cards = zone.map(t => {
+      const cls = `tz-trap ${t.faceUp ? 'faceup' : 'facedown'}`;
+      const txt = t.faceUp ? `${t.card.rank}${t.card.suit}` : '🂠';
+      const tt = t.faceUp ? `${lbl} trap ${t.card.rank}${t.card.suit}` : `${lbl} face-down trap`;
+      return `<span class="${cls}" title="${tt}">${txt}</span>`;
+    }).join('');
+    return `<div class="tz-player"><span class="tz-name">${lbl}</span><div class="tz-stack">${cards || '<span class="tz-none">NO TRAPS</span>'}</div></div>`;
+  }).join('');
+  el.innerHTML = `<div class="trap-zone-head">🎭 TRAPS · ${chunks.join('  |  ')}</div><div class="trap-zone-cards">${strips}</div>`;
 }
 
 function setSelectedTraps(faceUp=false) {
@@ -6263,7 +6453,7 @@ function setSelectedTraps(faceUp=false) {
   const trapSpace = Math.max(0, 5 - zone.length);
   if (trapSpace <= 0) { addLog('You already have 5 traps set. Max trap limit reached.', false); return; }
   if (picks.length === 0) { addLog('Select trap cards first (3, 4, 5, 6, 10, Joker).', false); return; }
-  if (picks.length > 3) { addLog('You can set up to 3 traps per turn.', false); return; }
+  if (picks.length > 2) { addLog('You can set up to 2 traps per turn.', false); return; }
   if (picks.length > trapSpace) { addLog(`Only ${trapSpace} trap slot(s) left (max 5 total).`, false); return; }
   if (!picks.every(canSetTrapCard)) { addLog('Only 3, 4, 5, 6, 10, or Joker cards can be set as traps.', false); return; }
 
@@ -6277,7 +6467,7 @@ function setSelectedTraps(faceUp=false) {
   G.turnPhase = 'done';
   if (G.players[0].hand.length === 0) { checkWin(0); return; }
   const trapList = picks.map(c => `${c.rank}${c.suit}`).join(', ');
-  addLog(`🎭 You set ${picks.length} trap(s) ${faceUp ? 'face-up' : 'face-down'} [${trapList}]. Trigger rule: Face Card same rank or ±1. Exact match takes next turn; ±1 covers face card only.`, true);
+  addLog(`🎭 You set ${picks.length} trap(s) ${faceUp ? 'face-up' : 'face-down'} [${trapList}] and cannot play a face-card combo this turn. Trigger rule: Face Card same rank or ±1. Exact match takes next turn; ±1 covers face card only.`, true);
   renderGame();
   renderLog();
   updateBtns();
@@ -6290,7 +6480,7 @@ function aiSetTraps(pidx) {
   const zone = (G.traps && G.traps[pidx]) ? G.traps[pidx] : [];
   const trapSpace = Math.max(0, 5 - zone.length);
   if (trapSpace <= 0) return false;
-  const toSet = Math.min(3, Math.max(1, Math.floor(Math.random() * 3) + 1), elig.length, trapSpace);
+  const toSet = Math.min(2, Math.max(1, Math.floor(Math.random() * 2) + 1), elig.length, trapSpace);
   const picks = [];
   for (let i = 0; i < toSet; i++) {
     const card = elig[i];
@@ -6528,6 +6718,9 @@ function checkWin(pidx) {
 
 function endMatch(winnerIdx) {
   G.phase = 'ended';
+  G._trapSapper = null;
+  const trapSapperModal = document.getElementById('trapSapperModal');
+  if (trapSapperModal) trapSapperModal.style.display = 'none';
   const w = G.players[winnerIdx];
   G.wins[winnerIdx] = (G.wins[winnerIdx]||0) + 1;
   awardBettingPots(winnerIdx); // pay out Match Pot + Point Pot
@@ -6560,6 +6753,9 @@ function endMatch(winnerIdx) {
  
 function endGame(winnerIdx) {
   G.phase = 'ended';
+  G._trapSapper = null;
+  const trapSapperModal = document.getElementById('trapSapperModal');
+  if (trapSapperModal) trapSapperModal.style.display = 'none';
   const w = G.players[winnerIdx];
   const humanWon = winnerIdx === 0;
   const scoreStr = G.players.map((p,i) => `${p.name}: ${G.wins[i]||0} wins / ${G.pts[i]||0}pts`).join('\n');
@@ -6641,6 +6837,7 @@ function nextMatch() {
   G.trapPlacedThisTurn = false;
   G._forcedNextTurn = null;
   G.buriedTrapCards = 0;
+  G._trapSapper = null;
   G._skipLawDrawFor = null;
   G._zeroReplaySuit = null;
   G._zeroReplayOwner = null;
@@ -7235,7 +7432,7 @@ function updateBtns() {
     return;
   }
   // Async interactive phases — modal is open, lock all buttons
-  const ASYNC_PHASES = ['joker_effect','roots_pick','cascade_pick','even_steven','ace','war','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','discard_pick','royal_roots_choice','root_out','royal_dice','dealing'];
+  const ASYNC_PHASES = ['joker_effect','roots_pick','cascade_pick','even_steven','ace','war','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','discard_pick','trap_sapper','royal_roots_choice','root_out','royal_dice','dealing'];
   // Also block if dice modal is showing
   if (document.getElementById('diceRollModal') && document.getElementById('diceRollModal').style.display === 'flex') { pb.disabled=true; eb.disabled=true; if(db) db.disabled=true; return; }
   if (ASYNC_PHASES.includes(G.phase) || G.aceState) {
@@ -7292,7 +7489,7 @@ function updateBtns() {
 
   if (tdb && tub) {
     const trapSel = G.sel.map(id => G.players[0].hand.find(c=>c.id===id)).filter(Boolean);
-    const validTrapSel = trapSel.length > 0 && trapSel.length <= 3 && trapSel.every(canSetTrapCard);
+    const validTrapSel = trapSel.length > 0 && trapSel.length <= 2 && trapSel.every(canSetTrapCard);
     const currentTrapCount = (G.traps && G.traps[0]) ? G.traps[0].length : 0;
     const trapSpace = Math.max(0, 5 - currentTrapCount);
     const canTrap = !G.trapPlacedThisTurn && validTrapSel && trapSel.length <= trapSpace && trapSpace > 0;
@@ -7440,7 +7637,7 @@ function playSelected() {
   if (G.queenBonus > 0) { G.queenBonus--; }
  
   // Async phases — modal takes over, resumeAfterEffects() or the modal itself sets turnPhase='done'
-  const ASYNC = ['war_prompt','jack_flush','ace','joker_effect','roots_pick','cascade_pick','even_steven','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','discard_pick','royal_roots_choice','root_out','joker_free_play'];
+  const ASYNC = ['war_prompt','jack_flush','ace','joker_effect','roots_pick','cascade_pick','even_steven','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','discard_pick','trap_sapper','royal_roots_choice','root_out','joker_free_play'];
   if (ASYNC.some(p => G.phase === p) || G.jackFlush || G.aceState) {
     renderGame(); renderLog(); return;
   }
@@ -7466,7 +7663,7 @@ function playSelected() {
 }
  
 function endTurn() {
-  const ASYNC = ['war_prompt','jack_flush','ace','joker_effect','roots_pick','cascade_pick','even_steven','war','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','discard_pick','royal_roots_choice','root_out','dealing','royal_dice'];
+  const ASYNC = ['war_prompt','jack_flush','ace','joker_effect','roots_pick','cascade_pick','even_steven','war','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','discard_pick','trap_sapper','royal_roots_choice','root_out','dealing','royal_dice'];
   if (ASYNC.includes(G.phase)||G.cur!==0||G.war||G.jackFlush||G.aceState) return;
 
   if (G._zeroReplayOwner === 0 && G._zeroReplaySuit) {
@@ -7990,18 +8187,20 @@ function renderHand() {
   ph.innerHTML=player.hand.map((card,i)=>{
     const sel = G.sel.includes(card.id);
     const isFreeDrew = card.id === G.freeDrewId;
-    let cls='';
+    const classes = [];
+    if (canSetTrapCard(card)) classes.push('trap-card');
     if (sel) {
-      cls = 'selected';
+      classes.push('selected');
     } else if (canSelect) {
       const extends_ = canExtendSelection(card, selCards);
       if (extends_) {
-        cls = 'playable' + (isFreeDrew ? ' free-drew' : '');
+        classes.push('playable');
+        if (isFreeDrew) classes.push('free-drew');
       } else {
-        cls = 'unplayable';
+        classes.push('unplayable');
       }
     }
-    return cardEl(card, cls);
+    return cardEl(card, classes.join(' '));
   }).join('');
  
   ph.querySelectorAll('.card').forEach((el,i)=>{
@@ -8075,7 +8274,7 @@ function exitToHome() {
   const roOv = document.getElementById('rootOutRevealOverlay');
   if (roOv) roOv.classList.remove('active');
   // Hide all modals
-  ['aceModal','warModal','diceRollModal','royalRootsModal'].forEach(id => {
+  ['aceModal','warModal','diceRollModal','royalRootsModal','trapSapperModal'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
