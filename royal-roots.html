@@ -2478,9 +2478,7 @@ function applyEffect(ev, cards, pidx) {
  
   // ── JOKER EFFECTS ──
   if (eff === 'joker_cascade') {
-    addLog('🃏🃏🃏🃏 JOKER CASCADE! INSTANT WIN — counts as 2 match wins!', true);
-    // Award 2 match wins to the player
-    G.wins[pidx] = (G.wins[pidx]||0) + 1; // endMatch adds 1 more = 2 total
+    addLog('🃏🃏🃏🃏 JOKER CASCADE! Auto-match win!', true);
     G.jokerCascadeWin = true;
     endMatch(pidx);
     return;
@@ -2571,27 +2569,23 @@ function applyEffect(ev, cards, pidx) {
     return;
   }
   if (eff === 'royal_six') {
-    addLog('👑 Royal Six! Auto-match win, counts as 2 match wins. Winner (and teammate) start next match with 6 cards.', true);
+    addLog('👑 Royal Six! Auto-match win. Winner (and teammate) start next match with 6 cards.', true);
     G.royalSixWinner = pidx;
-    G.wins[pidx] = (G.wins[pidx]||0) + 1;
     endMatch(pidx);
     return;
   }
   if (eff === 'royal_seven') {
-    addLog('👑 Royal Seven! Auto-match win, counts as 4 match wins!', true);
-    G.wins[pidx] = (G.wins[pidx]||0) + 3;
+    addLog('👑 Royal Seven! Auto-match win!', true);
     endMatch(pidx);
     return;
   }
   if (eff === 'royal_eight') {
-    addLog('👑 Royal Eight! Auto-match win, counts as 10 match wins!', true);
-    G.wins[pidx] = (G.wins[pidx]||0) + 9;
+    addLog('👑 Royal Eight! Auto-match win!', true);
     endMatch(pidx);
     return;
   }
   if (eff === 'royal_jacksons') {
-    addLog('👑 Royal Jacksons! Auto-match win, counts as 20 match wins!', true);
-    G.wins[pidx] = (G.wins[pidx]||0) + 19;
+    addLog('👑 Royal Jacksons! Auto-match win!', true);
     endMatch(pidx);
     return;
   }
@@ -2896,9 +2890,7 @@ function applyEffect(ev, cards, pidx) {
         const afterHumanPick = () => {
           // Partner AI picks best 2 from discard (if team mode)
           if (isTeam && partnerIdx !== null && partnerIdx !== undefined && partnerIdx !== 0) {
-            const freshCount = G.freshDiscardCount || G.discard.length;
-            const freshSlice = G.discard.slice(Math.max(0, G.discard.length - freshCount), -1);
-            const recent10 = freshSlice.slice(-10);
+            const recent10 = getRecentDiscard(10).map(x => x.card);
             const toTake = Math.min(2, recent10.length);
             if (toTake > 0) {
               recent10.sort((a,b)=>(RANK_VAL[b.rank]||0)-(RANK_VAL[a.rank]||0));
@@ -2920,9 +2912,7 @@ function applyEffect(ev, cards, pidx) {
         openDiscardPickerModal(maxHuman, afterHumanPick, 'FOUR 7s — Pick from discard');
       } else {
         // AI: pick from discard (solo: up to 3, team: up to 2)
-        const freshCount = G.freshDiscardCount || G.discard.length;
-        const freshSlice = G.discard.slice(Math.max(0, G.discard.length - freshCount), -1);
-        const recent10 = freshSlice.slice(-10);
+        const recent10 = getRecentDiscard(10).map(x => x.card);
         const isSoloLike = !isTeam || partnerIdx === null || partnerIdx === undefined;
         const toTake = Math.min(isSoloLike ? 3 : 2, recent10.length);
         if (toTake > 0) {
@@ -2936,7 +2926,7 @@ function applyEffect(ev, cards, pidx) {
         }
         // Partner also picks in team modes
         if (isTeam && partnerIdx !== null && partnerIdx !== undefined) {
-          const pSlice = G.discard.slice(Math.max(0, G.discard.length - (G.freshDiscardCount || G.discard.length)), -1).slice(-10);
+          const pSlice = getRecentDiscard(10).map(x => x.card);
           const pTake = Math.min(2, pSlice.length);
           if (pTake > 0) {
             pSlice.sort((a,b)=>(RANK_VAL[b.rank]||0)-(RANK_VAL[a.rank]||0));
@@ -3761,6 +3751,11 @@ function removeWarCounterFromHand(pidx, key) {
 function startWar(attackerIdx, defenderIdx, pw) {
   const initialPile = [...(pw.triggerCards || []), ...(pw.counterCards || [])];
   const humanInvolved = attackerIdx === 0 || defenderIdx === 0;
+  const participants = Array.isArray(pw.multiParticipants) && pw.multiParticipants.length > 0
+    ? [...pw.multiParticipants]
+    : [attackerIdx, defenderIdx];
+  const multiTotal = Math.min(5, Math.max(2, pw.multiTotal || participants.length || 2));
+  const multiStage = Math.max(1, pw.multiStage || 1);
   G.war = {
     attackerIdx,
     defenderIdx,
@@ -3779,6 +3774,10 @@ function startWar(attackerIdx, defenderIdx, pw) {
     lastHumanCard: null,
     lastEnemyCard: null,
     diceMode:  false,
+    _trapWarQueue: Array.isArray(pw.trapQueue) ? [...pw.trapQueue] : [],
+    _multiParticipants: participants.slice(0, 5),
+    _multiTotal: multiTotal,
+    _multiStage: multiStage,
   };
   G.phase = 'war';
   G.pendingWar = null;
@@ -3794,6 +3793,21 @@ function startWar(attackerIdx, defenderIdx, pw) {
   }
 }
 
+function _getWarGroupText(w) {
+  if (!w || !Array.isArray(w._multiParticipants)) return '';
+  const ids = w._multiParticipants.slice(0, 5);
+  if (ids.length <= 1) return '';
+  return ids.map(i => (G.players[i]?.name || `P${i+1}`)).join(' • ');
+}
+
+function _getWarClashText(w) {
+  if (!w) return '';
+  const total = Math.min(5, Math.max(2, w._multiTotal || 2));
+  if (total <= 2) return '';
+  const stage = Math.min(total - 1, Math.max(1, w._multiStage || 1));
+  return `ROYAL WAR CLASH ${stage}/${total - 1}`;
+}
+
 function openWarSpectatorModal() {
   const w = G.war;
   const modal = document.getElementById('warModal');
@@ -3806,7 +3820,13 @@ function openWarSpectatorModal() {
   document.getElementById('warActionBtn').style.display = 'none'; // hidden — human can't act
   document.getElementById('warRoundInfo').textContent =
     `${G.players[w.attackerIdx].name} vs ${G.players[w.defenderIdx].name}`;
-  document.getElementById('warSub').textContent = 'AI vs AI — Watch Only';
+  const clashText = _getWarClashText(w);
+  const groupText = _getWarGroupText(w);
+  document.getElementById('warSub').textContent = clashText || 'AI vs AI — Watch Only';
+  if (groupText) {
+    document.getElementById('warRoundInfo').innerHTML =
+      `${G.players[w.attackerIdx].name} vs ${G.players[w.defenderIdx].name}<br><span style="font-size:10px;opacity:.85">${groupText}</span>`;
+  }
   document.getElementById('warResult').textContent = '⚔️ Resolving...';
   // Label both slots with actual AI names (not "YOU")
   const pnameEl = document.querySelector('#warModal .war-player:first-child .war-pname');
@@ -3826,7 +3846,7 @@ function showAIWarOkayBtn() {
   // Snapshot winner info NOW while G.war is still alive
   const w = G.war;
   const winnerIdx = w ? w._winnerIdx : null;
-  const defIdx = w ? w.defenderIdx : 0;
+  const loserIdx = w && w._loserIdx !== undefined ? w._loserIdx : (w ? w.defenderIdx : 0);
   btn.style.display = 'block';
   btn.textContent = '✅ OKAY — CONTINUE';
   btn.disabled = false;
@@ -3835,27 +3855,22 @@ function showAIWarOkayBtn() {
   btn.onclick = function() {
     btn.onclick = null;
     btn.setAttribute('onclick', 'warAction()'); // restore for next war
-    document.getElementById('warModal').style.display = 'none';
-    // Restore attacker slot label back to "YOU" for next human war
-    const pnameEl = document.querySelector('#warModal .war-player:first-child .war-pname');
-    if (pnameEl) pnameEl.textContent = 'YOU';
-    G.war = null; G.pendingWar = null; G.phase = 'play';
     if (winnerIdx !== null && winnerIdx !== undefined) {
-      G._warVictorMomentum = winnerIdx;
-      if (winnerIdx === 0) G._aceComboFree = true;
-      G.cur = winnerIdx;
-      addLog(`⚔️ Victor's Right: ${G.players[winnerIdx].name} immediately plays any legal combo!`, true);
+      warFinish(winnerIdx, loserIdx);
     } else {
-      G.cur = nxt(defIdx);
-    }
-    G.turnPhase = 'playing'; G.freeDrewId = null;
-    G.sel = [];
-    renderGame(); renderLog();
-    if (G.cur === 0) {
-      startHumanTurn();
-    } else {
-      addLog(G.players[G.cur].name + "'s turn...");
-      setTimeout(() => aiTurn(G.cur), 800);
+      document.getElementById('warModal').style.display = 'none';
+      const pnameEl = document.querySelector('#warModal .war-player:first-child .war-pname');
+      if (pnameEl) pnameEl.textContent = 'YOU';
+      G.war = null; G.pendingWar = null; G.phase = 'play';
+      G.cur = nxt(loserIdx);
+      G.turnPhase = 'playing'; G.freeDrewId = null;
+      G.sel = [];
+      renderGame(); renderLog();
+      if (G.cur === 0) startHumanTurn();
+      else {
+        addLog(G.players[G.cur].name + "'s turn...");
+        setTimeout(() => aiTurn(G.cur), 800);
+      }
     }
   };
 }
@@ -3921,13 +3936,19 @@ function openWarModal() {
   updateWarModal();
   modal.style.display = 'flex';
 }
- 
+
 function updateWarModal() {
   const w = G.war;
+  const clashText = _getWarClashText(w);
   document.getElementById('warSub').textContent =
-    w.diceMode ? '🎲 DICE DUEL — 3 Rounds Tied!' : `Battle Round ${w.round}`;
-  document.getElementById('warRoundInfo').textContent =
-    `Cards in pot: ${w.cardsPlayed} • ${G.players[w.attackerIdx].name} vs ${G.players[w.defenderIdx].name}`;
+    w.diceMode ? '🎲 DICE DUEL — 3 Rounds Tied!' : (clashText || `Battle Round ${w.round}`);
+  const duelText = `Cards in pot: ${w.cardsPlayed} • ${G.players[w.attackerIdx].name} vs ${G.players[w.defenderIdx].name}`;
+  const groupText = _getWarGroupText(w);
+  if (groupText) {
+    document.getElementById('warRoundInfo').innerHTML = `${duelText}<br><span style="font-size:10px;opacity:.85">${groupText}</span>`;
+  } else {
+    document.getElementById('warRoundInfo').textContent = duelText;
+  }
   document.getElementById('warResult').textContent = '';
   document.getElementById('warPickZone').style.display = 'none';
   // Reset slots
@@ -4164,6 +4185,35 @@ function warFinish(winnerIdx, loserIdx) {
   const w = G.war;
   if (!w) { document.getElementById('warModal').style.display = 'none'; return; }
   document.getElementById('warModal').style.display = 'none';
+
+  const trapQueue = Array.isArray(w._trapWarQueue) ? [...w._trapWarQueue] : [];
+  const multiParticipants = Array.isArray(w._multiParticipants) ? [...w._multiParticipants] : [winnerIdx, loserIdx];
+  const multiTotal = Math.min(5, Math.max(2, w._multiTotal || multiParticipants.length || 2));
+  const nextStage = Math.max(1, (w._multiStage || 1) + 1);
+  if (trapQueue.length > 0) {
+    const next = trapQueue.shift();
+    if (next && next.ownerIdx !== undefined && next.card) {
+      addLog(`⚔️ Trap Clash Stack: ${G.players[winnerIdx].name} now battles ${G.players[next.ownerIdx].name}!`, true);
+      startWar(winnerIdx, next.ownerIdx, {
+        triggerEffect: 'trap_exact_match',
+        triggerCards: [G.faceCard],
+        counterCards: [next.card],
+        key: 'trap_exact',
+        isJoker: false,
+        triggerPts: 0,
+        trapQueue,
+        multiParticipants,
+        multiTotal,
+        multiStage: nextStage,
+      });
+      return;
+    }
+  }
+
+  // Restore attacker slot label back to "YOU" for next human war
+  const pnameEl = document.querySelector('#warModal .war-player:first-child .war-pname');
+  if (pnameEl) pnameEl.textContent = 'YOU';
+
   G.war = null;
   G.pendingWar = null;
 
@@ -4216,15 +4266,11 @@ function openJokerEffectModal(suit, pidx, onDone) {
     opponents.forEach(({p,i}) => {
       html += '<button class="ace-action-btn" onclick="spadeSwapPick('+i+')">Swap with <strong>'+p.name+'</strong> ('+p.hand.length+' cards)</button>';
     });
-    // Only show cards discarded AFTER last reshuffle (freshDiscard), not recycled deck cards
-    const freshCount = G.freshDiscardCount || G.discard.length;
-    const freshSlice = G.discard.slice(Math.max(0, G.discard.length - freshCount), -1);
-    const pullable = freshSlice.slice(-10).reverse();
+    const pullable = getRecentDiscard(10).slice().reverse();
     if (pullable.length > 0) {
       html += '<div style="margin-top:10px;font-size:11px;color:var(--text-dim);font-family:Cinzel,serif;letter-spacing:1px">PULL FROM DISCARD:</div>';
-      pullable.forEach((card, i) => {
-        const dIdx = G.discard.length - 2 - i;
-        html += `<button class="ace-action-btn" onclick="spadeDiscardPull(${dIdx})">Pull ${card.rank}${card.suit}</button>`;
+      pullable.forEach((item) => {
+        html += `<button class="ace-action-btn" onclick="spadeDiscardPull(${item.discardIdx})">Pull ${item.card.rank}${item.card.suit}</button>`;
       });
     } else {
       html += '<div style="font-size:11px;color:var(--text-dim);margin-top:8px">Discard pile empty — swap only</div>';
@@ -5792,14 +5838,12 @@ function triggerJokerEffect(suit, pidx, onDone) {
     };
 
     if (suit === '♠') {
-      // AI: pull best from fresh discard if possible; otherwise swap lowest with next opponent.
-      const freshCount = G.freshDiscardCount || G.discard.length;
-      const freshSlice = G.discard.slice(Math.max(0, G.discard.length - freshCount), -1);
-      const pullable = freshSlice.slice(-10);
+      // AI: pull best from recent discard (max 10 behind face) if possible; otherwise swap.
+      const pullable = getRecentDiscard(10);
       if (pullable.length > 0 && Math.random() < 0.65) {
-        pullable.sort((a,b)=>(RANK_VAL[b.rank]||0)-(RANK_VAL[a.rank]||0));
+        pullable.sort((a,b)=>(RANK_VAL[b.card.rank]||0)-(RANK_VAL[a.card.rank]||0));
         const best = pullable[0];
-        const realIdx = G.discard.indexOf(best);
+        const realIdx = best.discardIdx;
         if (realIdx !== -1) {
           const card = takeCardFromDiscard(pidx, realIdx, 'Spade Joker AI pull');
           if (card) addLog(`♠ Spade Joker: ${G.players[pidx].name} pulls ${card.rank}${card.suit} from discard!`, true);
@@ -5947,12 +5991,12 @@ function isEnemy(aIdx, bIdx) {
 
 function canSetTrapCard(card) {
   if (!card) return false;
-  return ['3','5','6','10','JKR'].includes(card.rank);
+  return ['3','4','5','6','10','JKR'].includes(card.rank);
 }
 
 function _trapNumericValue(card) {
   if (!card || card.rank === 'JKR') return null;
-  if (!['3','5','6','10'].includes(card.rank)) return null;
+  if (!['3','4','5','6','10'].includes(card.rank)) return null;
   return parseInt(card.rank, 10);
 }
 
@@ -6074,36 +6118,129 @@ function _triggerTrapActivationByFaceCard(enderIdx) {
   }
   if (candidates.length === 0) return false;
 
-  candidates.sort((a,b) => a.diff - b.diff || a.ownerIdx - b.ownerIdx || a.tidx - b.tidx);
-  const pick = candidates[0];
+  const triggerName = enderIdx === 0 ? 'YOU' : G.players[enderIdx]?.name || 'A player';
+  const exact = candidates.filter(c => c.diff === 0).sort((a,b)=>a.ownerIdx-b.ownerIdx||a.tidx-b.tidx);
+  const near  = candidates.filter(c => c.diff === 1).sort((a,b)=>a.ownerIdx-b.ownerIdx||a.tidx-b.tidx);
 
-  // ♦ Joker Trap can override enemy trap activation.
-  const diamondOwner = _findFirstEnemyJokerTrap(pick.ownerIdx, '♦');
-  if (diamondOwner !== null && diamondOwner !== undefined) {
-    const dj = _consumeJokerTrap(diamondOwner, '♦');
-    const ownerZone = G.traps[pick.ownerIdx] || [];
-    const removedTrap = ownerZone.splice(pick.tidx, 1)[0];
-    if (dj) G.discard.push(dj.card);
-    if (removedTrap) G.discard.push(removedTrap.card);
-    forcePts(diamondOwner, 20);
-    addLog(`♦ Joker Trap! ${G.players[diamondOwner].name} overrides ${G.players[pick.ownerIdx].name}'s trap and steals +20pts.`, true);
+  const _popTrap = (entry) => {
+    const zone = G.traps[entry.ownerIdx] || [];
+    const idx = zone.indexOf(entry.trap);
+    if (idx === -1) return null;
+    return zone.splice(idx, 1)[0] || null;
+  };
+
+  const firedExact = [];
+  const firedNear  = [];
+  exact.forEach(e => {
+    const fired = _popTrap(e);
+    if (fired) firedExact.push({ ownerIdx:e.ownerIdx, card:fired.card });
+  });
+  near.forEach(e => {
+    const fired = _popTrap(e);
+    if (fired) firedNear.push({ ownerIdx:e.ownerIdx, card:fired.card });
+  });
+
+  if (firedExact.length === 0 && firedNear.length === 0) return false;
+
+  // Near-match traps are activated but cannot override exact-match traps or cut the line.
+  // They are moved behind exact traps in discard ordering.
+  if (firedNear.length > 0) {
+    firedNear.forEach(f => {
+      G.discard.push(f.card);
+      addLog(`🎭 Near-match trap! ${G.players[f.ownerIdx].name} activates ${f.card.rank}${f.card.suit} on ${triggerName}. It cannot cut the line.`, false);
+    });
+  }
+
+  // If multiple exact-match trap owners trigger at once, they Royal War each other.
+  const exactOwners = [...new Set(firedExact.map(f => f.ownerIdx))];
+  if (firedExact.length >= 2 && exactOwners.length >= 2) {
+    const counts = {};
+    firedExact.forEach(f => {
+      if (f.ownerIdx === enderIdx) return;
+      counts[f.ownerIdx] = (counts[f.ownerIdx] || 0) + 1;
+    });
+    const warEligibleOwners = Object.keys(counts).map(Number);
+
+    if (warEligibleOwners.length >= 2) {
+      const maxCt = Math.max(...warEligibleOwners.map(o => counts[o] || 0));
+      const leaders = warEligibleOwners.filter(o => (counts[o] || 0) === maxCt);
+
+      // Dominant exact-count owner overrides Royal War.
+      if (leaders.length === 1) {
+        const dominantOwner = leaders[0];
+        const dominant = firedExact.filter(f => f.ownerIdx === dominantOwner);
+        const others = firedExact.filter(f => f.ownerIdx !== dominantOwner);
+        others.forEach(f => G.discard.push(f.card));
+        dominant.forEach(f => G.discard.push(f.card));
+        G.faceCard = dominant[dominant.length - 1].card;
+        G._forcedNextTurn = dominantOwner;
+        addLog(`⚡ Trap Count Override! ${G.players[dominantOwner].name} triggered more exact traps and takes priority over Royal War.`, true);
+        return true;
+      }
+
+      // Tie at top count: Royal War stacks up to 5 participants (ender cannot participate).
+      const participants = leaders.slice(0, 5);
+      const warEntries = [];
+      participants.forEach(ownerIdx => {
+        const found = firedExact.find(f => f.ownerIdx === ownerIdx && !warEntries.includes(f));
+        if (found) warEntries.push(found);
+      });
+
+      if (warEntries.length >= 2) {
+        const used = new Set(warEntries);
+        firedExact.forEach(f => { if (!used.has(f)) G.discard.push(f.card); });
+        const [a, b, ...rest] = warEntries;
+        const trapQueue = rest.map(e => ({ ownerIdx: e.ownerIdx, card: e.card }));
+        G.faceCard = a.card;
+        addLog(`⚔️ TRAP CLASH! ${warEntries.length} players tied on exact trap count. Royal War begins!`, true);
+        startWar(a.ownerIdx, b.ownerIdx, {
+          triggerEffect: 'trap_exact_match',
+          triggerCards: [a.card],
+          counterCards: [b.card],
+          key: 'trap_exact',
+          isJoker: false,
+          triggerPts: 0,
+          trapQueue,
+          multiParticipants: warEntries.map(e => e.ownerIdx),
+          multiTotal: warEntries.length,
+          multiStage: 1,
+        });
+        return true;
+      }
+    }
+  }
+
+  if (firedExact.length > 0) {
+    // All same-number exact traps activate.
+    const counts = {};
+    firedExact.forEach(f => { counts[f.ownerIdx] = (counts[f.ownerIdx] || 0) + 1; });
+    const owners = Object.keys(counts).map(Number);
+    owners.sort((a,b) => (counts[b]-counts[a]) || (a-b));
+    const priorityOwner = owners.find(o => o !== enderIdx) ?? owners[0];
+
+    const nonPriority = firedExact.filter(f => f.ownerIdx !== priorityOwner);
+    const priority = firedExact.filter(f => f.ownerIdx === priorityOwner);
+    nonPriority.forEach(f => G.discard.push(f.card));
+    priority.forEach(f => G.discard.push(f.card));
+    const top = priority[priority.length - 1] || firedExact[firedExact.length - 1];
+    G.faceCard = top.card;
+    addLog(`🎭 Exact-match trap chain! ${firedExact.length} trap card(s) activate on ${triggerName}.`, true);
+    if (priorityOwner !== enderIdx) {
+      G._forcedNextTurn = priorityOwner;
+      addLog(`⚡ Exact-match trap priority: ${G.players[priorityOwner].name} takes the next turn.`, true);
+    }
     return true;
   }
 
-  const ownerZone = G.traps[pick.ownerIdx] || [];
-  const fired = ownerZone.splice(pick.tidx, 1)[0];
-  if (!fired) return false;
-  G.discard.push(fired.card);
-  G.faceCard = fired.card;
-  const triggerName = enderIdx === 0 ? 'YOU' : G.players[enderIdx]?.name || 'A player';
-  const triggerType = pick.diff === 0 ? 'exact match' : 'near match (±1)';
-  addLog(`🎭 Trap triggered! ${G.players[pick.ownerIdx].name} springs ${fired.card.rank}${fired.card.suit} on ${triggerName}'s face card (${triggerType}). Face Card becomes ${fired.card.rank}${fired.card.suit}.`, true);
-
-  if (pick.diff === 0) {
-    G._forcedNextTurn = pick.ownerIdx;
-    addLog(`⚡ Exact match trap! ${G.players[pick.ownerIdx].name} skips the line for the next turn.`, true);
+  // Near-only: cover face card but no line-cut.
+  if (firedNear.length > 0) {
+    const cover = firedNear[firedNear.length - 1];
+    G.faceCard = cover.card;
+    addLog(`🛡️ Near-match traps resolved. Face Card is now ${cover.card.rank}${cover.card.suit}; turn order remains unchanged.`, false);
+    return true;
   }
-  return true;
+
+  return false;
 }
 
 function renderTrapZoneBar() {
@@ -6122,9 +6259,13 @@ function setSelectedTraps(faceUp=false) {
   if (G.phase !== 'play' || G.cur !== 0 || G.turnPhase === 'done') return;
   if (G.trapPlacedThisTurn) { addLog('You already set traps this turn.', false); return; }
   const picks = G.sel.map(id => G.players[0].hand.find(c => c.id === id)).filter(Boolean);
-  if (picks.length === 0) { addLog('Select trap cards first (3, 5, 6, 10, Joker).', false); return; }
+  const zone = (G.traps && G.traps[0]) ? G.traps[0] : [];
+  const trapSpace = Math.max(0, 5 - zone.length);
+  if (trapSpace <= 0) { addLog('You already have 5 traps set. Max trap limit reached.', false); return; }
+  if (picks.length === 0) { addLog('Select trap cards first (3, 4, 5, 6, 10, Joker).', false); return; }
   if (picks.length > 3) { addLog('You can set up to 3 traps per turn.', false); return; }
-  if (!picks.every(canSetTrapCard)) { addLog('Only 3, 5, 6, 10, or Joker cards can be set as traps.', false); return; }
+  if (picks.length > trapSpace) { addLog(`Only ${trapSpace} trap slot(s) left (max 5 total).`, false); return; }
+  if (!picks.every(canSetTrapCard)) { addLog('Only 3, 4, 5, 6, 10, or Joker cards can be set as traps.', false); return; }
 
   const ids = new Set(picks.map(c => c.id));
   G.players[0].hand = G.players[0].hand.filter(c => !ids.has(c.id));
@@ -6136,7 +6277,7 @@ function setSelectedTraps(faceUp=false) {
   G.turnPhase = 'done';
   if (G.players[0].hand.length === 0) { checkWin(0); return; }
   const trapList = picks.map(c => `${c.rank}${c.suit}`).join(', ');
-  addLog(`🎭 You set ${picks.length} trap(s) ${faceUp ? 'face-up' : 'face-down'} [${trapList}]. Trigger rule: Face Card matches same rank or ±1. Exact rank grants your next turn immediately.`, true);
+  addLog(`🎭 You set ${picks.length} trap(s) ${faceUp ? 'face-up' : 'face-down'} [${trapList}]. Trigger rule: Face Card same rank or ±1. Exact match takes next turn; ±1 covers face card only.`, true);
   renderGame();
   renderLog();
   updateBtns();
@@ -6146,7 +6287,10 @@ function aiSetTraps(pidx) {
   const hand = G.players[pidx].hand;
   const elig = hand.filter(canSetTrapCard);
   if (elig.length === 0) return false;
-  const toSet = Math.min(3, Math.max(1, Math.floor(Math.random() * 3) + 1), elig.length);
+  const zone = (G.traps && G.traps[pidx]) ? G.traps[pidx] : [];
+  const trapSpace = Math.max(0, 5 - zone.length);
+  if (trapSpace <= 0) return false;
+  const toSet = Math.min(3, Math.max(1, Math.floor(Math.random() * 3) + 1), elig.length, trapSpace);
   const picks = [];
   for (let i = 0; i < toSet; i++) {
     const card = elig[i];
@@ -6158,13 +6302,9 @@ function aiSetTraps(pidx) {
   picks.forEach(card => G.traps[pidx].push({ card, faceUp: false, animUntil }));
   if (G.players[pidx].hand.length === 0) { checkWin(pidx); }
   const trapList = picks.map(c => `${c.rank}${c.suit}`).join(', ');
-  addLog(`🎭 ${G.players[pidx].name} sets ${picks.length} trap card(s) [${trapList}] (same rank or ±1 trigger; exact rank steals next turn).`, false);
+  addLog(`🎭 ${G.players[pidx].name} sets ${picks.length} trap card(s) [${trapList}] (same rank or ±1 trigger; exact takes next turn, ±1 cannot cut line).`, false);
   return picks.length > 0;
 }
- 
-let _skipCount = 0;
-function advSkip(n) { _skipCount = n; }
- 
 function nxt(from) { return (from + G.dir + G.numPlayers) % G.numPlayers; }
 function advanceTurnIdx(from) {
   let next = (from + G.dir + G.numPlayers) % G.numPlayers;
@@ -7095,7 +7235,7 @@ function updateBtns() {
     return;
   }
   // Async interactive phases — modal is open, lock all buttons
-  const ASYNC_PHASES = ['joker_effect','roots_pick','cascade_pick','even_steven','ace','war','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','royal_roots_choice','root_out','royal_dice','dealing'];
+  const ASYNC_PHASES = ['joker_effect','roots_pick','cascade_pick','even_steven','ace','war','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','discard_pick','royal_roots_choice','root_out','royal_dice','dealing'];
   // Also block if dice modal is showing
   if (document.getElementById('diceRollModal') && document.getElementById('diceRollModal').style.display === 'flex') { pb.disabled=true; eb.disabled=true; if(db) db.disabled=true; return; }
   if (ASYNC_PHASES.includes(G.phase) || G.aceState) {
@@ -7153,7 +7293,9 @@ function updateBtns() {
   if (tdb && tub) {
     const trapSel = G.sel.map(id => G.players[0].hand.find(c=>c.id===id)).filter(Boolean);
     const validTrapSel = trapSel.length > 0 && trapSel.length <= 3 && trapSel.every(canSetTrapCard);
-    const canTrap = !G.trapPlacedThisTurn && validTrapSel;
+    const currentTrapCount = (G.traps && G.traps[0]) ? G.traps[0].length : 0;
+    const trapSpace = Math.max(0, 5 - currentTrapCount);
+    const canTrap = !G.trapPlacedThisTurn && validTrapSel && trapSel.length <= trapSpace && trapSpace > 0;
     if (trapRow) trapRow.style.display = validTrapSel ? 'flex' : 'none';
     tdb.disabled = !canTrap;
     tub.disabled = !canTrap;
@@ -7298,7 +7440,7 @@ function playSelected() {
   if (G.queenBonus > 0) { G.queenBonus--; }
  
   // Async phases — modal takes over, resumeAfterEffects() or the modal itself sets turnPhase='done'
-  const ASYNC = ['war_prompt','jack_flush','ace','joker_effect','roots_pick','cascade_pick','even_steven','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','royal_roots_choice','root_out','joker_free_play'];
+  const ASYNC = ['war_prompt','jack_flush','ace','joker_effect','roots_pick','cascade_pick','even_steven','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','discard_pick','royal_roots_choice','root_out','joker_free_play'];
   if (ASYNC.some(p => G.phase === p) || G.jackFlush || G.aceState) {
     renderGame(); renderLog(); return;
   }
@@ -7324,7 +7466,7 @@ function playSelected() {
 }
  
 function endTurn() {
-  const ASYNC = ['war_prompt','jack_flush','ace','joker_effect','roots_pick','cascade_pick','even_steven','war','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','royal_roots_choice','root_out','dealing','royal_dice'];
+  const ASYNC = ['war_prompt','jack_flush','ace','joker_effect','roots_pick','cascade_pick','even_steven','war','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','discard_pick','royal_roots_choice','root_out','dealing','royal_dice'];
   if (ASYNC.includes(G.phase)||G.cur!==0||G.war||G.jackFlush||G.aceState) return;
 
   if (G._zeroReplayOwner === 0 && G._zeroReplaySuit) {
@@ -8207,6 +8349,7 @@ function startGame() {
 const COMBO_TABLE = [
   ['Match-Win','200','Empty Hand or hit a Mythic Combo'],
   ['Single Card','0','No points for ending turn with just one card'],
+  ['Law Pass','0','Can empty hand if ONLY 2 and 3 are left in your hand'],
   ['Trap Cards (3,4,5,6,10)','5','Triggered by the Face Card being 1 less, 1 more, or same number as trap card; becomes Face Card; exact number grants your turn'],
   ['Normal Pair','5','Only for points; no power effect'],
   ['Normal 3-of-a-kind','25','Only for points; no power effect'],
@@ -8253,13 +8396,14 @@ const COMBO_TABLE = [
   ["Dead Man's Hand (♠☘AA88JKR Either Suit)",'666','Auto-match win; enemies cursed with an extra card starting next match'],
   ['Calamity Mary Jane (♥♠QQ420 Either Suit)','666','Auto-match win; enemies cursed with an extra card starting next match'],
   ['Royal Roots (J-Q-K-A-Joker in suit)','777','Auto-match win; start next match with 3 of your 10 cards flushed by dealer'],
-  ['Joker Cascade (4 Jokers)','2000','Auto-match win; counts as 2 match wins'],
+  ['The Overpass','0','Can empty hand if your hand is ONLY 2-3-4-5-6-7-8-9-10'],
+  ['Joker Cascade (4 Jokers)','2000','Auto-match win'],
   ['Royal Dead Man (☘♠88AAJKR Same Suit)','3000','Auto-match win; you start with 6 cards next match, enemies cursed with 2 extra cards'],
   ['Bloody Mary Jane (♥♠QQ420 Same Suit)','3000','Auto-match win; you start with 6 cards next match, enemies cursed with 2 extra cards'],
-  ['Royal Six','3000','Auto-match win; counts as 2 match wins'],
-  ['Royal Seven','4000','Auto-match win; counts as 4 match wins'],
-  ['Royal Eight','10000','Auto-match win; counts as 10 match wins'],
-  ['Royal Jacksons (The Jacksons) (4J, 4Joker)','20000','Auto-match win; counts as 20 match wins'],
+  ['Royal Six','3000','Auto-match win'],
+  ['Royal Seven','4000','Auto-match win'],
+  ['Royal Eight','10000','Auto-match win'],
+  ['Royal Jacksons (The Jacksons) (4J, 4Joker)','20000','Auto-match win'],
   ['ROOT OUT!','100/-200','If called and won: +100 and match over. If failed: -200, combo effects canceled'],
   ['Royal War','10','Win a WAR (challenge, tie-breaker, or Dice Duel)'],
 ];
