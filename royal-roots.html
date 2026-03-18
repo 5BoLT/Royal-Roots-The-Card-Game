@@ -251,6 +251,24 @@ button{cursor:pointer;font-family:inherit}
   box-shadow:1px 1px 3px rgba(0,0,0,.4)
 }
 .opp-cards .card-back-mini:first-child{margin-left:0}
+.opp-traps{display:flex;align-items:center;justify-content:center;gap:4px;min-height:18px;margin-top:3px;max-width:160px;flex-wrap:wrap}
+.opp-trap{
+  min-width:16px;height:18px;padding:0 4px;border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid rgba(133,193,233,.45);
+  font-size:9px;line-height:1;font-family:monospace;
+  color:#d6eaf8;background:rgba(52,73,94,.5);
+  box-shadow:0 0 8px rgba(93,173,226,.2)
+}
+.opp-trap.facedown{background:linear-gradient(135deg,#1d2a38,#2b3f57);color:rgba(214,234,248,.9)}
+.opp-trap.faceup{background:rgba(93,173,226,.22);border-color:#85c1e9;color:#eaf4ff}
+.opp-trap.trap-new{animation:trapSetPop .55s cubic-bezier(.2,.8,.2,1)}
+.opp-trap-empty{font-size:8px;color:rgba(133,193,233,.45);letter-spacing:1px}
+@keyframes trapSetPop{
+  0%{transform:translateY(-8px) scale(.6);opacity:0}
+  70%{transform:translateY(1px) scale(1.08);opacity:1}
+  100%{transform:translateY(0) scale(1);opacity:1}
+}
 
 /* CENTRAL BOARD (deck + face card) */
 .central-board{
@@ -560,6 +578,13 @@ button{cursor:pointer;font-family:inherit}
 }
 .btn-free:not(:disabled):hover{border-color:var(--gold);color:var(--gold)}
 .btn-free:disabled{opacity:.25;cursor:not-allowed}
+.btn-trap{
+  height:clamp(30px,5vh,40px);background:rgba(52,73,94,.18);border:1px solid rgba(133,193,233,.45);
+  color:#85c1e9;border-radius:8px;font-family:'Cinzel',serif;
+  font-size:clamp(9px,2vw,11px);letter-spacing:1px;text-transform:uppercase;transition:all .2s
+}
+.btn-trap:not(:disabled):hover{border-color:#aed6f1;color:#d6eaf8;background:rgba(93,173,226,.2)}
+.btn-trap:disabled{opacity:.25;cursor:not-allowed}
 .btn-end{
   height:clamp(38px,6vh,52px);background:transparent;border:1px solid var(--gold);
   color:var(--gold);border-radius:10px;font-family:'Cinzel',serif;
@@ -1469,13 +1494,17 @@ button{cursor:pointer;font-family:inherit}
 
   <!-- PLAYER FOOTER -->
   <div class="player-footer">
-    <div id="playerInfoBar" style="display:flex;justify-content:space-between;align-items:center;padding:2px 12px;font-family:Cinzel,serif;font-size:10px;color:rgba(240,192,64,.8);letter-spacing:1px;border-bottom:1px solid rgba(240,192,64,.12);flex-shrink:0;line-height:1.8;position:relative;z-index:10"><span id="playerPtsBar">⭐ 0 pts</span><span id="playerChipsBar"></span></div><div class="player-footer-inner">
+    <div id="playerInfoBar" style="display:flex;justify-content:space-between;align-items:center;padding:2px 12px;font-family:Cinzel,serif;font-size:10px;color:rgba(240,192,64,.8);letter-spacing:1px;border-bottom:1px solid rgba(240,192,64,.12);flex-shrink:0;line-height:1.8;position:relative;z-index:10"><span id="playerPtsBar">⭐ 0 pts</span><span id="playerChipsBar"></span></div><div id="trapZoneBar" style="padding:2px 12px;font-family:Cinzel,serif;font-size:9px;color:rgba(174,214,241,.9);letter-spacing:1px;border-bottom:1px solid rgba(133,193,233,.15);min-height:18px;line-height:1.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div class="player-footer-inner">
       <div class="player-hand-zone" id="playerHand"></div>
       <div class="controls-zone">
         <div class="combo-status" id="turnStatus">YOUR TURN ▶</div>
         <div class="combo-info" id="comboInfo2" style="margin-bottom:6px;font-size:11px">Select cards to build your combo</div>
         <button class="btn-play" id="playBtn" onclick="playSelected()" disabled>PLAY COMBO ▶</button>
         <button class="btn-free" id="drawFreeBtn" onclick="freeDraw()">FREE DRAW</button>
+        <div class="btn-bottom-row" id="trapBtnRow" style="margin-bottom:2px;display:none">
+          <button class="btn-trap" id="trapDownBtn" onclick="setSelectedTraps(false)" disabled>SET TRAP ↓</button>
+          <button class="btn-trap" id="trapUpBtn" onclick="setSelectedTraps(true)" disabled>SET TRAP ↑</button>
+        </div>
         <button class="btn-end" id="endBtn" onclick="endTurn()">END TURN ▶ (draws 1)</button>
         <div class="btn-bottom-row">
           <button class="btn-royaldice" id="royalDiceBtn" onclick="declareRoyalDice()" disabled>🎲 ROYAL DICE</button>
@@ -1541,6 +1570,10 @@ function initGame(mode, numPlayers) {
     pointPot: 0,
     _extraLawDraws: 0,
     royalRollUsed: null,
+    traps: [],
+    trapPlacedThisTurn: false,
+    _forcedNextTurn: null,
+    buriedTrapCards: 0,
   };
 
   // Build players with correct partner indices
@@ -1564,6 +1597,7 @@ function initGame(mode, numPlayers) {
     });
     G.pts[i] = 0; G.wins[i] = 0;
   }
+  G.traps = G.players.map(() => []);
   buildAndDeal();
 }
 
@@ -1858,6 +1892,11 @@ function evalSameRank(r, n, hasJoker) {
     return R(label+W, pts, n>=3?'EPIC':'COMMON', `ace_${n}`);
   }
   // Normal ranks — 5 / 18 / 30
+  if (r === '4' && n >= 2) {
+    const pts4 = n===2 ? 5 : n===3 ? 15 : 50;
+    const tier4 = n===4 ? 'RARE' : 'COMMON';
+    return R(label+W, pts4, tier4, `power_4_${n}`);
+  }
   const pts = n===2?5 : n===3?15 : 50;
   const tier = n===4?'RARE':n===3?'COMMON':'COMMON';
   return R(label+W, pts, tier, 'normal_set');
@@ -2181,8 +2220,8 @@ function applyEffect(ev, cards, pidx) {
     const rjhJokers = cards.filter(c=>c.rank==='JKR');
     if (pidx === 0) {
       // Dismiss 4 from hand (+ partner auto-dismisses 4 in duos)
-      if (G.mode === 'duos' && G.partnerIdx !== undefined) {
-        const partner = G.players[G.partnerIdx];
+      if (G.mode === 'duos' && G.players[0].partnerIdx !== undefined) {
+        const partner = G.players[G.players[0].partnerIdx];
         const pDismiss = Math.min(4, partner.hand.length);
         partner.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
         G.discard.push(...partner.hand.splice(0, pDismiss));
@@ -2325,8 +2364,8 @@ function applyEffect(ev, cards, pidx) {
     G.players.forEach((_,i) => { if (i !== pidx) forceDraw(i, drawCount); });
     addLog('💥 Straight Flush! Everyone draws ' + drawCount + '!', true);
     // Partner + self flush: normal = 2 partner / 1 self; 7+ = 3 total
-    if (G.mode === 'duos' && G.partnerIdx !== undefined) {
-      const partner = G.players[G.partnerIdx];
+    if (G.mode === 'duos' && G.players[0].partnerIdx !== undefined) {
+      const partner = G.players[G.players[0].partnerIdx];
       const toFlush = Math.min(isSevenPlus ? 3 : 2, partner.hand.length);
       if (toFlush > 0) {
         partner.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
@@ -2832,6 +2871,35 @@ function applyEffect(ev, cards, pidx) {
     if (G._extraLawDraws > 4) G._extraLawDraws = 4; // hard cap
     const label6 = n===2?'Pair':n===3?'Three':'Four';
     addLog(`6️⃣ ${label6} of 6s! Law Draw +${extraDraws} this turn (total +${G._extraLawDraws} extra)!`, true);
+    return;
+  }
+
+  // ── FOURS ── Trap Sapper
+  if (eff.startsWith('power_4_')) {
+    if (!G.traps) G.traps = G.players.map(() => []);
+    const destroyCap = n === 2 ? 2 : n === 3 ? 4 : Infinity;
+    const removed = [];
+
+    for (let i = 0; i < G.numPlayers; i++) {
+      if (!isEnemy(pidx, i)) continue;
+      const zone = G.traps[i] || [];
+      while (zone.length > 0 && (destroyCap === Infinity || removed.length < destroyCap)) {
+        removed.push(zone.shift().card);
+      }
+      if (destroyCap !== Infinity && removed.length >= destroyCap) break;
+    }
+
+    if (removed.length > 0) {
+      G.discard.push(...removed);
+      if (removed.length > 10) {
+        const buried = removed.length - 10;
+        G.buriedTrapCards = (G.buriedTrapCards || 0) + buried;
+        addLog(`🪦 ${buried} destroyed trap card(s) are buried at discard bottom and unreachable by Aces.`, false);
+      }
+      addLog(`🔨 ${G.players[pidx].name} destroys ${removed.length} enemy trap card(s) with ${n}x 4s!`, true);
+    } else {
+      addLog(`🔨 ${G.players[pidx].name} plays ${n}x 4s, but no enemy traps were available.`, false);
+    }
     return;
   }
 
@@ -3887,9 +3955,8 @@ function spadeSwapPick(targetIdx) {
 function spadeDiscardPull(dIdx) {
   const idx = (dIdx !== undefined) ? dIdx : G.discard.length - 2;
   if (idx >= 0 && idx < G.discard.length) {
-    const card = G.discard.splice(idx, 1)[0];
-    G.players[0].hand.push(card);
-    addLog('♠ Spade Joker: Pulled ' + card.rank + card.suit + ' from discard!', true);
+    const card = takeCardFromDiscard(0, idx, 'Spade Joker pull');
+    if (card) addLog('♠ Spade Joker: Pulled ' + card.rank + card.suit + ' from discard!', true);
   }
   openJokerFreePlay(0, '♠'); // play any card after
 }
@@ -4225,19 +4292,27 @@ function evenStevenFlush(idx) {
 function evenStevenPickFromDiscard() {
   document.getElementById('evenStevenModal').style.display = 'none';
   let picked = 0;
-  while (picked < 2 && G.discard.length > 1) { G.players[0].hand.push(G.discard.splice(G.discard.length-2,1)[0]); picked++; }
+  while (picked < 2 && G.discard.length > 1) {
+    const c = takeCardFromDiscard(0, G.discard.length - 2, 'Even Steven');
+    if (!c) break;
+    picked++;
+  }
   addLog('Even Steven: Picked '+picked+' card(s) from discard!', true);
   G._evenFlushes = 0; G.phase = 'play'; G.turnPhase = 'done';
   renderGame(); updateBtns();
   addLog('Even Steven done! Click END TURN to draw & pass.', false); renderLog();
 }
  
-function aiEvenStevenEffect(pidx) {
+function aiEvenSteven(pidx) {
   const hand = G.players[pidx].hand;
   hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
   G.discard.push(...hand.splice(0, Math.min(2,hand.length)));
   let picked=0;
-  while (picked<2 && G.discard.length>1) { hand.push(G.discard.splice(G.discard.length-2,1)[0]); picked++; }
+  while (picked<2 && G.discard.length>1) {
+    const c = takeCardFromDiscard(pidx, G.discard.length-2, 'Even Steven AI');
+    if (!c) break;
+    picked++;
+  }
   addLog('Even Steven: '+G.players[pidx].name+' flushes 2 and picks 2 from discard!', true);
 }
  
@@ -4315,7 +4390,7 @@ function eightPickSuit(suit) {
     addLog('🔄 FOUR 8s! Suit → ' + suit + ' — play any combo, partner plays 2 cards!', true);
     const isTeam4 = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
     const partnerIdx4 = G.players[0].partnerIdx;
-    if (isTeam4 && partnerIdx4 !== null && partnerIdx4 !== undefined && partnerIdx4 !== 0) {
+    if (isTeam4 && partnerIdx4 !== null && partnerIdx4 !== undefined) {
       // Partner AI plays any 2 cards freely
       const partner = G.players[partnerIdx4];
       const toPlay = Math.min(2, partner.hand.length);
@@ -4690,11 +4765,11 @@ function royalRootsLockSuit(suit) {
  
 function royalRootsDrawDiscard() {
   if (G.discard.length > 1) {
-    const card = G.discard.splice(G.discard.length-2,1)[0];
-    G.players[0].hand.push(card);
-    addLog('👑 Royal Roots: Drew ' + card.rank + card.suit + ' from discard!', true);
+    const card = takeCardFromDiscard(0, G.discard.length-2, 'Royal Roots Draw');
+    if (card) addLog('👑 Royal Roots: Drew ' + card.rank + card.suit + ' from discard!', true);
   } else {
-    addLog('👑 Royal Roots: No discard available to draw from.', false);
+    addLog('No discard cards available — draw from deck instead.', false);
+    forceDraw(0, 1);
   }
   closeRoyalRootsModal();
 }
@@ -4712,7 +4787,6 @@ function closeRoyalRootsModal() {
 }
  
 // =====================================================================
-
 // =====================================================================
 // 🎲 ROYAL DICE (Royal Roll) — Full Implementation
 // =====================================================================
@@ -4918,7 +4992,7 @@ function _resolveRoyalDice(d1, d2, total, isDoubles) {
         if (i === 0) return;
         const actual = Math.min(pay, G.chips[i] || 0);
         G.chips[i] = (G.chips[i] || 0) - actual;
-        G.matchPot = (G.matchPot || 0) + actual;
+        G.chips[0] = (G.chips[0]||0) + actual;
         gained += actual;
         addLog(`${G.players[i].name} pays ${actual} chips to pot.`, false);
       });
@@ -5015,6 +5089,7 @@ function _luckyBoostSteal(targetIdx) {
 }
 // =====================================================================
 
+// =====================================================================
 // 🎯 ROOT OUT! SYSTEM
 // =====================================================================
 // =====================================================================
@@ -5174,277 +5249,43 @@ function _roAccept() {
       const ids = new Set(callerResult.combo.map(c => c.id));
       G.players[callerIdx].hand = G.players[callerIdx].hand.filter(c => !ids.has(c.id));
       const allButLast = callerResult.combo.slice(0, -1);
-      const newFC = callerResult.combo[callerResult.combo.length - 1];
-      G.discard.push(...allButLast, newFC);
-      G.faceCard = newFC;
+      const topCard = callerResult.combo[callerResult.combo.length - 1];
+      if (allButLast.length > 0) G.discard.push(...allButLast);
+      G.discard.push(topCard);
+      G.faceCard = topCard;
     }
     forcePts(callerIdx, 100);
     awardBettingPots(callerIdx);
     addLog(`👑 ${G.players[callerIdx].name} wins Root Out! +100pts, pot claimed!`, true);
     endMatch(callerIdx);
+
   } else {
     // Caller loses: winner's combo removed from hand, winner +50pts
     // Caller: -200pts, draw 4, pay 2× min bet
     // Others: discard 2 lowest, draw 3
     if (winner && winner.combo && winner.combo.length > 0) {
-      const wids = new Set(winner.combo.map(c => c.id));
-      G.players[winner.pidx].hand = G.players[winner.pidx].hand.filter(c => !wids.has(c.id));
+      // Remove winner's combo cards from their hand
+      const ids = new Set(winner.combo.map(c => c.id));
+      G.players[winner.pidx].hand = G.players[winner.pidx].hand.filter(c => !ids.has(c.id));
+      // All combo cards except the last sit below the face card in discard
       const allButLast = winner.combo.slice(0, -1);
       const newFC = winner.combo[winner.combo.length - 1];
-      G.discard.push(...allButLast, newFC);
-      G.faceCard = newFC;
-    }
-    forcePts(winner.pidx, 50);
-    addLog(`👑 ${winner.name} wins Root Out! +50pts!`, true);
-
-    // Others (not caller, not winner) discard 2 lowest, draw 3
-    G.players.forEach((p, i) => {
-      if (i === callerIdx || i === winner.pidx) return;
-      p.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
-      const discarded = p.hand.splice(0, Math.min(2, p.hand.length));
-      G.discard.push(...discarded);
-      forceDraw(i, 3);
-    });
-
-    // Caller penalty
-    forcePts(callerIdx, -200);
-    forceDraw(callerIdx, 4);
-    if (G.styles && G.styles.money && G.chips && G.minBet) {
-      const penalty = G.minBet * 2;
-      const pay = Math.min(penalty, G.chips[callerIdx] || 0);
-      G.chips[callerIdx] = (G.chips[callerIdx] || 0) - pay;
-      G.matchPot = (G.matchPot || 0) + pay;
-    }
-    addLog(`💀 ${G.players[callerIdx].name} pays Root Out penalty: −200pts, draw 4!`, true);
-    G.rootOutPenalty = (callerIdx === 0);
-
-    // Resume play from next player after caller
-    G.phase = 'play';
-    G.cur = nxt(callerIdx);
-    G.turnPhase = 'playing';
-    G.sel = [];
-    G.aceState = null;
-    G.pendingWar = null;
-    G.war = null;
-    renderGame(); renderLog(); updateBtns();
-    if (G.cur === 0) startHumanTurn();
-    else { addLog(`${G.players[G.cur].name}'s turn...`); setTimeout(() => aiTurn(G.cur), 800); }
-  }
-}
-
-function declareRootOut() {
-  if (G.phase !== 'play' || G.cur !== 0) {
-    addLog('Not your turn!', false); return;
-  }
-  if (G.rootOutUsed) {
-    addLog('ROOT OUT already used this match!', false); return;
-  }
-  if (G.players[0].hand.length < 2) {
-    addLog('Need at least 2 cards to call ROOT OUT!', false); return;
-  }
-  // Show confirmation — player can still back out here
-  _rootOutShowConfirm();
-}
-
-function _rootOutShowConfirm() {
-  if (G.phase !== 'play') { addLog('Cannot declare Root Out right now.', false); return; }
-  const modal = document.getElementById('aceModal');
-  const title = modal.querySelector('.ace-modal-title');
-  const sub   = modal.querySelector('#aceModalSub');
-  const main  = document.getElementById('aceMainActions');
-  const rzone = document.getElementById('aceReplaceZone');
-  if (rzone) rzone.style.display = 'none';
-  G.aceState = null;
-
-  title.textContent = '🎯 ROOT OUT!';
-  if (sub) sub.textContent = 'Once declared, there is NO turning back!';
-
-  main.innerHTML = `
-    <div style="text-align:center;padding:12px 0">
-      <div style="font-size:36px;margin-bottom:12px">🎯</div>
-      <div style="font-family:'IM Fell English',serif;font-size:15px;color:var(--text);line-height:1.7;margin-bottom:20px">
-        You are about to call <b>ROOT OUT!</b><br>
-        All hands will be revealed. Everyone builds their best combo off the current Face Card.<br><br>
-        <b style="color:#f0c040">Win:</b> +100pts, match ends, pot is yours.<br>
-        <b style="color:#e74c3c">Lose:</b> −200pts, draw 4, pay 2× min bet.
-      </div>
-      <button class="ace-action-btn" style="width:100%;font-size:14px;border-color:#e74c3c;color:#e74c3c;margin-bottom:10px" onclick="_rootOutConfirmed()">
-        🎯 DECLARE ROOT OUT — FINAL!
-      </button>
-      <button class="ace-action-btn" style="width:100%;font-size:11px;border-color:rgba(240,192,64,.25);color:rgba(240,192,64,.5)" onclick="document.getElementById('aceModal').style.display='none'">
-        ✕ CANCEL — Go Back
-      </button>
-    </div>`;
-  modal.style.display = 'flex';
-}
-
-function _rootOutConfirmed() {
-  document.getElementById('aceModal').style.display = 'none';
-  G.rootOutUsed = true;
-  G.jackFlush = null; G.jackFlushBusy = false;
-  const jm = document.getElementById('jackModal');
-  if (jm) jm.style.display = 'none';
-  addLog('🎯 ROOT OUT DECLARED! All hands revealed!', true);
-  renderLog();
-  // Human is caller (pidx=0) — use same cinematic reveal
-  _aiRootOutReveal(0);
-}
-
-// Find the best legal combo a player can build starting with a face-card-matching card
-function _rootOutBestCombo(pool) {
-  // Cap pool - team pools can be large, cap at 12 for performance
-  const cappedPool = pool.slice(0, Math.min(pool.length, 12));
-  const validStarters = cappedPool.filter(c => answersFC(c));
-  if (validStarters.length === 0) return { combo: null, pts: 0, ev: null };
-
-  let bestCombo = null, bestPts = 0, bestEv = null;
-  const tierW = { LEGENDARY:10000, MYTHICAL:5000, EPIC:2000, RARE:500, COMMON:0 };
-  let totalChecked = 0;
-  const TOTAL_CAP = 800; // hard cap across all iterations
-
-  outer:
-  for (const starter of validStarters) {
-    const rest = cappedPool.filter(c => c.id !== starter.id);
-    const maxSize = Math.min(rest.length + 1, 5); // cap at 5-card combos for performance
-    for (let size = 1; size <= maxSize; size++) {
-      const combos = getCombinations([starter, ...rest], size);
-      for (const combo of combos) {
-        if (combo[0].id !== starter.id) continue;
-        totalChecked++;
-        if (totalChecked > TOTAL_CAP) break outer;
-        const ev = evalCombo(combo);
-        if (ev.valid) {
-          const score = ev.pts + (tierW[ev.tier] || 0);
-          const prevScore = bestPts + (tierW[bestEv?.tier] || 0);
-          if (score > prevScore) {
-            bestPts = ev.pts; bestCombo = combo; bestEv = ev;
-          }
-        }
-      }
-    }
-  }
-  return { combo: bestCombo, pts: bestPts, ev: bestEv };
-}
-
-function _showRootOutModal(results, callerWins, callerResult, winner) {
-  // Build a modal using the ace-modal structure
-  const modal = document.getElementById('aceModal');
-  const title = modal.querySelector('.ace-modal-title');
-  const sub   = modal.querySelector('.ace-modal-sub') || modal.querySelector('#aceModalSub');
-  const main  = document.getElementById('aceMainActions');
-  const rzone = document.getElementById('aceReplaceZone');
-  if (rzone) rzone.style.display = 'none';
-
-  title.textContent = callerWins ? '🎯 ROOT OUT — YOU WIN!' : '🎯 ROOT OUT — FAILED!';
-  if (sub) sub.textContent = callerWins
-    ? 'You had the best combo! Match won + pot claimed!'
-    : `${winner.name} had the best combo. −200pts, draw 4, pay 2× min bet.`;
-
-  // Build results table
-  let html = '<div style="text-align:left;font-family:Cinzel,serif;font-size:13px;width:100%">';
-  html += '<div style="color:rgba(240,192,64,.5);font-size:10px;letter-spacing:2px;margin-bottom:10px">ROOT OUT RESULTS</div>';
-  results.forEach((r, rank) => {
-    const isCaller = r.pidx === 0;
-    const isWinner = rank === 0;
-    const col = isWinner ? '#f0c040' : isCaller ? '#e74c3c' : 'var(--text-dim)';
-    const badge = isWinner ? ' 👑' : '';
-    const comboStr = r.combo ? `${r.ev.name} (${r.pts}pts)` : 'No valid combo (0pts)';
-    html += `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);color:${col}">
-      <b>${r.name}${isCaller?' (YOU)':''}${badge}</b> — ${comboStr}
-    </div>`;
-    // Show their cards
-    if (r.combo) {
-      html += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 6px 0">
-        ${r.combo.map(c => cardEl(c,'')).join('')}
-      </div>`;
-    }
-  });
-  html += '</div>';
-
-  // Resolution button
-  const btnLabel = callerWins ? '🏆 CLAIM VICTORY' : '😬 ACCEPT PENALTY';
-  html += `<button class="ace-action-btn" style="margin-top:14px;width:100%;font-size:14px" onclick="_resolveRootOut(${callerWins})">
-    ${btnLabel}
-  </button>`;
-
-  main.innerHTML = html;
-  G.aceState = null; // ensure ace system doesn't interfere
-  modal.style.display = 'flex';
-  G.phase = 'root_out'; // keep locked until resolved
-  // Store winner info for _resolveRootOut
-  G._rootOutWinner = winner;
-  G._rootOutResults = results; // store all results for physical discard on resolve
-}
-
-function _resolveRootOut(callerWins) {
-  document.getElementById('aceModal').style.display = 'none';
-  G.phase = 'play';
-
-  if (callerWins) {
-    // ── CALLER WINS ─────────────────────────────────────────
-    // +10pts on top of combo pts (already counted in findBestCombo)
-    forcePts(0, 100);
-    addLog('🎯 ROOT OUT WIN! +100 bonus pts! Pot claimed! Match over!', true);
-    floatPts('+100 ROOT OUT!', 'LEGENDARY');
-
-    // Remove caller's winning combo from hand and discard it (winner's last card = face card)
-    const winResults = G._rootOutResults || [];
-    G._rootOutResults = null;
-    const winnerResult = winResults.find(r => r.pidx === 0);
-    if (winnerResult && winnerResult.combo && winnerResult.combo.length > 0) {
-      const ids = new Set(winnerResult.combo.map(c => c.id));
-      G.players[0].hand = G.players[0].hand.filter(c => !ids.has(c.id));
-      const allButLast = winnerResult.combo.slice(0, -1);
-      const topCard = winnerResult.combo[winnerResult.combo.length - 1];
-      if (allButLast.length > 0) G.discard.push(...allButLast);
-      G.discard.push(topCard);
-      G.faceCard = topCard;
-    }
-
-    // Roulette: both teammates get official empty hands (2-way exit)
-    if (G.mode === 'roulette') {
-      const partnerIdx = G.players[0].partnerIdx;
-      if (partnerIdx !== null && partnerIdx !== undefined) {
-        G.players[0].hand = [];
-        G.players[partnerIdx].hand = [];
-        addLog('🌀 Roulette ROOT OUT — both teammates exit! 2-way empty hands!', true);
-      }
-    }
-    endMatch(0);
-
-  } else {
-    // ── CALLER LOSES ────────────────────────────────────────
-
-    const roWinner = G._rootOutWinner;
-    G._rootOutWinner = null;
-
-    G._rootOutResults = null; // clear — non-winners do NOT play their combos
-
-    // 1. ONLY the winner's combo is physically played to the discard pile.
-    //    All other players keep their hands (they follow discard 2 + draw 3 instead).
-    if (roWinner && roWinner.combo && roWinner.combo.length > 0) {
-      // Remove winner's combo cards from their hand
-      const ids = new Set(roWinner.combo.map(c => c.id));
-      G.players[roWinner.pidx].hand = G.players[roWinner.pidx].hand.filter(c => !ids.has(c.id));
-      // All combo cards except the last sit below the face card in discard
-      const allButLast = roWinner.combo.slice(0, -1);
-      const newFC = roWinner.combo[roWinner.combo.length - 1];
       G.discard.push(...allButLast);
       G.discard.push(newFC); // winner's last card = new face card on top
       G.faceCard = newFC;
-      addLog(`👑 ${roWinner.name} plays ${roWinner.ev ? roWinner.ev.name : 'combo'} — ${newFC.rank}${newFC.suit} is the new Face Card!`, true);
+      addLog(`👑 ${winner.name} plays ${winner.ev ? winner.ev.name : 'combo'} — ${newFC.rank}${newFC.suit} is the new Face Card!`, true);
     }
 
-    // 2. Winner gets +50pts
-    if (roWinner) {
-      forcePts(roWinner.pidx, 50);
-      addLog(`👑 ${roWinner.name} wins ROOT OUT — +50 bonus pts!`, true);
-      if (roWinner.pidx === 0) floatPts('+50 ROOT OUT WIN!', 'EPIC');
+    // Winner gets +50pts
+    if (winner) {
+      forcePts(winner.pidx, 50);
+      addLog(`👑 ${winner.name} wins Root Out! +50 bonus pts!`, true);
+      if (winner.pidx === 0) floatPts('+50 ROOT OUT WIN!', 'EPIC');
     }
 
-    // 3. All players EXCEPT the caller AND winner: discard 2 + draw 3
+    // All players EXCEPT the caller AND winner: discard 2 + draw 3
     //    Winner already had their combo removed — skip them here
-    const winnerPidx = roWinner ? roWinner.pidx : -1;
+    const winnerPidx = winner ? winner.pidx : -1;
     G.players.forEach((p, i) => {
       if (i === 0) return;          // caller has own penalties
       if (i === winnerPidx) return; // winner already played their combo
@@ -5458,7 +5299,7 @@ function _resolveRootOut(callerWins) {
       forceDraw(i, 3);
     });
 
-    // 4. Caller penalties: -200pts, draw 4, pay 2× min bet
+    // Caller penalties: -200pts, draw 4, pay 2× min bet
     const penalty = G.minBet ? G.minBet * 2 : 0;
     if (G.chips && penalty > 0) {
       const pay = Math.min(penalty, G.chips[0] || 0);
@@ -5470,7 +5311,7 @@ function _resolveRootOut(callerWins) {
     forceDraw(0, 4);
     addLog('🎯 ROOT OUT failed! −200pts, draw 4 cards. Law Draw still applies at end of your turn.', true);
 
-    // 5. Caller must still Law Draw at end of their turn (G._rootOutLawDraw flag)
+    // Caller must still Law Draw at end of their turn (G._rootOutLawDraw flag)
     G.rootOutPenalty = true; // signals endTurn to apply law draw
 
     // Roulette: losing team stays and draws new cards for next round
@@ -5577,9 +5418,8 @@ function triggerJokerEffect(suit, pidx, onDone) {
         const best = pullable[0];
         const realIdx = G.discard.indexOf(best);
         if (realIdx !== -1) {
-          const card = G.discard.splice(realIdx, 1)[0];
-          G.players[pidx].hand.push(card);
-          addLog(`♠ Spade Joker: ${G.players[pidx].name} pulls ${card.rank}${card.suit} from discard!`, true);
+          const card = takeCardFromDiscard(pidx, realIdx, 'Spade Joker AI pull');
+          if (card) addLog(`♠ Spade Joker: ${G.players[pidx].name} pulls ${card.rank}${card.suit} from discard!`, true);
         }
       } else {
         const me = G.players[pidx], them = G.players[nextIdx];
@@ -5713,6 +5553,221 @@ function reshuffleDiscard() {
   G.discard = [top];
   addLog('🔀 Deck reshuffled!', false);
 }
+
+function isEnemy(aIdx, bIdx) {
+  const teamModes = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+  if (!teamModes) return aIdx !== bIdx;
+  const a = G.players[aIdx], b = G.players[bIdx];
+  if (!a || !b) return false;
+  return a.teamId !== b.teamId;
+}
+
+function canSetTrapCard(card) {
+  if (!card) return false;
+  return ['3','5','6','10','JKR'].includes(card.rank);
+}
+
+function _trapNumericValue(card) {
+  if (!card || card.rank === 'JKR') return null;
+  if (!['3','5','6','10'].includes(card.rank)) return null;
+  return parseInt(card.rank, 10);
+}
+
+function _consumeJokerTrap(ownerIdx, suit) {
+  const zone = G.traps[ownerIdx] || [];
+  const idx = zone.findIndex(t => t && t.card && t.card.rank === 'JKR' && t.card.suit === suit);
+  if (idx === -1) return null;
+  return zone.splice(idx, 1)[0];
+}
+
+function _flushLowestCards(pidx, n, why) {
+  const p = G.players[pidx];
+  if (!p || !p.hand || p.hand.length === 0) return 0;
+  p.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+  const take = Math.min(n, p.hand.length);
+  if (take <= 0) return 0;
+  const flushed = p.hand.splice(0, take);
+  G.discard.push(...flushed);
+  if (why) addLog(`${p.name} flushes ${take} card(s) ${why}.`, true);
+  return take;
+}
+
+function _findFirstEnemyJokerTrap(targetIdx, suit) {
+  for (let i = 0; i < G.numPlayers; i++) {
+    if (!isEnemy(i, targetIdx)) continue;
+    const zone = G.traps[i] || [];
+    const has = zone.some(t => t && t.card && t.card.rank === 'JKR' && t.card.suit === suit);
+    if (has) return i;
+  }
+  return null;
+}
+
+function _isMajorComboEffect(effect) {
+  const major = new Set([
+    'straight','flush','straight_flush','full_house','triple_double',
+    'royal_flush','roots','royal_roots','even_steven','cascade_house',
+    'joker_house','royal_joker_house'
+  ]);
+  return major.has(effect);
+}
+
+function _applyHeartTrapCounter(actorIdx, ev) {
+  if (!ev || !_isMajorComboEffect(ev.effect)) return null;
+  const ownerIdx = _findFirstEnemyJokerTrap(actorIdx, '♥');
+  if (ownerIdx === null || ownerIdx === undefined) return null;
+  const consumed = _consumeJokerTrap(ownerIdx, '♥');
+  if (!consumed) return null;
+  G.discard.push(consumed.card);
+  _flushLowestCards(ownerIdx, 2, 'from ♥ Joker Trap');
+  addLog(`♥ Joker Trap! ${G.players[ownerIdx].name} halves ${G.players[actorIdx].name}'s major combo points.`, true);
+  return ownerIdx;
+}
+
+function _applySpadeTrapCounter(actorIdx, ev) {
+  if (!ev) return false;
+  const jokerEffects = new Set(['joker_single','double_joker','triple_joker','joker_house','royal_joker_house','joker_cascade']);
+  if (!jokerEffects.has(ev.effect)) return false;
+  const ownerIdx = _findFirstEnemyJokerTrap(actorIdx, '♠');
+  if (ownerIdx === null || ownerIdx === undefined) return false;
+  const consumed = _consumeJokerTrap(ownerIdx, '♠');
+  if (!consumed) return false;
+  G.discard.push(consumed.card);
+  forceDraw(actorIdx, 3);
+  addLog(`♠ Joker Trap! ${G.players[ownerIdx].name} voids ${G.players[actorIdx].name}'s Joker effect. Draw 3 and turn ends.`, true);
+  return true;
+}
+
+function _applyCloverTrapCounter(actorIdx, reasonText='') {
+  const ownerIdx = _findFirstEnemyJokerTrap(actorIdx, '♣');
+  if (ownerIdx === null || ownerIdx === undefined) return false;
+  const consumed = _consumeJokerTrap(ownerIdx, '♣');
+  if (!consumed) return false;
+  G.discard.push(consumed.card);
+
+  const actor = G.players[actorIdx];
+  actor.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+  const dropN = Math.min(2, actor.hand.length);
+  if (dropN > 0) G.discard.push(...actor.hand.splice(0, dropN));
+
+  let pay = 0;
+  if (G.styles && G.styles.money && G.chips) {
+    const penalty = Math.max(1, (G.minBet || 1) * 2);
+    pay = Math.min(penalty, G.chips[actorIdx] || 0);
+    G.chips[actorIdx] = (G.chips[actorIdx] || 0) - pay;
+    G.matchPot = (G.matchPot || 0) + pay;
+  }
+  addLog(`♣ Joker Trap! ${G.players[ownerIdx].name} punishes ${actor.name}${reasonText?` (${reasonText})`:''}: discard ${dropN}, pay ${pay}💰.`, true);
+  return true;
+}
+
+function takeCardFromDiscard(actorIdx, discardIdx, reasonText='') {
+  const idx = discardIdx;
+  if (idx < 0 || idx >= G.discard.length) return null;
+  const card = G.discard.splice(idx, 1)[0];
+  if (!card) return null;
+  G.players[actorIdx].hand.push(card);
+  _applyCloverTrapCounter(actorIdx, reasonText || 'discard pull');
+  return card;
+}
+
+function _triggerTrapActivationByFaceCard(enderIdx) {
+  if (!G.faceCard) return false;
+  const faceVal = RANK_VAL[G.faceCard.rank] || null;
+  if (!faceVal) return false;
+
+  const candidates = [];
+  for (let ownerIdx = 0; ownerIdx < G.numPlayers; ownerIdx++) {
+    const zone = G.traps[ownerIdx] || [];
+    zone.forEach((t, tidx) => {
+      const trapVal = _trapNumericValue(t.card);
+      if (!trapVal) return;
+      const diff = Math.abs(faceVal - trapVal);
+      if (diff <= 1) {
+        candidates.push({ ownerIdx, tidx, trap: t, diff });
+      }
+    });
+  }
+  if (candidates.length === 0) return false;
+
+  candidates.sort((a,b) => a.diff - b.diff || a.ownerIdx - b.ownerIdx || a.tidx - b.tidx);
+  const pick = candidates[0];
+
+  // ♦ Joker Trap can override enemy trap activation.
+  const diamondOwner = _findFirstEnemyJokerTrap(pick.ownerIdx, '♦');
+  if (diamondOwner !== null && diamondOwner !== undefined) {
+    const dj = _consumeJokerTrap(diamondOwner, '♦');
+    const removedTrap = G.traps[pick.ownerIdx].splice(pick.tidx, 1)[0];
+    if (dj) G.discard.push(dj.card);
+    if (removedTrap) G.discard.push(removedTrap.card);
+    forcePts(diamondOwner, 20);
+    addLog(`♦ Joker Trap! ${G.players[diamondOwner].name} overrides ${G.players[pick.ownerIdx].name}'s trap and steals +20pts.`, true);
+    return true;
+  }
+
+  const fired = G.traps[pick.ownerIdx].splice(pick.tidx, 1)[0];
+  if (!fired) return false;
+  G.discard.push(fired.card);
+  G.faceCard = fired.card;
+  addLog(`🎭 Trap triggered! ${G.players[pick.ownerIdx].name} springs ${fired.card.rank}${fired.card.suit}.`, true);
+
+  if (pick.diff === 0) {
+    G._forcedNextTurn = pick.ownerIdx;
+    addLog(`⚡ Exact match trap! ${G.players[pick.ownerIdx].name} skips the line for the next turn.`, true);
+  }
+  return true;
+}
+
+function renderTrapZoneBar() {
+  const el = document.getElementById('trapZoneBar');
+  if (!el || !G.players || !G.players.length) return;
+  const chunks = G.players.map((p,i) => {
+    const zone = G.traps && G.traps[i] ? G.traps[i] : [];
+    const shown = zone.slice(0, 3).map(t => t.faceUp ? `${t.card.rank}${t.card.suit}` : '🂠').join(' ');
+    const lbl = i === 0 ? 'YOU' : p.name;
+    return `${lbl}:${zone.length}${shown ? ` [${shown}]` : ''}`;
+  });
+  el.textContent = `🎭 TRAPS · ${chunks.join('  |  ')}`;
+}
+
+function setSelectedTraps(faceUp=false) {
+  if (G.phase !== 'play' || G.cur !== 0 || G.turnPhase === 'done') return;
+  if (G.trapPlacedThisTurn) { addLog('You already set traps this turn.', false); return; }
+  const picks = G.sel.map(id => G.players[0].hand.find(c => c.id === id)).filter(Boolean);
+  if (picks.length === 0) { addLog('Select trap cards first (3, 5, 6, 10, Joker).', false); return; }
+  if (picks.length > 3) { addLog('You can set up to 3 traps per turn.', false); return; }
+  if (!picks.every(canSetTrapCard)) { addLog('Only 3, 5, 6, 10, or Joker cards can be set as traps.', false); return; }
+
+  const ids = new Set(picks.map(c => c.id));
+  G.players[0].hand = G.players[0].hand.filter(c => !ids.has(c.id));
+  G.sel = [];
+  if (!G.traps) G.traps = G.players.map(() => []);
+  const animUntil = Date.now() + 1400;
+  picks.forEach(card => G.traps[0].push({ card, faceUp: !!faceUp, animUntil }));
+  G.trapPlacedThisTurn = true;
+  G.turnPhase = 'done';
+  addLog(`🎭 You set ${picks.length} trap(s) ${faceUp ? 'face-up' : 'face-down'}. Sacrifice made — no combo play this turn.`, true);
+  renderGame();
+  renderLog();
+  updateBtns();
+}
+
+function aiSetTraps(pidx) {
+  const hand = G.players[pidx].hand;
+  const elig = hand.filter(canSetTrapCard);
+  if (elig.length === 0) return false;
+  const toSet = Math.min(3, Math.max(1, Math.floor(Math.random() * 3) + 1), elig.length);
+  const picks = [];
+  for (let i = 0; i < toSet; i++) {
+    const card = elig[i];
+    const idx = hand.findIndex(h => h.id === card.id);
+    if (idx !== -1) picks.push(hand.splice(idx, 1)[0]);
+  }
+  if (!G.traps) G.traps = G.players.map(() => []);
+  const animUntil = Date.now() + 1400;
+  picks.forEach(card => G.traps[pidx].push({ card, faceUp: false, animUntil }));
+  addLog(`🎭 ${G.players[pidx].name} sets ${picks.length} trap card(s).`, false);
+  return picks.length > 0;
+}
  
 let _skipCount = 0;
 function advSkip(n) { _skipCount = n; }
@@ -5786,6 +5841,8 @@ function _doPlayCardsCore(pidx, cards) {
  
   // Points — check Face Card penalty (-5pts, effects negated if face card starts combo)
   let pts = ev.pts || 0;
+  const heartTrapOwner = _applyHeartTrapCounter(pidx, ev);
+  if (heartTrapOwner !== null) pts = Math.floor(pts / 2);
   let faceCardPenalty = false;
   const fc = prevFaceCard;
   // Face card penalty: set by evalCombo for 4-card straights/flushes that extend from FC
@@ -5819,6 +5876,14 @@ function _doPlayCardsCore(pidx, cards) {
     const won = checkWin(pidx);
     return true;
   }
+
+  // ♠ Joker Trap can void joker effects before they resolve.
+  const jokerVoidedByTrap = _applySpadeTrapCounter(pidx, ev);
+  if (jokerVoidedByTrap) {
+    const won = checkWin(pidx);
+    return true;
+  }
+
   // Resolve any pending war trigger from the immediate previous player first.
   if (G.pendingWar && G.pendingWar.defenderIdx === pidx) {
     const pending = G.pendingWar;
@@ -5923,7 +5988,7 @@ function endMatch(winnerIdx) {
   G.wins[winnerIdx] = (G.wins[winnerIdx]||0) + 1;
   awardBettingPots(winnerIdx); // pay out Match Pot + Point Pot
  
-  const humanWon = winnerIdx === 0 || (G.mode === 'duos' && winnerIdx === 2);
+  const humanWon = winnerIdx === 0;
   const winsNeeded = G.matchesTo || 3;
   const winnerWins = G.wins[winnerIdx];
   const totalMatches = G.wins.reduce((a,b)=>a+b, 0);
@@ -5952,7 +6017,7 @@ function endMatch(winnerIdx) {
 function endGame(winnerIdx) {
   G.phase = 'ended';
   const w = G.players[winnerIdx];
-  const humanWon = winnerIdx === 0 || (G.mode === 'duos' && winnerIdx === 2);
+  const humanWon = winnerIdx === 0;
   const scoreStr = G.players.map((p,i) => `${p.name}: ${G.wins[i]||0} wins / ${G.pts[i]||0}pts`).join('\n');
   showBanner(
     humanWon ? '👑 GAME OVER — YOU WIN!' : `💀 GAME OVER — ${w.name} WINS!`,
@@ -5970,7 +6035,7 @@ function endGameRoyalDeadMan(winnerIdx) {
   // Royal Dead Man ends the ENTIRE GAME immediately — no next match
   G.phase = 'ended';
   const w = G.players[winnerIdx];
-  const humanWon = winnerIdx === 0 || (G.mode === 'duos' && winnerIdx === 2);
+  const humanWon = winnerIdx === 0;
   const scoreStr = G.players.map((p,i) => `${p.name}: ${G.wins[i]||0} wins / ${G.pts[i]||0}pts`).join('\n');
   showBanner(
     humanWon ? '💀👑 ROYAL DEAD MAN — GAME OBLITERATED!' : `💀👑 ROYAL DEAD MAN — ${w.name} ENDS IT ALL!`,
@@ -6026,6 +6091,10 @@ function nextMatch() {
   G._royalDiceFreeCombo = false;
   G._royalDiceDoubleDown = false;
   G._royalDiceExtraMoves = 0;
+  G.traps = G.players.map(() => []);
+  G.trapPlacedThisTurn = false;
+  G._forcedNextTurn = null;
+  G.buriedTrapCards = 0;
   buildAndDeal();
 
   // Dead Man's Hand curse: enemies of winner draw 1 extra card
@@ -6119,7 +6188,11 @@ function aiTurn(pidx) {
     }
 
     let didPlay = false;
-    const play = findBestPlay(player.hand);
+    if (!G.pendingWar && Math.random() < 0.20) {
+      didPlay = aiSetTraps(pidx);
+    }
+
+    const play = didPlay ? null : findBestPlay(player.hand);
  
     if (play && play.length > 0) {
       doPlayCards(pidx, play);
@@ -6168,9 +6241,30 @@ function aiTurn(pidx) {
     }
     // Show law draw animation
     aiDrawAnim(pidx, aiLawDrawCount, null);
+
+    // Trap activation check at end of turn face card state
+    _triggerTrapActivationByFaceCard(pidx);
  
     G.sel = []; // always clear selection before advancing turn
   if (G.phase !== 'play') { renderGame(); return; }
+
+  // Exact-match trap skip-line has highest priority for next turn assignment.
+  if (G._forcedNextTurn !== null && G._forcedNextTurn !== undefined) {
+    G.cur = G._forcedNextTurn;
+    G._forcedNextTurn = null;
+    G.turnPhase = 'playing';
+    G.freeDrewId = null;
+    G.trapPlacedThisTurn = false;
+    renderGame();
+    if (G.cur !== 0) {
+      addLog(`${G.players[G.cur].name}'s turn...`);
+      renderLog();
+      setTimeout(()=>aiTurn(G.cur), 500);
+    } else {
+      startHumanTurn();
+    }
+    return;
+  }
  
     if (G.extraTurns > 0 || G.extraTurn) {
       if (G.extraTurns > 0) G.extraTurns--;
@@ -6196,9 +6290,15 @@ function aiTurn(pidx) {
         startHumanTurn();
         return;
       }
-      G.cur = advanceTurnIdx(pidx);
+      if (G._forcedNextTurn !== null && G._forcedNextTurn !== undefined) {
+        G.cur = G._forcedNextTurn;
+        G._forcedNextTurn = null;
+      } else {
+        G.cur = advanceTurnIdx(pidx);
+      }
       G.turnPhase = 'playing';
       G.freeDrewId = null;
+      G.trapPlacedThisTurn = false;
       renderGame();
       if (G.cur !== 0) {
         addLog(`${G.players[G.cur].name}'s turn...`);
@@ -6306,11 +6406,13 @@ function startHumanTurn() {
     if (G.lockedSuitTurns === 0) { G.lockedSuit = null; addLog('Suit lock expired.', false); }
   }
   G.turnPhase = 'playing'; // player can optionally draw first via DRAW btn, or just play
+  G.trapPlacedThisTurn = false;
   G.forceSingleEndDraw = false;
   G.freeDrewId = null;
   G.sel = [];
   renderGame();
   updateBtns();
+  updateComboInfo();
 
   // War prompt: if previous player set a war-eligible play and human is the defender
   if (G.pendingWar && G.pendingWar.defenderIdx === 0) {
@@ -6410,6 +6512,10 @@ function updateBtns() {
     rob.textContent = G.rootOutUsed ? '🎯 ROOT OUT (used)' : '🎯 ROOT OUT!';
   }
   const rdb = document.getElementById('royalDiceBtn');
+  const tdb = document.getElementById('trapDownBtn');
+  const tub = document.getElementById('trapUpBtn');
+  const trapRow = document.getElementById('trapBtnRow');
+  if (trapRow) trapRow.style.display = 'none';
   if (rdb) {
     const rdUsed = G.royalRollUsed && G.royalRollUsed[0];
     const canRD = G.cur===0 && G.phase==='play' && !rdUsed && G.turnPhase !== 'done';
@@ -6422,6 +6528,8 @@ function updateBtns() {
   // Jack flush phase
   if (G.phase === 'jack_flush' || G.jackFlush) {
     pb.disabled=true; eb.disabled=true; if(db) db.disabled=true;
+    if (tdb) tdb.disabled = true;
+    if (tub) tub.disabled = true;
     ts.textContent='🃏 CHOOSE CARDS TO FLUSH';
     ts.style.color='var(--gold)';
     return;
@@ -6429,6 +6537,8 @@ function updateBtns() {
   // War prompt phase — disable all action buttons
   if (G.phase === 'war_prompt') {
     pb.disabled=true; eb.disabled=true; if(db) db.disabled=true;
+    if (tdb) tdb.disabled = true;
+    if (tub) tub.disabled = true;
     ts.textContent='⚔️ WAR OPPORTUNITY';
     ts.style.color='#e74c3c';
     return;
@@ -6439,6 +6549,8 @@ function updateBtns() {
   if (document.getElementById('diceRollModal') && document.getElementById('diceRollModal').style.display === 'flex') { pb.disabled=true; eb.disabled=true; if(db) db.disabled=true; return; }
   if (ASYNC_PHASES.includes(G.phase) || G.aceState) {
     pb.disabled=true; eb.disabled=true; if(db) db.disabled=true;
+    if (tdb) tdb.disabled = true;
+    if (tub) tub.disabled = true;
     ts.textContent='✨ EFFECT IN PROGRESS...';
     ts.style.color='var(--gold)';
     return;
@@ -6447,6 +6559,8 @@ function updateBtns() {
   const isMyTurn = G.cur===0 && G.phase==='play';
   if (!isMyTurn) {
     pb.disabled=true; eb.disabled=true; if(db) db.disabled=true;
+    if (tdb) tdb.disabled = true;
+    if (tub) tub.disabled = true;
     ts.textContent=`${G.players[G.cur].name}'s turn...`;
     ts.style.color='var(--text-dim)';
     return;
@@ -6459,6 +6573,8 @@ function updateBtns() {
     ts.textContent = 'Turn done — end to draw';
     pb.disabled = true;
     if(db) db.disabled = true;
+    if (tdb) tdb.disabled = true;
+    if (tub) tub.disabled = true;
     eb.disabled = false;
     eb.textContent = 'END TURN ▶ (draws 1)';
     eb.style.borderColor = 'var(--gold)';
@@ -6481,7 +6597,16 @@ function updateBtns() {
     db.style.borderColor = alreadyDrew ? '#333' : '#666';
     db.style.color = alreadyDrew ? '#444' : '#aaa';
   }
- 
+
+  if (tdb && tub) {
+    const trapSel = G.sel.map(id => G.players[0].hand.find(c=>c.id===id)).filter(Boolean);
+    const validTrapSel = trapSel.length > 0 && trapSel.length <= 3 && trapSel.every(canSetTrapCard);
+    const canTrap = !G.trapPlacedThisTurn && validTrapSel;
+    if (trapRow) trapRow.style.display = validTrapSel ? 'flex' : 'none';
+    tdb.disabled = !canTrap;
+    tub.disabled = !canTrap;
+  }
+
   // Play button
   if (G.sel.length === 0) { pb.disabled=true; return; }
   const cards = G.sel.map(id=>G.players[0].hand.find(c=>c.id===id)).filter(Boolean);
@@ -6524,6 +6649,10 @@ function playSelected() {
     return;
   }
   if (phase!=='play'||G.cur!==0||G.turnPhase==='done'||G.aceState||G.jackFlush) return;
+  if (G.trapPlacedThisTurn) {
+    addLog('You set traps this turn — you cannot also play a combo.', false);
+    return;
+  }
   const cards = G.sel.map(id=>G.players[0].hand.find(c=>c.id===id)).filter(Boolean);
   // Three 8s enforcement
   if (G.limitNext && cards.length > G.limitNext) {
@@ -6621,6 +6750,9 @@ function endTurn() {
     if (G.deck.length>0) G.players[0].hand.push(G.deck.pop());
   }
   if (lawDrawCount > 1) addLog('6️⃣ Law Draw ×' + lawDrawCount + ' (6s bonus)!', false);
+
+  // Trap activation check at end-of-turn face card state
+  _triggerTrapActivationByFaceCard(0);
  
   // Reset turn state
   G.sel = [];
@@ -6633,6 +6765,7 @@ function endTurn() {
   G._eightSoloFreeCount = 0;
   G._royalDiceFreeCombo = false;  // single play only
   G._royalDiceDoubleDown = false;
+  G.trapPlacedThisTurn = false;
   if (!G._royalDiceExtraMoves) G._royalDiceExtraMoves = 0;
   // Three 9s: reverse direction AFTER the player ends their extra turn
   if (G._nineReverseAfterTurn) {
@@ -6642,6 +6775,22 @@ function endTurn() {
   }
  
   if (G.phase !== 'play') { renderGame(); return; }
+
+  // Exact-match trap skip-line has highest priority for next turn assignment.
+  if (G._forcedNextTurn !== null && G._forcedNextTurn !== undefined) {
+    G.cur = G._forcedNextTurn;
+    G._forcedNextTurn = null;
+    renderGame();
+    if (G.phase !== 'play') return;
+    if (G.cur !== 0) {
+      addLog(`${G.players[G.cur].name}'s turn...`);
+      renderLog();
+      setTimeout(()=>aiTurn(G.cur), 600);
+    } else {
+      startHumanTurn();
+    }
+    return;
+  }
  
   // Royal Dice Double Down extra move (solo): give extra play
   if (G._royalDiceExtraMoves && G._royalDiceExtraMoves > 0) {
@@ -6670,7 +6819,12 @@ function endTurn() {
     return;
   }
  
-  G.cur = advanceTurnIdx(0);
+  if (G._forcedNextTurn !== null && G._forcedNextTurn !== undefined) {
+    G.cur = G._forcedNextTurn;
+    G._forcedNextTurn = null;
+  } else {
+    G.cur = advanceTurnIdx(0);
+  }
   renderGame();
   if (G.phase !== 'play') return;
   if (G.cur !== 0) {
@@ -6776,6 +6930,7 @@ function renderGame() {
   updateBtns();
   // initActionLog is idempotent via _rrLogInited — only runs once per element instance
   renderPlayerInfoBar();
+  renderTrapZoneBar();
   // War prompt visibility
   const wp = document.getElementById('warPrompt');
   if (wp) wp.classList.toggle('visible', G.phase === 'war_prompt');
@@ -6847,6 +7002,7 @@ function renderOpponents() {
     const k = keys.find(k => k <= opps.length) || keys[keys.length-1];
     return positions[k];
   })();
+  const now = Date.now();
   area.innerHTML = opps.map((p, i) => {
     const pidx = i + 1;
     const active = G.cur === pidx;
@@ -6854,6 +7010,14 @@ function renderOpponents() {
     // Show up to 8 card backs
     const maxBacks = Math.min(p.hand.length, 8);
     const backs = Array(maxBacks).fill('<div class="card-back-mini"></div>').join('');
+    const trapZone = G.traps && G.traps[pidx] ? G.traps[pidx] : [];
+    const trapHtml = trapZone.map(t => {
+      const fresh = t.animUntil && t.animUntil > now;
+      const cls = `opp-trap ${t.faceUp ? 'faceup' : 'facedown'}${fresh ? ' trap-new' : ''}`;
+      const txt = t.faceUp ? `${t.card.rank}${t.card.suit}` : '🂠';
+      const tt = t.faceUp ? `Trap ${t.card.rank}${t.card.suit}` : 'Face-down trap';
+      return `<div class="${cls}" title="${tt}">${txt}</div>`;
+    }).join('');
     const chipsStr = (G.styles&&G.styles.money&&G.chips) ? ` · ${G.chips[pidx]||0}💰` : '';
     const winsStr = G.wins ? ` · ${G.wins[pidx]||0}W` : '';
     return `<div class="opponent-seat${active?' active':''}" style="left:${pPos.x}%;top:${pPos.y}%;transform:translate(-50%,-50%)">
@@ -6863,6 +7027,7 @@ function renderOpponents() {
         <div class="opp-meta"><span>${p.hand.length} CARDS</span><span>${G.pts[pidx]||0}PTS${winsStr}${chipsStr}</span></div>
       </div>
       <div class="opp-cards">${backs}</div>
+      <div class="opp-traps">${trapHtml || '<span class="opp-trap-empty">NO TRAPS</span>'}</div>
     </div>`;
   }).join('');
 }
@@ -6957,9 +7122,20 @@ function canExtendSelection(card, currentSel) {
 
   switch (type) {
     case 'set': {
-      // Only same rank can join a set
+      // Same rank always extends a set
       const setRank = nonJoker[0].rank;
-      return card.rank === setRank;
+      if (card.rank === setRank) return true;
+
+      // Connection highlighting: when a pair/trips is selected, surface
+      // candidate ranks that can complete Two Pair / Full House paths.
+      // (pair + pair, trips + pair)
+      const setSize = nonJoker.length;
+      if (setSize >= 2 && setSize <= 3 && card.rank !== 'JKR') {
+        const hand = (G.players && G.players[0] && G.players[0].hand) ? G.players[0].hand : [];
+        const totalOfCandidateRank = hand.filter(h => h.rank === card.rank).length;
+        if (totalOfCandidateRank >= 2) return true;
+      }
+      return false;
     }
     case 'flush': {
       // Only same suit can extend a flush
@@ -7024,8 +7200,13 @@ function renderHand() {
   const canSelect = isMyTurn && G.turnPhase !== 'done';
   const player = G.players[0];
 
-  // Safety: not the player's interactive turn — wipe stale selection
-  if (!canSelect) G.sel = [];
+  // Safety: sanitize stale selection state before computing highlights
+  if (!canSelect) {
+    G.sel = [];
+  } else {
+    const handIds = new Set(player.hand.map(c => c.id));
+    G.sel = G.sel.filter(id => handIds.has(id));
+  }
 
   // Build current selected cards for combo extension check (always fresh)
   const selCards = G.sel.map(id => player.hand.find(c => c.id === id)).filter(Boolean);
