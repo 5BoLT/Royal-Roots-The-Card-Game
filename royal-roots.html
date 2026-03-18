@@ -669,7 +669,7 @@ button{cursor:pointer;font-family:inherit}
   width:64px;height:90px;border-radius:9px;
   border:2px solid var(--card-border);background:var(--card-bg);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  flex-shrink:0;select:none;position:relative;
+  flex-shrink:0;user-select:none;position:relative;
   box-shadow:0 4px 16px rgba(0,0,0,.7);transition:all .2s;cursor:default
 }
 .card .rank{font-weight:700;font-size:18px;line-height:1;color:#1a1a1a}
@@ -1834,9 +1834,11 @@ function evalSameRank(r, n, hasJoker) {
  
   // Face cards: K / Q / J — 4 / 9 / 15 / 40
   if (FACE[r]) {
-    const pts = n===1?4 : n===2?9 : n===3?20 : 60;
-    const tier = n===4?'EPIC' : n===3?'RARE' : 'COMMON';
-    const eff = n===1?r.toLowerCase():`${n}x_${r.toLowerCase()}`;
+    // Kings / Queens / Jacks all share the same scoring:
+    // 1 card = 5, pair = 10, trips = 30, quads = 70
+    const pts = n===1 ? 5 : n===2 ? 10 : n===3 ? 30 : 70;
+    const tier = n===4 ? 'RARE' : n===3 ? 'RARE' : 'COMMON';
+    const eff = n===1 ? r.toLowerCase() : `${n}x_${r.toLowerCase()}`;
     return R(label+W, pts, tier, eff);
   }
   // Sixes — 11 / 33 / 66: Law Draw +1 per 6 played (stacks to 4 law draws)
@@ -1891,10 +1893,11 @@ function tryStraight(cards) {
   }
 
   const basePts = 25;
-  const ext = n > 5 ? (n - 5) * 5 : 0;
+  const ext = n > 5 ? (n - 5) * 5 : 0; // +5 per extension card
   const W = jokers.length > 0 ? ' 🃏' : '';
   const sevenPlus = n >= 7;
-  const result = R(`Straight (${n})${W}`, basePts+ext, 'COMMON', 'straight');
+  let result = R(`Straight (${n})${W}`, basePts+ext, 'COMMON', 'straight');
+  if (jokers.length > 0) result.pts += 10; // Joker extension bonus
   if (sevenPlus) result.sevenPlus = true; // 7+ triggers draw 3 for all players
   return result;
 }
@@ -1918,10 +1921,11 @@ function tryFlush(cards) {
   }
 
   const basePts = 30;
-  const ext = n > 5 ? (n - 5) * 5 : 0;
+  const ext = n > 5 ? (n - 5) * 5 : 0; // +5 per extension card
   const W = jokers.length > 0 ? ' 🃏' : '';
   const sevenPlus = n >= 7;
-  const result = R(`Flush (${n})${W}`, basePts+ext, 'COMMON', 'flush');
+  let result = R(`Flush (${n})${W}`, basePts+ext, 'COMMON', 'flush');
+  if (jokers.length > 0) result.pts += 10; // Joker extension bonus
   if (sevenPlus) result.sevenPlus = true; // 7+ triggers flush 2 cards (solo) or partner flushes 2
   result.cardCount = n;
   return result;
@@ -1949,7 +1953,12 @@ function tryStraightFlush(cards) {
   if (gaps > jokers.length) return { valid:false };
  
   const W = jokers.length > 0 ? ' 🃏' : '';
-  return R(`Straight Flush (${n})${W}`, 60, 'EPIC', 'straight_flush');
+  const basePts = 70;
+  const ext = n > 5 ? (n - 5) * 10 : 0; // +10 per extension card
+  let result = R(`Straight Flush (${n})${W}`, basePts+ext, 'EPIC', 'straight_flush');
+  if (jokers.length > 0) result.pts += 10; // Joker extension bonus
+  if (n >= 7) result.sevenPlus = true;
+  return result;
 }
  
 // ── ROYAL FLUSH: A-K-Q-J-10 same suit (jokers wild) ─────────────────
@@ -2243,30 +2252,38 @@ function applyEffect(ev, cards, pidx) {
     return;
   }
   if (eff === 'triple_double') {
-    addLog('✌️ Triple Double! House Party: give 2, take 2 random, they draw 2!', true);
-    if (pidx === 0) openFullHouseModal();
-    else {
-      const me = G.players[pidx];
-      me.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
-      const opponents = G.players.map((_,i)=>i).filter(i=>i!==pidx);
-      const targets = opponents.length >= 2 ? [opponents[0], opponents[1]] : [opponents[0], opponents[0]];
-      const targetsSeen = new Set();
-      targets.forEach(tIdx => {
-        if (me.hand.length === 0) return;
-        const card = me.hand.shift();
+    const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+    const partnerIdx = G.players[pidx].partnerIdx;
+    const hasPartner = isTeam && partnerIdx !== null && partnerIdx !== undefined;
+    const giveCount = hasPartner ? 2 : 3; // solo: 3, team: 2
+    addLog(
+      `✌️ Triple Double! Give ${giveCount} card(s) away (${hasPartner ? 'teammate also gives 2' : 'solo'}) — each recipient draws 2 per card!`,
+      true
+    );
+
+    const _aiGiveAway = (giverIdx, count) => {
+      const giver = G.players[giverIdx];
+      const opponents = G.players.map((_,i)=>i).filter(i=>i!==giverIdx);
+      giver.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+      for (let k=0; k<count; k++) {
+        if (giver.hand.length === 0) break;
+        const tIdx = opponents[Math.floor(Math.random() * opponents.length)];
+        const card = giver.hand.shift();
         G.players[tIdx].hand.push(card);
-        if (!targetsSeen.has(tIdx)) {
-          targetsSeen.add(tIdx);
-          const them = G.players[tIdx];
-          if (them.hand.length > 0) {
-            const r = Math.floor(Math.random()*them.hand.length);
-            const taken = them.hand.splice(r,1)[0];
-            me.hand.push(taken);
-          }
-          forceDraw(tIdx, 1);
-        }
-      });
-      addLog(`${me.name} Triple Double! House Party across opponents!`, true);
+        addLog(`${giver.name} gives ${card.rank}${card.suit} to ${G.players[tIdx].name}!`, false);
+        forceDraw(tIdx, 2);
+        addLog(`${G.players[tIdx].name} draws 2 card(s).`, false);
+      }
+    };
+
+    if (pidx === 0) {
+      G._fhInitialRounds = giveCount;
+      G._fhAfterDone = () => { if (hasPartner) _aiGiveAway(partnerIdx, 2); };
+      openFullHouseModal(giveCount);
+    } else {
+      _aiGiveAway(pidx, giveCount);
+      if (hasPartner) _aiGiveAway(partnerIdx, 2);
+      addLog(`${G.players[pidx].name} Triple Double done!`, true);
     }
     return;
   }
@@ -2302,24 +2319,29 @@ function applyEffect(ev, cards, pidx) {
     return;
   }
   if (eff === 'straight_flush') {
-    // All others draw 2; partner flushes 2 (solo: flush 1 self)
-    G.players.forEach((_,i) => { if (i !== pidx) forceDraw(i, 2); });
-    addLog('💥 Straight Flush! Everyone draws 2!', true);
-    // Partner flush 2 (or self flush 1 in solo)
+    const isSevenPlus = ev.sevenPlus || cards.length >= 7;
+    const drawCount = isSevenPlus ? 3 : 2;
+    // All others draw 2 (or 3 at 7+)
+    G.players.forEach((_,i) => { if (i !== pidx) forceDraw(i, drawCount); });
+    addLog('💥 Straight Flush! Everyone draws ' + drawCount + '!', true);
+    // Partner + self flush: normal = 2 partner / 1 self; 7+ = 3 total
     if (G.mode === 'duos' && G.partnerIdx !== undefined) {
       const partner = G.players[G.partnerIdx];
-      const toFlush = Math.min(2, partner.hand.length - 1);
+      const toFlush = Math.min(isSevenPlus ? 3 : 2, partner.hand.length);
       if (toFlush > 0) {
         partner.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
         G.discard.push(...partner.hand.splice(0, toFlush));
-        addLog('Partner flushes 2 cards!', false);
+        addLog('Partner flushes ' + toFlush + ' card(s)!', false);
       }
     } else {
-      // Solo: player flushes 1
-      if (pidx === 0) openSFFlushModal(1);
-      else if (G.players[pidx].hand.length > 2) {
-        G.players[pidx].hand.splice(0,1);
-        addLog(G.players[pidx].name + ' flushes 1 card!', false);
+      // Solo: player flushes 1 (or 3 at 7+)
+      const flushCount = isSevenPlus ? 3 : 1;
+      if (pidx === 0) openSFFlushModal(flushCount);
+      else if (G.players[pidx].hand.length >= flushCount) {
+        const h = G.players[pidx].hand;
+        h.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+        G.discard.push(...h.splice(0, flushCount));
+        addLog(G.players[pidx].name + ' flushes ' + flushCount + ' card(s)!', false);
       }
     }
     _queueJokersFromCards(cards, pidx);
@@ -2340,7 +2362,7 @@ function applyEffect(ev, cards, pidx) {
       // AI
       const hand = G.players[pidx].hand;
       const selfFlush = (!hasPartner && isSevenPlus) ? 2 : 1;
-      if (hand.length > selfFlush) {
+      if (hand.length >= selfFlush) {
         hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
         G.discard.push(...hand.splice(0, selfFlush));
         addLog(G.players[pidx].name + ' flushes ' + selfFlush + ' card(s) (Flush)!', false);
@@ -2348,7 +2370,7 @@ function applyEffect(ev, cards, pidx) {
       // Partner flushes 2 in team modes
       if (hasPartner) {
         const p = G.players[partnerIdx];
-        const pFlush = Math.min(2, p.hand.length - 1);
+        const pFlush = Math.min(2, p.hand.length);
         if (pFlush > 0) {
           p.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
           G.discard.push(...p.hand.splice(0, pFlush));
@@ -2458,14 +2480,17 @@ function applyEffect(ev, cards, pidx) {
         }
       }
     } else if (n === 4) {
-      // Four 7s: skip all, you+teammate each pick up to 2 from discard, play any combo
+      // Four 7s: skip all, you+teammate each pick from discard (solo: up to 3), play any combo
       advSkip(G.numPlayers - 1);
-      addLog('⚡ FOUR 7s! SKIP ALL — pick up to 2 from discard + play any combo!', true);
+      addLog('⚡ FOUR 7s! SKIP ALL — pick from discard + play any combo!', true);
       const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
       const partnerIdx = G.players[pidx].partnerIdx;
 
       if (pidx === 0) {
-        // Human picks up to 2 from discard, then partner AI picks up to 2, then free combo
+        // Human picks from discard:
+        //   Team modes → up to 2 (you) and up to 2 (teammate)
+        //   Solo/FFA  → up to 3 for you
+        const maxHuman = (isTeam && partnerIdx !== null && partnerIdx !== undefined && partnerIdx !== 0) ? 2 : 3;
         const afterHumanPick = () => {
           // Partner AI picks best 2 from discard (if team mode)
           if (isTeam && partnerIdx !== null && partnerIdx !== undefined && partnerIdx !== 0) {
@@ -2490,13 +2515,14 @@ function applyEffect(ev, cards, pidx) {
           renderGame(); updateBtns();
           addLog('Now play any combo freely!', false); renderLog();
         };
-        openDiscardPickerModal(2, afterHumanPick, 'FOUR 7s — Pick up to 2 from discard');
+        openDiscardPickerModal(maxHuman, afterHumanPick, 'FOUR 7s — Pick from discard');
       } else {
-        // AI: pick 2 best from discard
+        // AI: pick from discard (solo: up to 3, team: up to 2)
         const freshCount = G.freshDiscardCount || G.discard.length;
         const freshSlice = G.discard.slice(Math.max(0, G.discard.length - freshCount), -1);
         const recent10 = freshSlice.slice(-10);
-        const toTake = Math.min(2, recent10.length);
+        const isSoloLike = !isTeam || partnerIdx === null || partnerIdx === undefined;
+        const toTake = Math.min(isSoloLike ? 3 : 2, recent10.length);
         if (toTake > 0) {
           recent10.sort((a,b)=>(RANK_VAL[b.rank]||0)-(RANK_VAL[a.rank]||0));
           for (let i=0; i<toTake; i++) {
@@ -2506,7 +2532,7 @@ function applyEffect(ev, cards, pidx) {
           }
           addLog(G.players[pidx].name + ' picks ' + toTake + ' from discard (Four 7s)!', false);
         }
-        // Partner also picks
+        // Partner also picks in team modes
         if (isTeam && partnerIdx !== null && partnerIdx !== undefined) {
           const pSlice = G.discard.slice(Math.max(0, G.discard.length - (G.freshDiscardCount || G.discard.length)), -1).slice(-10);
           const pTake = Math.min(2, pSlice.length);
@@ -2685,9 +2711,16 @@ function applyEffect(ev, cards, pidx) {
       // Human picks who gets taxed
       openKingTaxModal(n, cards[0].suit, taxAmt);
     } else {
-      // AI always taxes the human (pidx 0) or the next player if human already played
-      const target = G.players.findIndex((p, i) => i !== pidx && !p.isPartner);
-      const tIdx = target !== -1 ? target : nextIdx;
+      // AI: tax the current leader/threat (highest wins, then pts, then fewest cards)
+      const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+      const partnerIdx = G.players[pidx].partnerIdx;
+      const candidates = G.players
+        .map((p,i)=>({ i, wins:(G.wins[i]||0), pts:(G.pts[i]||0), hand:p.hand?p.hand.length:0 }))
+        .filter(o => o.i !== pidx && (!isTeam || o.i !== partnerIdx));
+      candidates.sort((a,b) =>
+        (b.wins - a.wins) || (b.pts - a.pts) || (a.hand - b.hand)
+      );
+      const tIdx = candidates.length ? candidates[0].i : nextIdx;
       applyKingTax(tIdx, n, cards[0].suit, taxAmt, pidx);
     }
     return;
@@ -2816,10 +2849,10 @@ function applyEffect(ev, cards, pidx) {
  
 function openJackFlushModal(totalFlushes) {
   const player = G.players[0];
-  // Must keep at least 1 card
-  const flushable = Math.max(0, player.hand.length - 1);
+  // Jacks can flush the last card (if it empties your hand, you win).
+  const flushable = Math.max(0, player.hand.length);
   if (flushable <= 0) {
-    addLog('🃏 Jack: Only 1 card left — nothing to flush!', false);
+    addLog('🃏 Jack: No cards to flush!', false);
     G.phase = 'play'; G.turnPhase = 'done';
     fireTwoPairPending(0);
     renderGame(); updateBtns(); renderLog();
@@ -2859,12 +2892,6 @@ function jackFlushPick(handIdx) {
   if (!G.jackFlush || G.phase !== 'jack_flush' || G.jackFlushBusy) return;
   G.jackFlushBusy = true;
   const player = G.players[0];
-  // Must leave at least 1 card
-  if (player.hand.length <= 1) {
-    addLog('🃏 Jack: Must keep at least 1 card!', false);
-    closeJackFlushModal();
-    return;
-  }
   const flushed = player.hand.splice(handIdx, 1)[0];
   if (flushed) {
     G.discard.push(flushed);
@@ -2872,7 +2899,7 @@ function jackFlushPick(handIdx) {
   }
  
   G.jackFlush.flushesLeft--;
-  if (G.jackFlush.flushesLeft <= 0 || player.hand.length <= 1) {
+  if (G.jackFlush.flushesLeft <= 0 || player.hand.length <= 0) {
     closeJackFlushModal();
   } else {
     G.jackFlushBusy = false;
@@ -3906,8 +3933,10 @@ function cloverPlayCard(handIdx) {
     G.discard.push(card);
     G.faceCard = card;
     addLog('♣ Clover Joker: You played '+card.rank+card.suit+' freely!', true);
-    if (G.mode === 'duos' && G.partnerIdx !== undefined) {
-      const partner = G.players[G.partnerIdx];
+    const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+    const partnerIdx = G.players[0].partnerIdx;
+    if (isTeam && partnerIdx !== null && partnerIdx !== undefined && partnerIdx !== 0) {
+      const partner = G.players[partnerIdx];
       if (partner && partner.hand.length > 0) {
         partner.hand.sort((a,b)=>(RANK_VAL[b.rank]||0)-(RANK_VAL[a.rank]||0));
         const pCard = partner.hand.shift();
@@ -3918,12 +3947,10 @@ function cloverPlayCard(handIdx) {
     }
     if (G.players[0].hand.length === 0) { closeJokerModal(true); checkWin(0); return; }
   }
-  // Solo: play any 2nd card; Duos: partner already played, human gets free play too
-  if (G.players[0].hand.length > 0) {
-    openJokerFreePlay(0, '♣');
-  } else {
-    closeJokerModal();
-  }
+  // Solo: play a 2nd free card. Team modes: done after you+partner each play 1.
+  const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+  if (!isTeam && G.players[0].hand.length > 0) openJokerFreePlay(0, '♣');
+  else closeJokerModal();
 }
  
 function heartTargetPick(targetIdx) {
@@ -4432,9 +4459,9 @@ function applyKingTax(targetIdx, n, suit, taxAmt, attackerIdx) {
 // =====================================================================
 // 🏠 FULL HOUSE INTERACTIVE MODAL
 // =====================================================================
-function openFullHouseModal() {
+function openFullHouseModal(rounds = 2) {
   G.phase = 'full_house';
-  G._fhRounds = 2;
+  G._fhRounds = Math.max(1, rounds|0);
   G._fhGiven = [];
   G._fhCardIdx = null;
   document.getElementById('fullHouseModal').style.display = 'flex';
@@ -4442,9 +4469,9 @@ function openFullHouseModal() {
 }
 
 function _fhShowPickCard() {
-  const round = 3 - G._fhRounds;
+  const round = (G._fhInitialRounds || G._fhRounds) - G._fhRounds;
   document.getElementById('fullHouseSub').textContent =
-    (round === 0 ? '1st' : '2nd') + ' card — pick from your hand to give';
+    (round === 0 ? '1st' : round === 1 ? '2nd' : (round+1)+'th') + ' card — pick from your hand to give';
   const body = document.getElementById('fullHouseBody');
   G._fhCardIdx = null;
   body.innerHTML = '<div class="ace-replace-hand" id="fhGiveHand"></div>' +
@@ -4495,24 +4522,15 @@ function _fhGiveToPlayer(targetIdx) {
 }
 
 function _fhFinish() {
-  // Take 1 random from each unique target; they draw 1
-  const seen = new Set();
-  G._fhGiven.forEach(({targetIdx}) => {
-    if (seen.has(targetIdx)) return;
-    seen.add(targetIdx);
-    const them = G.players[targetIdx];
-    if (them.hand.length > 0) {
-      const r = Math.floor(Math.random() * them.hand.length);
-      const taken = them.hand.splice(r, 1)[0];
-      G.players[0].hand.push(taken);
-      addLog('🏠 You take ' + taken.rank + taken.suit + ' from ' + them.name + '!', false);
-    }
-    forceDraw(targetIdx, 1);
-    addLog(them.name + ' draws 1 card.', false);
+  // Each card you give forces that target to draw 2 (stacks if you target same player twice).
+  G._fhGiven.forEach(({targetIdx, card}) => {
+    forceDraw(targetIdx, 2);
+    addLog(G.players[targetIdx].name + ' draws 2 card(s).', false);
   });
   document.getElementById('fullHouseModal').style.display = 'none';
   G._fhRounds = 0; G._fhGiven = []; G._fhCardIdx = null;
   G.phase = 'play'; G.turnPhase = 'done';
+  if (G._fhAfterDone) { const cb = G._fhAfterDone; G._fhAfterDone = null; cb(); }
   renderGame(); updateBtns();
   addLog('🏠 House Party done! Click END TURN to draw & pass.', false);
   renderLog();
@@ -4530,7 +4548,9 @@ function openFlushModal(selfFlushCount, hasPartner, isSevenPlus) {
     hasPartner = isTeam && G.players[0].partnerIdx !== null && G.players[0].partnerIdx !== undefined;
   }
   G.phase = 'flush_discard';
-  G._flushLeft = selfFlushCount;
+  G._flushLeft = Math.min(selfFlushCount, G.players[0].hand.length);
+  // Flush effects should allow flushing down to empty hand when possible.
+  G._flushMinKeep = 0;
   G._flushHasPartner = hasPartner || false;
   G._flushIsSevenPlus = isSevenPlus || false;
   G._flushTitle = 'Flush';
@@ -4543,7 +4563,9 @@ function openFlushModal(selfFlushCount, hasPartner, isSevenPlus) {
  
 function openSFFlushModal(n) {
   G.phase = 'flush_discard';
-  G._flushLeft = n;
+  G._flushLeft = Math.min(n, G.players[0].hand.length);
+  // Straight Flush flushes should allow flushing down to empty hand when possible.
+  G._flushMinKeep = 0;
   document.getElementById('flushDiscardTitle').textContent = 'STRAIGHT FLUSH — FLUSH ' + n;
   renderFlushModal();
   document.getElementById('flushDiscardModal').style.display = 'flex';
@@ -4551,7 +4573,9 @@ function openSFFlushModal(n) {
  
 function renderFlushModal() {
   const hand = G.players[0].hand;
-  document.getElementById('flushDiscardSub').textContent = 'Tap a card to discard (' + G._flushLeft + ' remaining). Must keep 2+.';
+  const minKeep = G._flushMinKeep !== undefined ? G._flushMinKeep : 1;
+  document.getElementById('flushDiscardSub').textContent =
+    'Tap a card to discard (' + G._flushLeft + ' remaining). Must keep ' + minKeep + '+.';
   document.getElementById('flushDiscardInfo').textContent = hand.length + ' cards in hand';
   const el = document.getElementById('flushDiscardHand');
   el.innerHTML = hand.map(c => cardEl(c,'')).join('');
@@ -4570,7 +4594,7 @@ function flushDiscardPick(idx) {
   const card = hand.splice(idx,1)[0];
   if (card) { G.discard.push(card); addLog('Flushed ' + card.rank + card.suit, false); }
   G._flushLeft--;
-  if (G._flushLeft > 0 && hand.length > 2) {
+  if (G._flushLeft > 0 && hand.length > minKeep) {
     renderFlushModal();
   } else {
     // Partner flushes 2 automatically in team modes (if flagged)
@@ -4578,7 +4602,8 @@ function flushDiscardPick(idx) {
       const partnerIdx = G.players[0].partnerIdx;
       if (partnerIdx !== null && partnerIdx !== undefined) {
         const p = G.players[partnerIdx];
-        const pFlush = Math.min(2, p.hand.length - 1);
+        const pMinKeep = (G._flushMinKeep !== undefined ? G._flushMinKeep : 1);
+        const pFlush = Math.min(2, Math.max(0, p.hand.length - pMinKeep));
         if (pFlush > 0) {
           p.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
           G.discard.push(...p.hand.splice(0, pFlush));
@@ -5496,11 +5521,13 @@ function getCombinations(arr, k) {
   return result;
 }
  
-// Queue multiple joker effects one at a time (for Double/Triple/House combos)
-// Extract jokers from a combo's cards and queue their effects after the main effect
+// Queue joker effects from a non-joker combo ("extensions").
+// Only ONE joker is allowed to extend another combo — if multiple jokers are
+// present we only take the first here; pure Joker combos (Double/Triple/Joker House)
+// are handled separately via their own effects.
 function _queueJokersFromCards(cards, pidx) {
   if (!cards) return;
-  const jokers = cards.filter(c => c.rank === 'JKR');
+  const jokers = cards.filter(c => c.rank === 'JKR').slice(0, 1);
   if (jokers.length === 0) return;
   if (pidx === 0) {
     queueJokerEffects(jokers, pidx, () => {
@@ -5526,61 +5553,91 @@ function triggerJokerEffect(suit, pidx, onDone) {
   const nextIdx = nxt(pidx);
   if (pidx !== 0) {
     // AI logic
+    const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+    const partnerIdx = G.players[pidx].partnerIdx;
+    const hasPartner = isTeam && partnerIdx !== null && partnerIdx !== undefined;
+    const aiFreePlay = (whoIdx, count) => {
+      const h = G.players[whoIdx].hand;
+      const toPlay = Math.min(count, h.length);
+      if (toPlay <= 0) return;
+      h.sort((a,b)=>(RANK_VAL[b.rank]||0)-(RANK_VAL[a.rank]||0));
+      const played = h.splice(0, toPlay);
+      G.discard.push(...played);
+      G.faceCard = played[played.length - 1];
+      addLog(`${G.players[whoIdx].name} plays ${toPlay} free card(s)!`, false);
+    };
+
     if (suit === '♠') {
-      // AI: swap lowest card with next opponent
-      const me = G.players[pidx], them = G.players[nextIdx];
-      if (me.hand.length && them.hand.length) {
-        me.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
-        const myCard = me.hand.splice(0,1)[0];
-        const theirCard = them.hand.splice(Math.floor(Math.random()*them.hand.length),1)[0];
-        me.hand.push(theirCard); them.hand.push(myCard);
-        addLog(`♠ Spade Joker: ${G.players[pidx].name} swaps with ${them.name}!`, true);
+      // AI: pull best from fresh discard if possible; otherwise swap lowest with next opponent.
+      const freshCount = G.freshDiscardCount || G.discard.length;
+      const freshSlice = G.discard.slice(Math.max(0, G.discard.length - freshCount), -1);
+      const pullable = freshSlice.slice(-10);
+      if (pullable.length > 0 && Math.random() < 0.65) {
+        pullable.sort((a,b)=>(RANK_VAL[b.rank]||0)-(RANK_VAL[a.rank]||0));
+        const best = pullable[0];
+        const realIdx = G.discard.indexOf(best);
+        if (realIdx !== -1) {
+          const card = G.discard.splice(realIdx, 1)[0];
+          G.players[pidx].hand.push(card);
+          addLog(`♠ Spade Joker: ${G.players[pidx].name} pulls ${card.rank}${card.suit} from discard!`, true);
+        }
+      } else {
+        const me = G.players[pidx], them = G.players[nextIdx];
+        if (me.hand.length && them.hand.length) {
+          me.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+          const myCard = me.hand.splice(0,1)[0];
+          const theirCard = them.hand.splice(Math.floor(Math.random()*them.hand.length),1)[0];
+          me.hand.push(theirCard); them.hand.push(myCard);
+          addLog(`♠ Spade Joker: ${G.players[pidx].name} swaps with ${them.name}!`, true);
+        }
       }
+      aiFreePlay(pidx, 1);
     } else if (suit === '♦') {
-      // AI: always chooses pts option (gives AI pts, costs opponents)
-      if (G.styles && G.styles.money && G.chips && G.minBet) {
-        // Money mode: take min bet from all opponents to pot
+      // Diamond Joker: opponents pay 1% of Match Pot (chips) OR 10pts each to the joker player.
+      const hasMoney = G.styles && G.styles.money && G.chips;
+      const pot = G.matchPot || 0;
+      if (hasMoney && pot > 0) {
+        const perPlayer = Math.max(1, Math.round(pot * 0.01));
+        let gained = 0;
         G.players.forEach((_,i) => {
           if (i === pidx) return;
-          G.chips[i] = (G.chips[i] || 0) - G.minBet;
-          G.pot = (G.pot || 0) + G.minBet;
+          const pay = Math.min(perPlayer, G.chips[i] || 0);
+          G.chips[i] = (G.chips[i] || 0) - pay;
+          G.chips[pidx] = (G.chips[pidx] || 0) + pay;
+          gained += pay;
         });
-        addLog(`♦ Diamond Joker: ${G.players[pidx].name} — all pay ${G.minBet} chips to pot!`, true);
+        addLog(`♦ Diamond Joker: ${G.players[pidx].name} collects ${perPlayer}💰 from each opponent! (+${gained}💰)`, true);
       } else {
-        // Points mode: opponents lose 10pts, AI gains
         let gained = 0;
         G.players.forEach((_,i) => { if (i !== pidx) { forcePts(i, -10); gained += 10; } });
         forcePts(pidx, gained);
         addLog(`♦ Diamond Joker: ${G.players[pidx].name} takes 10pts from each opponent! (+${gained}pts)`, true);
       }
+      aiFreePlay(pidx, 1);
     } else if (suit === '♣') {
-      // AI plays any card, and partner plays any card in duos.
-      const me = G.players[pidx];
-      if (me.hand.length > 0) {
-        me.hand.sort((a,b)=>(RANK_VAL[b.rank]||0)-(RANK_VAL[a.rank]||0));
-        const c = me.hand.shift();
-        G.discard.push(c);
-        G.faceCard = c;
+      // Clover Joker: you play any card; partner also plays any card (team). Solo: you play any 2 cards.
+      if (hasPartner) {
+        aiFreePlay(pidx, 1);
+        aiFreePlay(partnerIdx, 1);
+      } else {
+        aiFreePlay(pidx, 2);
       }
-      if (G.mode === 'duos' && G.partnerIdx !== undefined) {
-        const partner = G.players[G.partnerIdx];
-        if (partner && partner.hand.length > 0) {
-          partner.hand.sort((a,b)=>(RANK_VAL[b.rank]||0)-(RANK_VAL[a.rank]||0));
-          const pc = partner.hand.shift();
-          G.discard.push(pc);
-          G.faceCard = pc;
-        }
-      }
-      addLog('♣ Clover Joker: free play activated!', true);
+      addLog('♣ Clover Joker: free plays resolved!', true);
     } else if (suit === '♥') {
       // AI targets player with fewest cards
       let target = nextIdx;
       G.players.forEach((_,i)=>{ if(i!==pidx && G.players[i].hand.length < G.players[target].hand.length) target=i; });
       // Take up to 2 cards from target
-      const stolen = G.players[target].hand.splice(0, Math.min(2, G.players[target].hand.length));
+      const stolen = [];
+      const takeN = Math.min(2, G.players[target].hand.length);
+      for (let k=0;k<takeN;k++) {
+        const r = Math.floor(Math.random()*G.players[target].hand.length);
+        stolen.push(G.players[target].hand.splice(r,1)[0]);
+      }
       stolen.forEach(c => G.players[pidx].hand.push(c));
       forceDraw(target, 2);
       addLog(`♥ Heart Joker: ${G.players[pidx].name} takes ${stolen.length} card(s) from ${G.players[target].name}!`, true);
+      aiFreePlay(pidx, 1);
     }
     renderGame(); renderLog();
     setTimeout(onDone, 400);
