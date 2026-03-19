@@ -41,7 +41,10 @@ button{cursor:pointer;font-family:inherit}
 /* ══════════════════════════════════════════════════════════════════ */
 #home{
   background-color:#1a0a2a;
-  background-image:url('https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Background..png');
+  background-image:
+    url('https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Background..png'),
+    url('https://raw.githubusercontent.com/SBoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Background..png'),
+    url('https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Background.png');
   background-size:cover;
   background-position:center;
   background-repeat:no-repeat;
@@ -52,12 +55,21 @@ button{cursor:pointer;font-family:inherit}
 #home .home-bg-image{
   position:absolute;inset:0;width:100%;height:100%;
   object-fit:cover;object-position:center;
-  z-index:-1;
+  z-index:0;
 }
 #home .bg-pattern{position:absolute;inset:0;pointer-events:none;opacity:0}
+#home::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:rgba(0,0,0,0);
+  transition:background .28s ease;
+  z-index:2;
+}
 /* Sparkle overlay: small twinkles only — no spotlight/beam effect */
 #home .shimmer-overlay{
-  position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden;
+  position:absolute;inset:0;pointer-events:none;z-index:1;overflow:hidden;
 }
 #home .shimmer-overlay::before{
   content:'';position:absolute;inset:0;
@@ -86,13 +98,15 @@ button{cursor:pointer;font-family:inherit}
   50%{opacity:1}
 }
 .home-content{
-  position:relative;z-index:2;
+  position:relative;z-index:3;
   display:flex;flex-direction:column;align-items:flex-start;gap:0;
   animation:fadeZoomIn .7s ease both;
   max-width:420px;
   transition:transform .4s ease,filter .28s ease,opacity .28s ease;
 }
 .home-content.menu-sliding-out{transform:translateX(-120%);}
+.home-content.menu-stage-enter{animation:homeMenuStageIn .35s ease both}
+@keyframes homeMenuStageIn{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:translateX(0)}}
 .home-logo{
   width:clamp(120px,20vw,200px);
   height:auto;
@@ -161,6 +175,17 @@ button{cursor:pointer;font-family:inherit}
     2px 2px 6px var(--menu-purple-shadow),
     0 0 14px rgba(240,224,128,.3);
 }
+.home-flow-info{
+  margin-top:12px;
+  min-height:18px;
+  font-size:10px;
+  letter-spacing:1.5px;
+  color:var(--menu-gold);
+  opacity:.9;
+  text-shadow:1px 1px 0 var(--menu-purple-shadow);
+  font-family:Cinzel,serif;
+  text-transform:uppercase;
+}
 @keyframes fadeZoomIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
 .home-footer{
   position:absolute;
@@ -175,13 +200,17 @@ button{cursor:pointer;font-family:inherit}
   color:var(--menu-gold);
   opacity:.8;
   text-shadow:1px 1px 2px var(--menu-purple-shadow);
-  z-index:2;
+  z-index:3;
   transition:filter .28s ease,opacity .28s ease;
 }
 .home-footer .home-version{flex-shrink:0}
 .home-footer .home-disclaimer{flex-shrink:0;font-style:italic;opacity:.7}
+body.menu-modal-open #home::after,
+body.setup-overlay-open #home::after{background:rgba(0,0,0,.45)}
 body.menu-modal-open #home .home-content,
-body.menu-modal-open #home .home-footer{filter:blur(6px);opacity:.55}
+body.menu-modal-open #home .home-footer,
+body.setup-overlay-open #home .home-content,
+body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opacity:.62}
 
 /* ══════════════════════════════════════════════════════════════════ */
 /*  SETUP SCREENS                                                     */
@@ -190,7 +219,10 @@ body.menu-modal-open #home .home-footer{filter:blur(6px);opacity:.55}
   align-items:center;justify-content:flex-start;
   padding:16px 16px 40px;
   background:#1a0a2a;
-  background-image:url('https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Background..png');
+  background-image:
+    url('https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Background..png'),
+    url('https://raw.githubusercontent.com/SBoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Background..png'),
+    url('https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Background.png');
   background-size:cover;background-position:center;background-repeat:no-repeat;
   overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:100%;
   opacity:0;transition:opacity .35s ease;
@@ -985,13 +1017,12 @@ body.menu-modal-open #home .home-footer{filter:blur(6px);opacity:.55}
 #setupOverlay{
   position:fixed;inset:0;z-index:9998;display:none;
   align-items:flex-start;justify-content:center;
-  background:rgba(0,0,0,.88);backdrop-filter:blur(10px);
+  background:transparent;backdrop-filter:none;
   overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 8px 40px;
   opacity:0;transition:opacity .25s ease;
 }
 #setupOverlay.open{opacity:1}
 #setupOverlay .screen{position:relative;display:flex!important;max-width:100%}
-body.setup-overlay-open #style-select .setup-card{filter:blur(5px);opacity:.55;transition:filter .25s ease,opacity .25s ease}
 .ace-modal-inner{
   background:var(--modal-bg);border:3px solid var(--modal-border);
   border-radius:28px;padding:28px 32px;max-width:480px;width:90%;text-align:center;
@@ -1320,6 +1351,7 @@ body.setup-overlay-open #style-select .setup-card{filter:blur(5px);opacity:.55;t
       <li role="none"><button type="button" class="home-menu-item" role="menuitem" data-action="help" data-index="1" id="homeMenuItem1" onclick="homeMenuSelect(1)">How To Play</button></li>
       <li role="none"><button type="button" class="home-menu-item" role="menuitem" data-action="combo" data-index="2" id="homeMenuItem2" onclick="homeMenuSelect(2)">Combo Table</button></li>
     </ul>
+    <div class="home-flow-info" id="homeFlowInfo" aria-live="polite"></div>
   </div>
   <footer class="home-footer">
     <span class="home-version">v1.0.0</span>
@@ -8598,33 +8630,170 @@ function exitToHome() {
 }
 
 let homeMenuIndex = 0;
-const HOME_MENU_ACTIONS = [
-  () => showScreen('mode-select'),
-  () => showRules(),
-  () => openComboRef()
-];
+const HOME_FLOW = { stage:'main', items:[] };
+
+function _homeApplyMode(mode, numPlayers) {
+  ['soloSizePicker','duosSizePicker','rouletteSizePicker'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  SETUP.mode = mode;
+  SETUP.numPlayers = numPlayers;
+  SETUP.styles = new Set();
+  SETUP.ancestors = false;
+  SETUP.chips = null;
+  SETUP.minBet = null;
+  _refreshStyleScreen();
+}
+
+function _styleTag(on, label) {
+  return (on ? '✓ ' : '') + label;
+}
+
+function _buildHomeFlowItems(stage) {
+  if (stage === 'mode') {
+    return [
+      { label:'Solo / FFA', onSelect:() => setHomeStage('mode_solo_size') },
+      { label:'Regal Duos', onSelect:() => setHomeStage('mode_duos_size') },
+      { label:'Synergy Duos', onSelect:() => { _homeApplyMode('synergy', 4); setHomeStage('style'); } },
+      { label:'Roulette', onSelect:() => setHomeStage('mode_roulette_size') },
+      { label:'← Back', onSelect:() => setHomeStage('main') },
+    ];
+  }
+  if (stage === 'mode_solo_size') {
+    return [
+      { label:'2 Players (1v1)', onSelect:() => { _homeApplyMode('solo', 2); setHomeStage('style'); } },
+      { label:'3 Players (FFA)', onSelect:() => { _homeApplyMode('ffa', 3); setHomeStage('style'); } },
+      { label:'4 Players (FFA)', onSelect:() => { _homeApplyMode('ffa', 4); setHomeStage('style'); } },
+      { label:'5 Players (FFA)', onSelect:() => { _homeApplyMode('ffa', 5); setHomeStage('style'); } },
+      { label:'6 Players (FFA)', onSelect:() => { _homeApplyMode('ffa', 6); setHomeStage('style'); } },
+      { label:'← Back', onSelect:() => setHomeStage('mode') },
+    ];
+  }
+  if (stage === 'mode_duos_size') {
+    return [
+      { label:'4 Players (2v2)', onSelect:() => { _homeApplyMode('duos', 4); setHomeStage('style'); } },
+      { label:'6 Players (2v2v2)', onSelect:() => { _homeApplyMode('duos', 6); setHomeStage('style'); } },
+      { label:'← Back', onSelect:() => setHomeStage('mode') },
+    ];
+  }
+  if (stage === 'mode_roulette_size') {
+    return [
+      { label:'6 Players (3 Teams)', onSelect:() => { _homeApplyMode('roulette', 6); setHomeStage('style'); } },
+      { label:'8 Players (4 Teams)', onSelect:() => { _homeApplyMode('roulette', 8); setHomeStage('style'); } },
+      { label:'10 Players (5 Teams)', onSelect:() => { _homeApplyMode('roulette', 10); setHomeStage('style'); } },
+      { label:'12 Players (6 Teams)', onSelect:() => { _homeApplyMode('roulette', 12); setHomeStage('style'); } },
+      { label:'14 Players (7 Teams)', onSelect:() => { _homeApplyMode('roulette', 14); setHomeStage('style'); } },
+      { label:'16 Players (8 Teams)', onSelect:() => { _homeApplyMode('roulette', 16); setHomeStage('style'); } },
+      { label:'18 Players (9 Teams)', onSelect:() => { _homeApplyMode('roulette', 18); setHomeStage('style'); } },
+      { label:'← Back', onSelect:() => setHomeStage('mode') },
+    ];
+  }
+  if (stage === 'style') {
+    const hasFlush = SETUP.ancestors || SETUP.styles.has('flush');
+    const hasPoints = SETUP.ancestors || SETUP.styles.has('points');
+    const hasMoney = SETUP.ancestors || SETUP.styles.has('money');
+    const ready = SETUP.ancestors || SETUP.styles.size > 0;
+    return [
+      { label:_styleTag(hasFlush, 'Hand Flusher'), onSelect:() => { toggleStyle('flush'); renderHomeMenu(); } },
+      { label:_styleTag(hasPoints, 'Point Lord'), onSelect:() => { toggleStyle('points'); renderHomeMenu(); } },
+      { label:_styleTag(hasMoney, 'Money Master'), onSelect:() => { toggleStyle('money'); renderHomeMenu(); } },
+      { label:_styleTag(SETUP.ancestors, 'Ancestors Rule'), onSelect:() => { selectAncestors(); renderHomeMenu(); } },
+      { label:(ready ? 'Continue →' : 'Continue (Pick Style)'), onSelect:() => { if (ready) goToStakes(); } },
+      { label:'← Back', onSelect:() => setHomeStage('mode') },
+    ];
+  }
+  return [
+    { label:'Begin Journey', onSelect:() => setHomeStage('mode') },
+    { label:'How To Play', onSelect:() => showRules() },
+    { label:'Combo Table', onSelect:() => openComboRef() },
+  ];
+}
+
+function renderHomeFlowInfo() {
+  const info = document.getElementById('homeFlowInfo');
+  if (!info) return;
+  if (HOME_FLOW.stage === 'main') {
+    info.textContent = '';
+    return;
+  }
+  if (HOME_FLOW.stage === 'mode') {
+    info.textContent = 'Choose Mode';
+    return;
+  }
+  if (HOME_FLOW.stage === 'mode_solo_size') {
+    info.textContent = 'Solo / FFA — Select player count';
+    return;
+  }
+  if (HOME_FLOW.stage === 'mode_duos_size') {
+    info.textContent = 'Regal Duos — Select player count';
+    return;
+  }
+  if (HOME_FLOW.stage === 'mode_roulette_size') {
+    info.textContent = 'Roulette — Select player count';
+    return;
+  }
+  if (HOME_FLOW.stage === 'style') {
+    const modeStr = MODE_LABELS[SETUP.mode] || 'Mode';
+    const styleStr = SETUP.ancestors
+      ? 'ANCESTORS RULE'
+      : (SETUP.styles.size > 0 ? [...SETUP.styles].map(s => STYLE_LABELS[s]).join(' + ') : 'Pick at least one style');
+    info.textContent = modeStr + ' · ' + styleStr;
+    return;
+  }
+  info.textContent = '';
+}
+
 function updateHomeMenuSelection() {
   document.querySelectorAll('.home-menu-item').forEach((el, i) => {
     el.classList.toggle('selected', i === homeMenuIndex);
     el.setAttribute('aria-selected', i === homeMenuIndex);
   });
 }
+
+function renderHomeMenu() {
+  const list = document.getElementById('homeMenuList');
+  if (!list) return;
+  HOME_FLOW.items = _buildHomeFlowItems(HOME_FLOW.stage);
+  homeMenuIndex = Math.max(0, Math.min(homeMenuIndex, Math.max(0, HOME_FLOW.items.length - 1)));
+  list.innerHTML = HOME_FLOW.items.map((item, i) =>
+    `<li role="none"><button type="button" class="home-menu-item${i===homeMenuIndex?' selected':''}" role="menuitem" aria-selected="${i===homeMenuIndex}" onclick="homeMenuSelect(${i})">${item.label}</button></li>`
+  ).join('');
+  renderHomeFlowInfo();
+}
+
+function setHomeStage(stage, animateOut = true) {
+  const content = document.querySelector('#home .home-content');
+  const applyStage = function() {
+    HOME_FLOW.stage = stage;
+    homeMenuIndex = 0;
+    renderHomeMenu();
+    if (content) {
+      content.classList.remove('menu-stage-enter');
+      void content.offsetWidth;
+      content.classList.add('menu-stage-enter');
+      setTimeout(function(){ content.classList.remove('menu-stage-enter'); }, 380);
+    }
+  };
+  if (animateOut && content) {
+    content.classList.add('menu-sliding-out');
+    setTimeout(function() {
+      content.classList.remove('menu-sliding-out');
+      applyStage();
+    }, 390);
+    return;
+  }
+  applyStage();
+}
+
 function runHomeMenuAction(index) {
-  if (HOME_MENU_ACTIONS[index]) HOME_MENU_ACTIONS[index]();
+  const item = HOME_FLOW.items[index];
+  if (item && typeof item.onSelect === 'function') item.onSelect();
 }
 function homeMenuSelect(index) {
   homeMenuIndex = index;
   updateHomeMenuSelection();
-  if (index === 0) {
-    var content = document.querySelector('#home .home-content');
-    if (content) content.classList.add('menu-sliding-out');
-    setTimeout(function() {
-      if (content) content.classList.remove('menu-sliding-out');
-      showScreen('mode-select');
-    }, 420);
-  } else {
-    runHomeMenuAction(index);
-  }
+  runHomeMenuAction(index);
 }
 
 function setMenuModalState(open) {
@@ -8634,24 +8803,27 @@ function setMenuModalState(open) {
 }
 
 function showScreen(id) {
+  let target = id;
+  let homeStage = null;
+  if (id === 'mode-select') { target = 'home'; homeStage = 'mode'; }
+  if (id === 'style-select') { target = 'home'; homeStage = 'style'; }
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
+  document.getElementById(target).classList.add('active');
   document.body.classList.remove('menu-modal-open');
   document.body.classList.remove('setup-overlay-open');
-  if (id === 'game') initActionLog();
-if (id === 'home') {
-    homeMenuIndex = 0;
-    updateHomeMenuSelection();
+  if (target === 'game') initActionLog();
+if (target === 'home') {
     var content = document.querySelector('#home .home-content');
     if (content) content.classList.remove('menu-sliding-out');
+    setHomeStage(homeStage || 'main', false);
   }
-  if (id === 'mode-select') {
+  if (target === 'mode-select') {
     var ms = document.getElementById('mode-select');
     if (ms) ms.classList.remove('sliding-out');
     var msc = ms ? ms.querySelector('.setup-card') : null;
     if (msc) { msc.classList.remove('setup-enter'); void msc.offsetWidth; msc.classList.add('setup-enter'); setTimeout(function(){ msc.classList.remove('setup-enter'); }, 460); }
   }
-  if (id === 'style-select') {
+  if (target === 'style-select') {
     var ss = document.getElementById('style-select');
     if (ss) ss.classList.remove('sliding-out');
     var ssc = ss ? ss.querySelector('.setup-card') : null;
@@ -8664,7 +8836,7 @@ document.addEventListener('keydown', function homeMenuKeydown(e) {
   if (!home || !home.classList.contains('active')) return;
   if (e.key === 'ArrowDown') {
     e.preventDefault();
-    homeMenuIndex = Math.min(2, homeMenuIndex + 1);
+    homeMenuIndex = Math.min(Math.max(0, HOME_FLOW.items.length - 1), homeMenuIndex + 1);
     updateHomeMenuSelection();
   } else if (e.key === 'ArrowUp') {
     e.preventDefault();
@@ -10781,10 +10953,11 @@ showScreen = function(id) {
 _startHomeMusic();
 // ========== END AUDIO SYSTEM ==========
 
+setHomeStage('main', false);
 showScreen('home');
 </script>
 <!-- RULES MODAL (body-level so it works from any screen) -->
-<div id="rulesModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);backdrop-filter:blur(10px);align-items:flex-start;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 8px" onclick="if(event.target===this)closeRulesModal()">
+<div id="rulesModal" style="display:none;position:fixed;inset:0;z-index:9999;background:transparent;backdrop-filter:none;align-items:flex-start;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 8px" onclick="if(event.target===this)closeRulesModal()">
   <div class="ace-modal-inner" style="max-width:680px;max-height:92vh;overflow-y:auto;text-align:left;padding:24px 28px">
     <div style="text-align:center;margin-bottom:14px">
       <div class="ace-modal-title" style="font-size:20px">👑🃏 HOW TO PLAY</div>
@@ -10844,7 +11017,7 @@ showScreen('home');
 </div>
 
 <!-- COMBO TABLE MODAL (body-level) -->
-<div id="comboRefModal" onclick="if(event.target===this)closeComboRef()" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);backdrop-filter:blur(10px);align-items:flex-start;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 8px 40px">
+<div id="comboRefModal" onclick="if(event.target===this)closeComboRef()" style="display:none;position:fixed;inset:0;z-index:9999;background:transparent;backdrop-filter:none;align-items:flex-start;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 8px 40px">
       <div class="ace-modal-inner" style="max-width:640px;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;text-align:left;margin:auto">
         <div class="ace-modal-title" style="text-align:center">📊 COMBO REFERENCE</div>
         <div style="margin-top:12px;font-size:10px;font-family:Cinzel,serif;color:var(--text-dim);text-align:center;letter-spacing:2px;margin-bottom:14px">ALL COMBOS · POINTS · EFFECTS</div>
