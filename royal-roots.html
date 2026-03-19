@@ -40,8 +40,8 @@ button{cursor:pointer;font-family:inherit}
 /*  HOME SCREEN — Fantasy Menus style (logo top-left, vertical menu)   */
 /* ══════════════════════════════════════════════════════════════════ */
 #home{
-  background:var(--menu-bg);
-  background-image:url('assets/menu-bg.png');
+  background-color:#1a0a2a;
+  background-image:url('./assets/menu-bg.png');
   background-size:cover;
   background-position:center;
   background-repeat:no-repeat;
@@ -49,42 +49,41 @@ button{cursor:pointer;font-family:inherit}
   justify-content:flex-start;
   padding:min(4vw,48px);
 }
+#home .home-bg-image{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;object-position:center;
+  z-index:-1;
+}
 #home .bg-pattern{position:absolute;inset:0;pointer-events:none;opacity:0}
+/* Sparkle overlay: small twinkles only — no spotlight/beam effect */
 #home .shimmer-overlay{
   position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden;
 }
 #home .shimmer-overlay::before{
-  content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;
-  background:linear-gradient(
-    105deg,
-    transparent 0%,
-    transparent 38%,
-    rgba(255,255,255,.06) 42%,
-    rgba(255,236,180,.2) 50%,
-    rgba(255,255,255,.12) 52%,
-    rgba(255,236,180,.15) 55%,
-    transparent 62%,
-    transparent 100%
-  );
-  animation:shimmerSweep 5s ease-in-out infinite;
+  content:'';position:absolute;inset:0;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 18%, rgba(255,236,180,.6) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 28% 42%, rgba(255,248,220,.5) 0%, transparent 100%),
+    radial-gradient(2px 2px at 52% 22%, rgba(255,228,180,.55) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 75% 55%, rgba(255,236,180,.5) 0%, transparent 100%),
+    radial-gradient(2px 2px at 88% 35%, rgba(255,248,220,.45) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 35% 78%, rgba(255,236,180,.5) 0%, transparent 100%),
+    radial-gradient(2px 2px at 62% 88%, rgba(255,228,180,.45) 0%, transparent 100%);
+  background-size:100% 100%;
+  animation:sparklePulse 4s ease-in-out infinite;
 }
 #home .shimmer-overlay::after{
-  content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;
-  background:linear-gradient(
-    75deg,
-    transparent 0%,
-    transparent 40%,
-    rgba(255,248,220,.08) 48%,
-    rgba(255,255,255,.15) 50%,
-    rgba(255,248,220,.08) 52%,
-    transparent 60%,
-    transparent 100%
-  );
-  animation:shimmerSweep 6.5s ease-in-out infinite 1s;
+  content:'';position:absolute;inset:0;
+  background-image:
+    radial-gradient(2px 2px at 8% 72%, rgba(255,248,220,.4) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 92% 12%, rgba(255,236,180,.45) 0%, transparent 100%),
+    radial-gradient(2px 2px at 45% 48%, rgba(255,228,180,.35) 0%, transparent 100%);
+  background-size:100% 100%;
+  animation:sparklePulse 5s ease-in-out infinite 1.2s;
 }
-@keyframes shimmerSweep{
-  0%{transform:translate(-30%,-30%)}
-  100%{transform:translate(30%,30%)}
+@keyframes sparklePulse{
+  0%,100%{opacity:.5}
+  50%{opacity:1}
 }
 .home-content{
   position:relative;z-index:2;
@@ -1237,6 +1236,7 @@ button{cursor:pointer;font-family:inherit}
 
 <!-- ══ HOME SCREEN ══════════════════════════════════════════════ -->
 <div id="home" class="screen active">
+  <img class="home-bg-image" src="assets/menu-bg.png" alt="" aria-hidden="true" />
   <div class="bg-pattern" style="position:absolute;inset:0;pointer-events:none"></div>
   <div class="shimmer-overlay" aria-hidden="true"></div>
   <div class="home-content">
