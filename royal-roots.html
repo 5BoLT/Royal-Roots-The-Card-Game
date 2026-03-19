@@ -1,4 +1,38 @@
-.home-menu-item {
-  background: linear-gradient(135deg, rgba(120,70,180,.5) 0%, rgba(60,30,100,.5) 50%, rgba(90,50,150,.5) 100%);
-  /* Other CSS properties remain unchanged */
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Royal Roots Card Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+        .home-menu {
+            text-align: center;
+            margin-top: 50px;
+        }
+        .home-menu-item {
+            display: inline-block;
+            margin: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(120,70,180,.5) 0%, rgba(60,30,100,.5) 50%, rgba(90,50,150,.5) 100%);
+            border-radius: 10px;
+            text-decoration: none;
+            color: white;
+            transition: transform 0.2s;
+        }
+        .home-menu-item:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="home-menu">
+        <a href="#" class="home-menu-item">Start Game</a>
+        <a href="#" class="home-menu-item">Rules</a>
+        <a href="#" class="home-menu-item">About</a>
+    </div>
+</body>
+</html>
