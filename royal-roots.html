@@ -41,7 +41,7 @@ button{cursor:pointer;font-family:inherit}
 /* ══════════════════════════════════════════════════════════════════ */
 #home{
   background-color:#1a0a2a;
-  background-image:url('./assets/menu-bg.png');
+  background-image:url('https://raw.githubusercontent.com/SBoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Background..png');
   background-size:cover;
   background-position:center;
   background-repeat:no-repeat;
@@ -90,7 +90,9 @@ button{cursor:pointer;font-family:inherit}
   display:flex;flex-direction:column;align-items:flex-start;gap:0;
   animation:fadeZoomIn .7s ease both;
   max-width:420px;
+  transition:transform .4s ease;
 }
+.home-content.menu-sliding-out{transform:translateX(-120%);}
 .home-logo{
   width:clamp(120px,20vw,200px);
   height:auto;
@@ -174,7 +176,6 @@ button{cursor:pointer;font-family:inherit}
   z-index:2;
 }
 .home-footer .home-version{flex-shrink:0}
-.home-footer .home-prompts{display:flex;gap:16px;letter-spacing:2px}
 .home-footer .home-disclaimer{flex-shrink:0;font-style:italic;opacity:.7}
 
 /* ══════════════════════════════════════════════════════════════════ */
@@ -183,70 +184,109 @@ button{cursor:pointer;font-family:inherit}
 #mode-select,#style-select,#stakes-select,#match-pick{
   align-items:center;justify-content:flex-start;
   padding:16px 16px 40px;
-  background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:100%
+  background:#1a0a2a;
+  background-image:url('https://raw.githubusercontent.com/SBoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Background..png');
+  background-size:cover;background-position:center;background-repeat:no-repeat;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:100%;
+  opacity:0;transition:opacity .35s ease;
+}
+#mode-select.active,#style-select.active,#stakes-select.active,#match-pick.active{opacity:1}
+#mode-select.sliding-out,#style-select.sliding-out{
+  transition:transform .4s ease;
+  transform:translateX(-120%);
 }
 .setup-card{
-  width:100%;max-width:540px;background:var(--bg2);
+  width:100%;max-width:540px;
+  background:rgba(26,5,42,.75);
   border:3px solid var(--gold);border-radius:32px;
   padding:28px 28px 24px;text-align:center;position:relative;overflow:visible;
   box-shadow:0 0 60px rgba(240,192,64,.25);margin:0 auto
 }
-.setup-card::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:.08}
-.setup-card::before{background:repeating-linear-gradient(45deg,transparent,transparent 30px,rgba(240,192,64,.05) 30px,rgba(240,192,64,.05) 31px)}
-.setup-title{font-family:'Cinzel Decorative',cursive;font-size:clamp(22px,4vw,36px);color:var(--gold);text-transform:uppercase;letter-spacing:4px;margin-bottom:4px}
-.setup-sub{font-size:10px;letter-spacing:3px;color:rgba(240,192,64,.5);text-transform:uppercase;margin-bottom:16px}
+.setup-card::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:0}
+.setup-title{
+  font-family:'Cinzel Decorative',cursive;font-size:clamp(22px,4vw,36px);
+  color:var(--menu-gold);text-transform:uppercase;letter-spacing:4px;margin-bottom:4px;
+  text-shadow:1px 1px 0 var(--menu-purple-shadow),2px 2px 6px var(--menu-purple-shadow)
+}
+.setup-sub{
+  font-size:10px;letter-spacing:3px;
+  color:var(--menu-gold);opacity:.85;
+  text-shadow:1px 1px 0 var(--menu-purple-shadow);
+  text-transform:uppercase;margin-bottom:16px
+}
 .setup-grid{display:flex;flex-direction:column;gap:10px;margin-top:4px}
 .setup-option{
   display:flex;align-items:center;gap:16px;padding:14px 18px;
   border:2px solid var(--gold);border-radius:18px;
   font-weight:700;text-transform:uppercase;letter-spacing:2px;
-  transition:all .3s;text-align:left;cursor:pointer;background:transparent;color:var(--gold);
+  transition:all .3s;text-align:left;cursor:pointer;
+  background:rgba(45,27,78,.25);color:var(--menu-gold);
+  text-shadow:1px 1px 0 var(--menu-purple-shadow),2px 2px 4px var(--menu-purple-shadow);
   box-shadow:0 2px 12px rgba(0,0,0,.3)
 }
 .setup-option:hover,.setup-option.selected{
-  background:var(--gold);color:#000;transform:scale(1.03);
+  background:rgba(232,149,46,.25);color:var(--menu-gold-bright);
+  transform:scale(1.03);
+  text-shadow:1px 1px 0 var(--menu-purple-shadow),0 0 16px var(--menu-orange-glow)
 }
 .setup-option-icon{
-  width:44px;height:44px;border-radius:12px;background:var(--gold);color:#000;
+  width:44px;height:44px;border-radius:12px;
+  background:rgba(240,192,64,.25);color:var(--menu-gold);
   display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;
   transition:all .3s
 }
-.setup-option:hover .setup-option-icon,.setup-option.selected .setup-option-icon{background:#000;color:var(--gold)}
-.setup-option-name{font-family:'Cinzel Decorative',cursive;font-size:clamp(13px,2vw,17px);letter-spacing:2px}
-.setup-option-desc{font-size:11px;opacity:.7;font-style:italic;font-family:'IM Fell English',serif;margin-top:4px}
-.style-check{opacity:0;color:var(--gold);font-size:22px;font-weight:900;margin-left:auto;flex-shrink:0;transition:opacity .2s}
+.setup-option:hover .setup-option-icon,.setup-option.selected .setup-option-icon{
+  background:rgba(232,149,46,.4);color:var(--menu-gold-bright)
+}
+.setup-option-name{font-family:'Cinzel Decorative',cursive;font-size:clamp(13px,2vw,17px);letter-spacing:2px;color:inherit}
+.setup-option-desc{font-size:11px;opacity:.9;font-style:italic;font-family:'IM Fell English',serif;margin-top:4px;color:inherit}
+.style-check{opacity:0;color:var(--menu-orange);font-size:22px;font-weight:900;margin-left:auto;flex-shrink:0;transition:opacity .2s}
 .ancestors-btn{
   width:100%;padding:14px 18px;border:2px solid var(--gold);border-radius:18px;
   font-family:'Cinzel Decorative',cursive;font-size:clamp(14px,2vw,18px);letter-spacing:3px;
-  text-transform:uppercase;transition:all .3s;background:transparent;color:var(--gold);
+  text-transform:uppercase;transition:all .3s;
+  background:rgba(45,27,78,.25);color:var(--menu-gold);
+  text-shadow:1px 1px 0 var(--menu-purple-shadow),2px 2px 4px var(--menu-purple-shadow);
   margin-top:6px
 }
 .ancestors-btn:hover,.ancestors-btn.active{
-  background:linear-gradient(135deg,#8b6914,#f0c040,#8b6914);color:#000;
-  border-color:var(--gold)
+  background:rgba(155,89,182,.25);color:var(--menu-gold-bright);
+  border-color:var(--gold);
+  text-shadow:1px 1px 0 var(--menu-purple-shadow),0 0 12px rgba(155,89,182,.5)
 }
 .setup-continue-btn{
-  width:100%;margin-top:20px;background:var(--gold);color:#000;
+  width:100%;margin-top:20px;
+  background:rgba(240,192,64,.25);color:var(--menu-gold);
   font-family:'Cinzel Decorative',cursive;height:56px;font-size:clamp(14px,2vw,18px);letter-spacing:3px;
-  border:none;border-radius:14px;transition:all .3s;text-transform:uppercase
+  border:2px solid var(--gold);border-radius:14px;transition:all .3s;text-transform:uppercase;
+  text-shadow:1px 1px 0 var(--menu-purple-shadow),2px 2px 4px var(--menu-purple-shadow)
 }
 .setup-continue-btn:disabled{opacity:.35;cursor:not-allowed}
-.setup-continue-btn:not(:disabled):hover{transform:scale(1.02);box-shadow:0 0 30px rgba(240,192,64,.4)}
-.setup-back-btn{
-  margin-top:14px;background:none;border:none;color:rgba(240,192,64,.5);
-  font-family:'Cinzel',serif;font-size:14px;letter-spacing:5px;text-transform:uppercase;
-  display:flex;align-items:center;justify-content:center;gap:12px;width:100%;
-  transition:color .2s
+.setup-continue-btn:not(:disabled):hover{
+  transform:scale(1.02);box-shadow:0 0 30px rgba(240,192,64,.4);
+  background:rgba(232,149,46,.35);color:var(--menu-gold-bright)
 }
-.setup-back-btn:hover{color:var(--gold)}
+.setup-back-btn{
+  margin-top:14px;background:rgba(45,27,78,.25);border:1px solid rgba(240,192,64,.4);
+  color:var(--menu-gold);font-family:'Cinzel',serif;font-size:14px;letter-spacing:5px;
+  text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:12px;width:100%;
+  transition:color .2s,background .2s;border-radius:10px;
+  text-shadow:1px 1px 0 var(--menu-purple-shadow)
+}
+.setup-back-btn:hover{color:var(--menu-gold-bright);background:rgba(45,27,78,.5)}
 /* Chips grid */
 .chips-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .chip-btn{
   padding:20px;border:2px solid var(--gold);border-radius:20px;cursor:pointer;
-  font-family:'Cinzel Decorative',cursive;font-size:22px;color:var(--gold);
-  background:transparent;transition:all .3s;text-align:center
+  font-family:'Cinzel Decorative',cursive;font-size:22px;
+  color:var(--menu-gold);background:rgba(45,27,78,.25);
+  text-shadow:1px 1px 0 var(--menu-purple-shadow),2px 2px 4px var(--menu-purple-shadow);
+  transition:all .3s;text-align:center
 }
-.chip-btn:hover,.chip-btn.selected{background:var(--gold);color:#000}
+.chip-btn:hover,.chip-btn.selected{
+  background:rgba(232,149,46,.25);color:var(--menu-gold-bright);
+  text-shadow:1px 1px 0 var(--menu-purple-shadow),0 0 12px var(--menu-orange-glow)
+}
 .chips-input{
   width:100%;background:#111;border:1px solid #555;color:#fff;padding:14px;
   border-radius:12px;font-family:Cinzel,serif;font-size:16px;text-align:center;margin-top:10px
@@ -259,24 +299,31 @@ button{cursor:pointer;font-family:inherit}
 .match-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0}
 .match-btn{
   padding:24px;border:2px solid var(--gold);border-radius:20px;cursor:pointer;
-  font-family:'Cinzel Decorative',cursive;font-size:32px;color:var(--gold);
-  background:transparent;transition:all .3s;text-align:center
+  font-family:'Cinzel Decorative',cursive;font-size:32px;
+  color:var(--menu-gold);background:rgba(45,27,78,.25);
+  text-shadow:1px 1px 0 var(--menu-purple-shadow),2px 2px 4px var(--menu-purple-shadow);
+  transition:all .3s;text-align:center
 }
-.match-btn:hover{background:var(--gold);color:#000;transform:scale(1.05)}
-.match-btn small{display:block;font-family:Cinzel,serif;font-size:11px;opacity:.7;margin-top:4px}
+.match-btn:hover{
+  background:rgba(232,149,46,.25);color:var(--menu-gold-bright);
+  transform:scale(1.05);
+  text-shadow:1px 1px 0 var(--menu-purple-shadow),0 0 12px var(--menu-orange-glow)
+}
+.match-btn small{display:block;font-family:Cinzel,serif;font-size:11px;opacity:.9;margin-top:4px;color:inherit}
 .match-custom-row{display:flex;gap:12px;align-items:center}
 .match-custom-input{
-  flex:1;background:#111;border:1px solid #555;color:#fff;padding:12px;
-  border-radius:10px;font-family:Cinzel,serif;font-size:16px;text-align:center
+  flex:1;background:rgba(17,17,17,.6);border:1px solid rgba(240,192,64,.4);color:var(--menu-gold);
+  padding:12px;border-radius:10px;font-family:Cinzel,serif;font-size:16px;text-align:center
 }
 .match-go-btn{
-  background:none;border:1px solid var(--gold);color:var(--gold);
+  background:rgba(45,27,78,.25);border:1px solid var(--gold);color:var(--menu-gold);
   padding:12px 20px;border-radius:10px;font-family:Cinzel,serif;font-size:14px;
-  white-space:nowrap;transition:all .2s
+  white-space:nowrap;transition:all .2s;text-shadow:1px 1px 0 var(--menu-purple-shadow)
 }
-.match-go-btn:hover{background:var(--gold);color:#000}
+.match-go-btn:hover{background:rgba(232,149,46,.25);color:var(--menu-gold-bright)}
 .match-summary{
-  font-size:12px;color:var(--text-dim);font-family:Cinzel,serif;letter-spacing:1px;
+  font-size:12px;color:var(--menu-gold);opacity:.9;font-family:Cinzel,serif;letter-spacing:1px;
+  text-shadow:1px 1px 0 var(--menu-purple-shadow);
   margin-bottom:16px;padding:14px;border:1px solid #333;border-radius:10px;text-align:left;
   line-height:1.7
 }
@@ -921,6 +968,22 @@ button{cursor:pointer;font-family:inherit}
   overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 8px 40px
 }
 .ace-modal[style*="flex"]{display:flex!important}
+/* Menu overlay modals (How To Play, Combo Table): blur menu + enter/exit animation */
+#rulesModal,#comboRefModal{
+  opacity:0;transform:scale(0.96);transition:opacity .25s ease,transform .25s ease;
+}
+#rulesModal.open,#comboRefModal.open{
+  opacity:1;transform:scale(1);
+}
+#setupOverlay{
+  position:fixed;inset:0;z-index:9998;display:none;
+  align-items:flex-start;justify-content:center;
+  background:rgba(0,0,0,.88);backdrop-filter:blur(10px);
+  overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 8px 40px;
+  opacity:0;transition:opacity .25s ease;
+}
+#setupOverlay.open{opacity:1}
+#setupOverlay .screen{position:relative;display:flex!important;max-width:100%}
 .ace-modal-inner{
   background:var(--modal-bg);border:3px solid var(--modal-border);
   border-radius:28px;padding:28px 32px;max-width:480px;width:90%;text-align:center;
@@ -1234,22 +1297,24 @@ button{cursor:pointer;font-family:inherit}
   </div>
 </div>
 
+<!-- Setup flow overlay (Stakes / Match / Draft as pop-ups over style-select) -->
+<div id="setupOverlay" onclick="if(event.target===this&&!window._setupOverlayBlockClose)closeSetupOverlay()"></div>
+
 <!-- ══ HOME SCREEN ══════════════════════════════════════════════ -->
 <div id="home" class="screen active">
-  <img class="home-bg-image" src="assets/menu-bg.png" alt="" aria-hidden="true" />
+  <img class="home-bg-image" src="https://raw.githubusercontent.com/SBoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Background..png" alt="" aria-hidden="true" />
   <div class="bg-pattern" style="position:absolute;inset:0;pointer-events:none"></div>
   <div class="shimmer-overlay" aria-hidden="true"></div>
   <div class="home-content">
-    <img class="home-logo" src="assets/rr-logo.png" alt="Royal Roots" />
+    <img class="home-logo" src="https://raw.githubusercontent.com/SBoLT/Royal-Roots-The-Card-Game/main/RR_Logo.png" alt="Royal Roots" />
     <ul class="home-menu-list" id="homeMenuList" role="menu">
       <li role="none"><button type="button" class="home-menu-item selected" role="menuitem" data-action="play" data-index="0" id="homeMenuItem0" onclick="homeMenuSelect(0)">Begin Journey</button></li>
-      <li role="none"><button type="button" class="home-menu-item" role="menuitem" data-action="help" data-index="1" id="homeMenuItem1" onclick="homeMenuSelect(1)">Help</button></li>
+      <li role="none"><button type="button" class="home-menu-item" role="menuitem" data-action="help" data-index="1" id="homeMenuItem1" onclick="homeMenuSelect(1)">How To Play</button></li>
       <li role="none"><button type="button" class="home-menu-item" role="menuitem" data-action="combo" data-index="2" id="homeMenuItem2" onclick="homeMenuSelect(2)">Combo Table</button></li>
     </ul>
   </div>
   <footer class="home-footer">
     <span class="home-version">v1.0.0</span>
-    <span class="home-prompts"><span>A Select</span><span>B Back</span></span>
     <span class="home-disclaimer">Elegance · Strategy · Power</span>
   </footer>
 </div>
@@ -1378,7 +1443,7 @@ button{cursor:pointer;font-family:inherit}
     <div class="min-bet-display" id="minBetDisplay">Set chips first</div>
     <div id="stakesSelectedInfo"></div>
     <button class="setup-continue-btn" id="stakesContinueBtn" onclick="goToMatchPick()" disabled style="margin-top:24px">CONTINUE →</button>
-    <button class="setup-back-btn" onclick="showScreen('style-select')">← BACK</button>
+    <button class="setup-back-btn" onclick="if(inSetupOverlayFlow){closeSetupOverlay();}else{showScreen('style-select');}">← BACK</button>
   </div>
 </div>
 
@@ -8540,7 +8605,16 @@ function runHomeMenuAction(index) {
 function homeMenuSelect(index) {
   homeMenuIndex = index;
   updateHomeMenuSelection();
-  runHomeMenuAction(index);
+  if (index === 0) {
+    var content = document.querySelector('#home .home-content');
+    if (content) content.classList.add('menu-sliding-out');
+    setTimeout(function() {
+      if (content) content.classList.remove('menu-sliding-out');
+      showScreen('mode-select');
+    }, 420);
+  } else {
+    runHomeMenuAction(index);
+  }
 }
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -8549,6 +8623,16 @@ function showScreen(id) {
 if (id === 'home') {
     homeMenuIndex = 0;
     updateHomeMenuSelection();
+    var content = document.querySelector('#home .home-content');
+    if (content) content.classList.remove('menu-sliding-out');
+  }
+  if (id === 'mode-select') {
+    var ms = document.getElementById('mode-select');
+    if (ms) ms.classList.remove('sliding-out');
+  }
+  if (id === 'style-select') {
+    var ss = document.getElementById('style-select');
+    if (ss) ss.classList.remove('sliding-out');
   }
 }
 
@@ -8621,7 +8705,12 @@ function selectMode(mode, numPlayers) {
   SETUP.chips = null;
   SETUP.minBet = null;
   _refreshStyleScreen();
-  showScreen('style-select');
+  var ms = document.getElementById('mode-select');
+  if (ms) ms.classList.add('sliding-out');
+  setTimeout(function() {
+    if (ms) ms.classList.remove('sliding-out');
+    showScreen('style-select');
+  }, 420);
 }
  
 // ── STEP 2: Style selection ─────────────────────────────────
@@ -8633,18 +8722,18 @@ function _refreshStyleScreen() {
     if (!btn) return;
     const on = SETUP.ancestors || SETUP.styles.has(s);
     btn.style.borderColor = on ? 'var(--gold)' : '';
-    btn.style.background = on ? 'var(--gold)' : '';
-    btn.style.color = on ? '#000' : '';
+    btn.style.background = on ? 'rgba(232,149,46,.25)' : 'rgba(45,27,78,.25)';
+    btn.style.color = on ? 'var(--menu-gold-bright)' : 'var(--menu-gold)';
     const icon = btn.querySelector('.setup-option-icon');
-    if (icon) { icon.style.background = on ? '#000' : ''; icon.style.color = on ? 'var(--gold)' : ''; }
+    if (icon) { icon.style.background = on ? 'rgba(232,149,46,.4)' : 'rgba(240,192,64,.25)'; icon.style.color = on ? 'var(--menu-gold-bright)' : 'var(--menu-gold)'; }
     chk.style.opacity = on ? '1' : '0';
   });
   const ancBtn = document.getElementById('styleBtn_ancestors');
   const ancChk = document.getElementById('styleCheck_ancestors');
   if (ancBtn) {
-    ancBtn.style.borderColor = SETUP.ancestors ? 'var(--gold)' : '#6c3483';
-    ancBtn.style.background = SETUP.ancestors ? 'linear-gradient(135deg,#8b6914,#f0c040,#8b6914)' : '';
-    ancBtn.style.color = SETUP.ancestors ? '#000' : '';
+    ancBtn.style.borderColor = SETUP.ancestors ? 'var(--gold)' : 'rgba(240,192,64,.5)';
+    ancBtn.style.background = SETUP.ancestors ? 'rgba(155,89,182,.25)' : 'rgba(45,27,78,.25)';
+    ancBtn.style.color = SETUP.ancestors ? 'var(--menu-gold-bright)' : 'var(--menu-gold)';
     ancChk.style.opacity = SETUP.ancestors ? '1' : '0';
   }
   // Info label
@@ -8691,19 +8780,41 @@ function selectAncestors() {
   _refreshStyleScreen();
 }
  
+var inSetupOverlayFlow = false;
+function closeSetupOverlay() {
+  var ov = document.getElementById('setupOverlay');
+  if (!ov) return;
+  ov.classList.remove('open');
+  setTimeout(function() {
+    ov.style.display = 'none';
+    var child = ov.firstElementChild;
+    if (child && child.id) document.body.appendChild(child);
+  }, 260);
+  inSetupOverlayFlow = false;
+}
+function showSetupOverlayWith(screenId) {
+  var ov = document.getElementById('setupOverlay');
+  var el = document.getElementById(screenId);
+  if (!ov || !el) return;
+  if (el.parentNode) el.parentNode.removeChild(el);
+  ov.appendChild(el);
+  ov.style.display = 'flex';
+  ov.style.flexDirection = 'column';
+  ov.style.alignItems = 'center';
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){ ov.classList.add('open'); }); });
+}
 function goToStakes() {
   if (!SETUP.ancestors && SETUP.styles.size === 0) return; // not ready
-  const hasMoney = SETUP.ancestors || SETUP.styles.has('money');
+  var hasMoney = SETUP.ancestors || SETUP.styles.has('money');
+  inSetupOverlayFlow = true;
   if (hasMoney) {
-    // Show stakes screen
     _refreshStakesScreen();
-    showScreen('stakes-select');
+    showSetupOverlayWith('stakes-select');
   } else {
-    // Skip stakes, go straight to match count
     SETUP.chips = null;
     SETUP.minBet = null;
     _refreshMatchPickScreen();
-    showScreen('match-pick');
+    showSetupOverlayWith('match-pick');
   }
 }
  
@@ -8737,16 +8848,22 @@ function setChips(n) {
 }
  
 function goToMatchPick() {
-  // Also check custom chips input
-  const customEl = document.getElementById('customChipsInput');
+  var customEl = document.getElementById('customChipsInput');
   if (customEl && customEl.value) {
-    const val = parseInt(customEl.value);
-    if (val >= 10) { SETUP.chips = val; }
+    var val = parseInt(customEl.value);
+    if (val >= 10) SETUP.chips = val;
   }
-  if (!SETUP.chips) return; // need chips set
+  if (!SETUP.chips) return;
   SETUP.minBet = Math.max(1, Math.round(SETUP.chips * 0.05));
   _refreshMatchPickScreen();
-  showScreen('match-pick');
+  if (inSetupOverlayFlow) {
+    var ov = document.getElementById('setupOverlay');
+    var stakes = document.getElementById('stakes-select');
+    if (stakes && stakes.parentNode === ov) { ov.removeChild(stakes); document.body.appendChild(stakes); }
+    showSetupOverlayWith('match-pick');
+  } else {
+    showScreen('match-pick');
+  }
 }
  
 // ── STEP 4: Match count ─────────────────────────────────────
@@ -8762,32 +8879,76 @@ function _refreshMatchPickScreen() {
 }
  
 function goBackFromMatchPick() {
-  const hasMoney = SETUP.ancestors || SETUP.styles.has('money');
+  if (inSetupOverlayFlow) {
+    closeSetupOverlay();
+    return;
+  }
+  var hasMoney = SETUP.ancestors || SETUP.styles.has('money');
   showScreen(hasMoney ? 'stakes-select' : 'style-select');
 }
  
+function _applySetupToGame() {
+  var mode = SETUP.mode || 'solo';
+  var numPlayers = SETUP.numPlayers || 2;
+  initGame(mode, numPlayers);
+  G.matchesTo = SETUP.matchesTo || 3;
+  G.wins = G.players.map(function() { return 0; });
+  G.styles = {
+    flush: SETUP.ancestors || SETUP.styles.has('flush'),
+    money: SETUP.ancestors || SETUP.styles.has('money'),
+    points: SETUP.ancestors || SETUP.styles.has('points'),
+    ancestors: SETUP.ancestors,
+  };
+  G.chips = SETUP.chips ? G.players.map(function() { return SETUP.chips; }) : null;
+  G.minBet = SETUP.minBet || 0;
+  G.pot = SETUP.chips && SETUP.minBet ? SETUP.numPlayers * SETUP.minBet : 0;
+  if (G.chips && G.minBet) {
+    G.chips.forEach(function(_, i) { G.chips[i] -= G.minBet; });
+  }
+  var styleParts = [];
+  if (G.styles.ancestors) styleParts.push('ANCESTORS RULE');
+  else {
+    if (G.styles.flush) styleParts.push('HAND FLUSHER');
+    if (G.styles.money) styleParts.push('MONEY MASTER');
+    if (G.styles.points) styleParts.push('POINT LORD');
+  }
+  G.styleLabel = styleParts.join(' + ');
+}
+
 function confirmMatches(n) {
   SETUP.matchesTo = n;
-  startGame();
+  if (inSetupOverlayFlow) {
+    _applySetupToGame();
+    var ov = document.getElementById('setupOverlay');
+    var mp = document.getElementById('match-pick');
+    if (mp && mp.parentNode === ov) { ov.removeChild(mp); document.body.appendChild(mp); }
+    showSetupOverlayWith('draft-screen');
+    startDraftPhase(true);
+  } else {
+    startGame();
+  }
 }
- 
+
 function confirmCustomMatches() {
-  const val = parseInt(document.getElementById('customMatchInput').value);
+  var val = parseInt(document.getElementById('customMatchInput').value);
   if (!val || val < 1) return;
   SETUP.matchesTo = Math.min(val, 99);
-  startGame();
+  if (inSetupOverlayFlow) {
+    _applySetupToGame();
+    var ov = document.getElementById('setupOverlay');
+    var mp = document.getElementById('match-pick');
+    if (mp && mp.parentNode === ov) { ov.removeChild(mp); document.body.appendChild(mp); }
+    showSetupOverlayWith('draft-screen');
+    startDraftPhase(true);
+  } else {
+    startGame();
+  }
 }
  
 // ── LAUNCH THE GAME ─────────────────────────────────────────
 function startGame() {
+  _applySetupToGame();
   const mode = SETUP.mode || 'solo';
-  const numPlayers = SETUP.numPlayers || 2;
- 
-  initGame(mode, numPlayers);
- 
-  // Apply SETUP to G
-  G.matchesTo = SETUP.matchesTo || 3;
-  G.wins = G.players.map(() => 0);
   G.styles = {
     flush:  SETUP.ancestors || SETUP.styles.has('flush'),
     money:  SETUP.ancestors || SETUP.styles.has('money'),
@@ -8796,7 +8957,7 @@ function startGame() {
   };
   G.chips = SETUP.chips ? G.players.map(() => SETUP.chips) : null;
   G.minBet = SETUP.minBet || 0;
-  G.pot = SETUP.chips && SETUP.minBet ? numPlayers * SETUP.minBet : 0;
+  G.pot = SETUP.chips && SETUP.minBet ? SETUP.numPlayers * SETUP.minBet : 0;
   if (G.chips && G.minBet) {
     // Ante up for first match
     G.chips.forEach((_, i) => { G.chips[i] -= G.minBet; });
@@ -8819,7 +8980,7 @@ function startGame() {
   addLog(matchLog, true);
   addLog('Match 1 — Draw to decide who goes first!', true);
   renderLog();
-  startDraftPhase(); // one-time first-player draft
+  startDraftPhase(false); // one-time first-player draft
 }
  
  
@@ -8903,7 +9064,7 @@ function cardDraftValue(card) {
   return map[card.rank] || 0;
 }
 
-function startDraftPhase() {
+function startDraftPhase(skipShowScreen) {
   const pool = [];
   for (let d=0;d<2;d++)
     for (const s of SUITS)
@@ -8921,9 +9082,9 @@ function startDraftPhase() {
     aiDone: false,     // set true after last AI timeout fires
     humanDone: false,  // set true after human picks 2
   };
-  G.players.forEach((_,i) => { G.draft.playerPicks[i] = []; });
+  G.players.forEach(function(_, i) { G.draft.playerPicks[i] = []; });
 
-  showScreen('draft-screen');
+  if (!skipShowScreen) showScreen('draft-screen');
   renderDraftScreen();
   draftRunAI();
 }
@@ -9247,6 +9408,14 @@ function draftConfirm() {
   addLog(`👑 ${G.players[G.cur].name} goes FIRST! ${G.players[G.dealerIdx].name} is DEALER.`, true);
 
   G.draft = null;
+  if (inSetupOverlayFlow) {
+    var ov = document.getElementById('setupOverlay');
+    var draftEl = document.getElementById('draft-screen');
+    if (draftEl && draftEl.parentNode === ov) { ov.removeChild(draftEl); document.body.appendChild(draftEl); }
+    inSetupOverlayFlow = false;
+    var o = document.getElementById('setupOverlay');
+    if (o) { o.classList.remove('open'); o.style.display = 'none'; }
+  }
   showScreen('game');
   G.phase = 'dealing';
   renderGame();
@@ -9254,9 +9423,8 @@ function draftConfirm() {
   addLog(matchLog, true);
   addLog(`👑 ${G.players[G.cur].name} goes first — dealing cards clockwise...`, true);
   renderLog();
-  // Animate deal then start betting/play
   animateDeal(G.numPlayers, G.cur, () => {
-    renderGame(); // show actual hands after animation
+    renderGame();
     startBettingPhase();
   });
 }
@@ -9454,7 +9622,10 @@ function toggleLogMinimize() {
 
 function closeComboRef() {
   const cm = document.getElementById('comboRefModal');
-  if (cm) cm.style.display = 'none';
+  if (cm) {
+    cm.classList.remove('open');
+    setTimeout(function(){ cm.style.display = 'none'; }, 260);
+  }
   const btn = document.getElementById('comboRefBtn');
   if (btn) btn.style.background = 'none';
 }
@@ -9484,6 +9655,7 @@ function openComboRef() {
   cm.style.flexDirection = 'column';
   cm.style.alignItems = 'center';
   cm.style.justifyContent = 'flex-start';
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){ cm.classList.add('open'); }); });
 }
 
 
@@ -9891,7 +10063,10 @@ function awardBettingPots(matchWinnerIdx) {
 }
 
 function closeRulesModal() {
-  const rm = document.getElementById('rulesModal'); rm.style.display='none'; rm.style.flexDirection='';
+  const rm = document.getElementById('rulesModal');
+  if (!rm) return;
+  rm.classList.remove('open');
+  setTimeout(function(){ rm.style.display='none'; rm.style.flexDirection=''; }, 260);
 }
 
 function showRules() {
@@ -10011,6 +10186,7 @@ function showRules() {
   rm2.style.display='flex'; rm2.style.flexDirection='column';
   rm2.style.alignItems='center'; rm2.style.justifyContent='center';
   switchHelpTab(1); // always open on How To Play
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){ rm2.classList.add('open'); }); });
 }
 
 function switchHelpTab(tab) {
