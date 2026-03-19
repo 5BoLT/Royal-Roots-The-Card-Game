@@ -1031,7 +1031,13 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   opacity:0;transition:opacity .25s ease;
 }
 #setupOverlay.open{opacity:1}
-#setupOverlay .screen{position:relative;display:flex!important;max-width:100%}
+#setupOverlay .screen{
+  position:relative!important;
+  inset:auto!important;
+  display:flex!important;
+  max-width:100%;
+  opacity:1!important;
+}
 .ace-modal-inner{
   background:var(--modal-bg);border:3px solid var(--modal-border);
   border-radius:28px;padding:28px 32px;max-width:480px;width:90%;text-align:center;
@@ -9029,7 +9035,10 @@ function closeSetupOverlay() {
   setTimeout(function() {
     ov.style.display = 'none';
     var child = ov.firstElementChild;
-    if (child && child.id) document.body.appendChild(child);
+    if (child && child.id) {
+      child.classList.remove('active');
+      document.body.appendChild(child);
+    }
   }, 260);
   inSetupOverlayFlow = false;
 }
@@ -9038,6 +9047,7 @@ function showSetupOverlayWith(screenId) {
   var el = document.getElementById(screenId);
   if (!ov || !el) return;
   if (el.parentNode) el.parentNode.removeChild(el);
+  el.classList.add('active');
   ov.appendChild(el);
   var card = el.querySelector ? el.querySelector('.setup-card, .draft-card') : null;
   if (card) {
@@ -9162,7 +9172,7 @@ function _applySetupToGame() {
   };
   G.chips = SETUP.chips ? G.players.map(function() { return SETUP.chips; }) : null;
   G.minBet = SETUP.minBet || 0;
-  G.pot = SETUP.chips && SETUP.minBet ? SETUP.numPlayers * SETUP.minBet : 0;
+  G.pot = SETUP.chips && SETUP.minBet ? numPlayers * SETUP.minBet : 0;
   if (G.chips && G.minBet) {
     G.chips.forEach(function(_, i) { G.chips[i] -= G.minBet; });
   }
@@ -9210,30 +9220,6 @@ function confirmCustomMatches() {
 function startGame() {
   _applySetupToGame();
   const mode = SETUP.mode || 'solo';
-  G.styles = {
-    flush:  SETUP.ancestors || SETUP.styles.has('flush'),
-    money:  SETUP.ancestors || SETUP.styles.has('money'),
-    points: SETUP.ancestors || SETUP.styles.has('points'),
-    ancestors: SETUP.ancestors,
-  };
-  G.chips = SETUP.chips ? G.players.map(() => SETUP.chips) : null;
-  G.minBet = SETUP.minBet || 0;
-  G.pot = SETUP.chips && SETUP.minBet ? SETUP.numPlayers * SETUP.minBet : 0;
-  if (G.chips && G.minBet) {
-    // Ante up for first match
-    G.chips.forEach((_, i) => { G.chips[i] -= G.minBet; });
-  }
- 
-  // Style labels for HUD
-  const styleParts = [];
-  if (G.styles.ancestors) styleParts.push('ANCESTORS RULE');
-  else {
-    if (G.styles.flush)  styleParts.push('HAND FLUSHER');
-    if (G.styles.money)  styleParts.push('MONEY MASTER');
-    if (G.styles.points) styleParts.push('POINT LORD');
-  }
-  G.styleLabel = styleParts.join(' + ');
- 
   showScreen('game');
   G.phase = 'play';
   renderGame();
