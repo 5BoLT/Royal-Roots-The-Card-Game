@@ -35,9 +35,48 @@ button{cursor:pointer;font-family:inherit}
 /* ══════════════════════════════════════════════════════════════════ */
 /*  HOME SCREEN                                                       */
 /* ══════════════════════════════════════════════════════════════════ */
-#home{background:var(--bg);align-items:center;justify-content:center}
-#home .bg-pattern{position:absolute;inset:0;pointer-events:none}
-.home-content{position:relative;z-index:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:28px;animation:fadeZoomIn .7s ease both}
+#home{
+  background:var(--bg) url('assets/menu-bg.png') center/cover no-repeat;
+  align-items:center;justify-content:center;
+}
+#home .bg-pattern{position:absolute;inset:0;pointer-events:none;opacity:0}
+#home .shimmer-overlay{
+  position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden;
+}
+#home .shimmer-overlay::before{
+  content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;
+  background:linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 38%,
+    rgba(255,255,255,.06) 42%,
+    rgba(255,236,180,.2) 50%,
+    rgba(255,255,255,.12) 52%,
+    rgba(255,236,180,.15) 55%,
+    transparent 62%,
+    transparent 100%
+  );
+  animation:shimmerSweep 5s ease-in-out infinite;
+}
+#home .shimmer-overlay::after{
+  content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;
+  background:linear-gradient(
+    75deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(255,248,220,.08) 48%,
+    rgba(255,255,255,.15) 50%,
+    rgba(255,248,220,.08) 52%,
+    transparent 60%,
+    transparent 100%
+  );
+  animation:shimmerSweep 6.5s ease-in-out infinite 1s;
+}
+@keyframes shimmerSweep{
+  0%{transform:translate(-30%,-30%)}
+  100%{transform:translate(30%,30%)}
+}
+.home-content{position:relative;z-index:2;text-align:center;display:flex;flex-direction:column;align-items:center;gap:28px;animation:fadeZoomIn .7s ease both}
 .crown-icon{font-size:88px;display:block;animation:float 3s ease-in-out infinite}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
 @keyframes fadeZoomIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
@@ -1127,6 +1166,7 @@ button{cursor:pointer;font-family:inherit}
 <!-- ══ HOME SCREEN ══════════════════════════════════════════════ -->
 <div id="home" class="screen active">
   <div class="bg-pattern" style="position:absolute;inset:0;pointer-events:none"></div>
+  <div class="shimmer-overlay" aria-hidden="true"></div>
   <div class="home-content">
     <span class="crown-icon">👑</span>
     <div class="game-title">ROYAL ROOTS™</div>
