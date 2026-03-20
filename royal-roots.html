@@ -1215,10 +1215,14 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   font-size:11px;color:var(--gold);font-family:Cinzel,serif;letter-spacing:1px;
   padding:8px 20px;background:rgba(240,192,64,.07);
   border-radius:10px;border:1px solid rgba(240,192,64,.18);
-  animation:pulse 1.5s ease-in-out infinite;
+  animation:draftInstructionPulse 1.5s ease-in-out infinite;
   text-align:center;
   transform:none;
   box-sizing:border-box;
+}
+@keyframes draftInstructionPulse{
+  0%,100%{opacity:1}
+  50%{opacity:.78}
 }
 #betTurnLabel{
   display:none;margin:14px auto 4px auto;
@@ -1413,8 +1417,8 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 <div id="draft-screen" class="screen">
   <div class="draft-card">
     <div class="draft-title">👑 WHO GOES FIRST?</div>
-    <div class="draft-sub">Each player draws 2 cards — Lowest total goes first</div>
     <div id="draftInstruction">Pick 2 cards from any pile below</div>
+    <div class="draft-sub">Each player draws 2 cards — Lowest total goes first</div>
     <div class="draft-piles" id="draftPiles"></div>
     <div class="draft-status" id="draftStatus"></div>
     <div class="draft-players" id="draftPlayers"></div>
