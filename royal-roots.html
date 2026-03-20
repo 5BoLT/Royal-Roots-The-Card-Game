@@ -21,7 +21,11 @@
   --menu-orange:#e8952e; --menu-orange-glow:rgba(232,149,46,.4);
   /* Regal card back: royal purple + gold RR/crown (draw pile & face-down traps) */
   --regal-purple:#2d1b4e;
-  --card-back-bg:var(--regal-purple) url("https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Card_Back.png"), url("https://raw.githubusercontent.com/SBoLT/Royal-Roots-The-Card-Game/main/RR_Card_Back.png"), url("Images/RR_Card_Back.png") center/cover no-repeat;
+  --card-back-bg:
+    url("https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Card_Back.png") center/cover no-repeat,
+    url("https://raw.githubusercontent.com/SBoLT/Royal-Roots-The-Card-Game/main/RR_Card_Back.png") center/cover no-repeat,
+    url("Images/RR_Card_Back.png") center/cover no-repeat,
+    var(--regal-purple);
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Cinzel',serif;overflow:hidden}
 button{cursor:pointer;font-family:inherit}
@@ -6256,6 +6260,14 @@ function _roAccept() {
     endMatch(callerIdx);
 
   } else {
+    // Resume normal gameplay state before applying lose-path continuation.
+    G.phase = 'play';
+    G.turnPhase = 'playing';
+    G.aceState = null;
+    G.war = null;
+    G.pendingWar = null;
+    G.sel = [];
+
     // Caller loses: winner's combo removed from hand, winner +50pts
     // Caller: -200pts, draw 4, pay 2× min bet
     // Others: discard 2 lowest, draw 3
@@ -6318,8 +6330,6 @@ function _roAccept() {
     // Play resumes with the next player (not caller)
     addLog('Play resumes with the next player. Caller still Law Draws at turn end.', false);
     G.cur = nxt(callerIdx);
-    G.turnPhase = 'playing';
-    G.sel = [];
     renderGame(); renderLog(); updateBtns();
     if (G.cur === 0) {
       startHumanTurn();
