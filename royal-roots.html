@@ -186,6 +186,18 @@ button{cursor:pointer;font-family:inherit}
     2px 2px 6px var(--menu-purple-shadow),
     0 0 14px rgba(240,224,128,.3);
 }
+.home-menu-item.disabled,
+.home-menu-item.disabled:hover,
+.home-menu-item.disabled.selected{
+  color:rgba(180,180,180,.65);
+  background:rgba(55,55,55,.42);
+  border-color:rgba(170,170,170,.35);
+  box-shadow:none;
+  text-shadow:none;
+  cursor:not-allowed;
+}
+.home-menu-item.disabled::before,
+.home-menu-item.disabled.selected::before{opacity:0;border-left-color:transparent}
 .home-flow-info{
   margin-top:12px;
   min-height:18px;
@@ -530,7 +542,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 /* User trap zone floats above the lower black area */
 #playerTrapBar{
   position:fixed!important;
-  left:50%;
+  left:42%;
   transform:translateX(-50%);
   bottom:clamp(118px,19vh,185px);
   display:none;
@@ -2230,6 +2242,9 @@ function evalCombo(cards) {
 
   // All non-jokers same rank (jokers fill remaining slots)
   if (nonJ.length === 0 || njRanks.every(r => r === njRanks[0])) {
+    if (n >= 3 && jCount > 1) {
+      return { valid:false, reason:'3+ same-rank combos support at most 1 Joker extension' };
+    }
     const r = njRanks[0] || 'JKR';
     return evalSameRank(r, n, jCount > 0);
   }
@@ -2811,6 +2826,7 @@ function applyEffect(ev, cards, pidx) {
       G._zeroReplaySuit = suit;
       G._zeroReplayOwner = pidx;
       addLog(`⭕ Zero Ghost! Law Draw bypassed. ${G.players[pidx].name} must replay in ${suit}.`, true);
+      _queueJokersFromCards(cards, pidx);
       return;
     }
 
@@ -2837,6 +2853,7 @@ function applyEffect(ev, cards, pidx) {
       const flushed = _flushLowestCards(pidx, choiceFlush, 'Zero Protocol');
       addLog(`⭕ ${G.players[pidx].name} Zero Protocol flushes ${flushed} card(s). Law Draw bypassed.`, true);
     }
+    _queueJokersFromCards(cards, pidx);
     return;
   }
  
@@ -2864,6 +2881,7 @@ function applyEffect(ev, cards, pidx) {
       G.discard.push(...hand.splice(0, toFlush));
       addLog(`${G.players[pidx].name} flushes ${toFlush} cards (Royal Flush)!`, true);
     }
+    _queueJokersFromCards(cards, pidx);
     return;
   }
  
@@ -2957,6 +2975,7 @@ function applyEffect(ev, cards, pidx) {
         applyEffect(tripEv, cards.slice(0, 3), pidx);
       }
     }
+    _queueJokersFromCards(cards, pidx);
     return;
   }
   if (eff === 'royal_six') {
@@ -3227,6 +3246,7 @@ function applyEffect(ev, cards, pidx) {
         addLog(G.players[pidx].name + ' flushes ' + toFlush + ' card(s) (Four 2s)!', false);
       }
     }
+    _queueJokersFromCards(cards, pidx);
     return;
   }
   if (eff.startsWith('power_7_')) {
@@ -3322,6 +3342,7 @@ function applyEffect(ev, cards, pidx) {
         G.extraTurn = true; // AI plays best combo on extra turn
       }
     }
+    _queueJokersFromCards(cards, pidx);
     return;
   }
   if (eff.startsWith('power_8_')) {
@@ -3391,6 +3412,7 @@ function applyEffect(ev, cards, pidx) {
         addLog('🔄 8s! Suit changed to ' + newSuit + '!', true);
       }
     }
+    _queueJokersFromCards(cards, pidx);
     return;
   }
   if (eff.startsWith('power_9_')) {
@@ -3473,6 +3495,7 @@ function applyEffect(ev, cards, pidx) {
         }
       }
     }
+    _queueJokersFromCards(cards, pidx);
     return;
   }
  
@@ -3504,6 +3527,7 @@ function applyEffect(ev, cards, pidx) {
       }
       applyKingTax(tIdx, n, cards[0].suit, taxAmt, pidx);
     }
+    _queueJokersFromCards(cards, pidx);
     return;
   }
   if (eff === 'queen' || eff.startsWith('2x_q') || eff.startsWith('3x_q') || eff.startsWith('4x_q')) {
@@ -3524,6 +3548,7 @@ function applyEffect(ev, cards, pidx) {
         addLog(`👸 ${n}x Queens! Suit → ${newSuit}. Next player may play +${n-1} card(s) of ${newSuit} as a bonus!`, true);
       }
     }
+    _queueJokersFromCards(cards, pidx);
     return;
   }
   if (eff === 'jack' || eff.startsWith('2x_j') || eff.startsWith('3x_j') || eff.startsWith('4x_j')) {
@@ -3542,6 +3567,7 @@ function applyEffect(ev, cards, pidx) {
       hand.sort((a,b) => (RANK_VAL[a.rank]||0) - (RANK_VAL[b.rank]||0));
       G.discard.push(...hand.splice(0, toFlush));
     }
+    _queueJokersFromCards(cards, pidx);
     return;
   }
  
@@ -3570,6 +3596,7 @@ function applyEffect(ev, cards, pidx) {
         if (play) doPlayCards(pidx, play, { skipAnimation:true });
       }
     }
+    _queueJokersFromCards(cards, pidx);
     return;
   }
  
@@ -3614,6 +3641,7 @@ function applyEffect(ev, cards, pidx) {
     if (G._extraLawDraws > 4) G._extraLawDraws = 4; // hard cap
     const label6 = n===2?'Pair':n===3?'Three':'Four';
     addLog(`6️⃣ ${label6} of 6s! Law Draw +${extraDraws} this turn (total +${G._extraLawDraws} extra)!`, true);
+    _queueJokersFromCards(cards, pidx);
     return;
   }
 
@@ -3624,6 +3652,7 @@ function applyEffect(ev, cards, pidx) {
     const allTargets = _collectEnemyTrapTargets(pidx);
     if (allTargets.length === 0) {
       addLog(`🔨 ${G.players[pidx].name} plays ${n}x 4s, but no enemy traps were available.`, false);
+      _queueJokersFromCards(cards, pidx);
       return;
     }
 
@@ -3635,12 +3664,14 @@ function applyEffect(ev, cards, pidx) {
     const targets = destroyCap === Infinity ? allTargets : allTargets.slice(0, destroyCap);
     const removed = _destroyTrapTargets(targets);
     _logTrapSapperResult(pidx, n, removed.length, destroyCap);
+    _queueJokersFromCards(cards, pidx);
     return;
   }
 
   // ── NORMAL SETS ──
   if (eff === 'normal_set') {
     addLog(`Played ${ev.name} for ${ev.pts} points.`, false);
+    _queueJokersFromCards(cards, pidx);
     return;
   }
 }
@@ -6369,12 +6400,11 @@ function getCombinations(arr, k) {
 }
  
 // Queue joker effects from a non-joker combo ("extensions").
-// Only ONE joker is allowed to extend another combo — if multiple jokers are
-// present we only take the first here; pure Joker combos (Double/Triple/Joker House)
-// are handled separately via their own effects.
+// Any joker included in a non-joker combo should still fire its suit effect.
+// Pure Joker combos (Double/Triple/Joker House) are handled via their own branches.
 function _queueJokersFromCards(cards, pidx) {
   if (!cards) return;
-  const jokers = cards.filter(c => c.rank === 'JKR').slice(0, 1);
+  const jokers = cards.filter(c => c.rank === 'JKR');
   if (jokers.length === 0) return;
   if (pidx === 0) {
     queueJokerEffects(jokers, pidx, () => {
@@ -8849,7 +8879,7 @@ function _buildHomeFlowItems(stage) {
       { label:_styleTag(hasPoints, 'Point Lord'), onSelect:() => { toggleStyle('points'); renderHomeMenu(); } },
       { label:_styleTag(hasMoney, 'Money Master'), onSelect:() => { toggleStyle('money'); renderHomeMenu(); } },
       { label:_styleTag(SETUP.ancestors, 'Ancestors Rule'), onSelect:() => { selectAncestors(); renderHomeMenu(); } },
-      { label:(ready ? 'Continue →' : 'Continue (Pick Style)'), onSelect:() => { if (ready) goToStakes(); } },
+      { label:(ready ? 'Continue →' : 'Continue (Pick Style)'), disabled:!ready, onSelect:() => { if (ready) goToStakes(); } },
       { label:'← Back', onSelect:() => setHomeStage('mode') },
     ];
   }
@@ -8907,7 +8937,7 @@ function renderHomeMenu() {
   HOME_FLOW.items = _buildHomeFlowItems(HOME_FLOW.stage);
   homeMenuIndex = Math.max(0, Math.min(homeMenuIndex, Math.max(0, HOME_FLOW.items.length - 1)));
   list.innerHTML = HOME_FLOW.items.map((item, i) =>
-    `<li role="none"><button type="button" class="home-menu-item${i===homeMenuIndex?' selected':''}" role="menuitem" aria-selected="${i===homeMenuIndex}" onclick="homeMenuSelect(${i})">${item.label}</button></li>`
+    `<li role="none"><button type="button" class="home-menu-item${item.disabled?' disabled':''}${i===homeMenuIndex?' selected':''}" role="menuitem" aria-selected="${i===homeMenuIndex}" aria-disabled="${item.disabled?'true':'false'}" onclick="homeMenuSelect(${i})">${item.label}</button></li>`
   ).join('');
   renderHomeFlowInfo();
 }
@@ -10862,11 +10892,14 @@ function _startHomeMusic() {
     _fade(homeAudio, isMuted ? 0 : 0.65, 1200, null, 'home');
   }).catch(() => {
     // Browser blocked autoplay — will retry on first interaction via _onFirstInteraction
+    _startDesktopAutoplayRetry();
   });
 }
 
 function _isDesktopAutoplayMode() {
-  return window.innerWidth >= 900 && !('ontouchstart' in window);
+  const finePointer = window.matchMedia && window.matchMedia('(pointer:fine)').matches;
+  const canHover = window.matchMedia && window.matchMedia('(hover:hover)').matches;
+  return window.innerWidth >= 900 && (finePointer || canHover);
 }
 
 function _startDesktopAutoplayRetry() {
@@ -11028,9 +11061,11 @@ showScreen = function(id) {
       _homeStarted = false;
       _updatePlayBtn();
       _startHomeMusic();
+      _startDesktopAutoplayRetry();
     } else if (homeAudio.paused && _unlocked) {
       // Unlocked but paused (e.g. navigated away and back) — restart
       _startHomeMusic();
+      _startDesktopAutoplayRetry();
     }
     // Music already playing → do absolutely nothing
   }
