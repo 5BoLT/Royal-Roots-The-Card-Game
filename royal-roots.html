@@ -486,9 +486,22 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   opacity:.32;pointer-events:none
 }
 .oval-table > *{position:relative;z-index:2}
-.table-watermark{
-  color:rgba(255,182,97,.2);
-  text-shadow:0 0 18px rgba(143,77,255,.3),0 0 30px rgba(255,148,31,.22)
+.table-center-logo{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  width:clamp(82px,11vw,132px);
+  aspect-ratio:1/1;
+  border-radius:50%;
+  background:
+    url('https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Logo.png') center/contain no-repeat,
+    url('https://raw.githubusercontent.com/SBoLT/Royal-Roots-The-Card-Game/main/RR_Logo.png') center/contain no-repeat,
+    url('Images/RR_Logo.png') center/contain no-repeat;
+  opacity:.26;
+  z-index:1;
+  pointer-events:none;
+  filter:drop-shadow(0 0 10px rgba(255,148,31,.25)) drop-shadow(0 0 10px rgba(143,77,255,.22))
 }
 
 
@@ -512,7 +525,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   max-width:clamp(80px,18vw,160px);overflow:hidden
 }
 .opp-name{font-size:11px;font-family:'Cinzel',serif;color:var(--gold);text-transform:uppercase;letter-spacing:3px}
-.opp-meta{display:flex;gap:10px;font-size:9px;color:rgba(240,192,64,.7);font-family:monospace}
+.opp-meta{display:flex;flex-direction:column;gap:2px;font-size:9px;color:rgba(240,192,64,.7);font-family:monospace;line-height:1.1}
 .opp-cards{display:flex;margin-top:4px;opacity:.75}
 .opp-cards .card-back-mini{
   width:22px;height:30px;
@@ -1736,7 +1749,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 
     <!-- OVAL TABLE -->
     <div class="oval-table" id="ovalTable">
-      <div class="table-watermark">Royal Roots</div>
+      <div class="table-center-logo" aria-hidden="true"></div>
       <div id="opponentsArea" style="position:absolute;inset:0;pointer-events:none"></div>
 
       <!-- CENTRAL BOARD -->
@@ -2191,6 +2204,8 @@ function buildAndDeal() {
   do { fc = G.deck.pop(); } while (fc.rank === 'JKR');
   G.faceCard = fc;
   G.discard = [fc];
+  // Fresh deal each match: clear any previous-hand carryover.
+  G.players.forEach(p => { p.hand = []; });
  
   // Deal 9 each
   for (let r = 0; r < 9; r++)
@@ -3717,12 +3732,12 @@ function applyEffect(ev, cards, pidx) {
         const play = findBestPlay(G.players[pidx].hand);
         if (play) {
           const single = [play[0]];
-          doPlayCards(pidx, single, { skipAnimation:true });
+          doPlayCards(pidx, single, { skipAnimation:true, visualAnimation:true });
         }
       } else if (n === 4) {
         // Play best combo
         const play = findBestPlay(G.players[pidx].hand);
-        if (play) doPlayCards(pidx, play, { skipAnimation:true });
+        if (play) doPlayCards(pidx, play, { skipAnimation:true, visualAnimation:true });
       }
     }
     _queueJokersFromCards(cards, pidx);
@@ -3791,6 +3806,11 @@ function applyEffect(ev, cards, pidx) {
     }
 
     const targets = destroyCap === Infinity ? allTargets : allTargets.slice(0, destroyCap);
+    const fourCounter = _resolveTrapFourCounter(targets, pidx);
+    if (fourCounter) {
+      _queueJokersFromCards(cards, pidx);
+      return;
+    }
     const removed = _destroyTrapTargets(targets);
     _logTrapSapperResult(pidx, n, removed.length, destroyCap);
     _queueJokersFromCards(cards, pidx);
@@ -3898,6 +3918,26 @@ function _collectEnemyTrapTargets(pidx) {
   return targets;
 }
 
+function _resolveTrapFourCounter(targets, attackerIdx) {
+  if (!Array.isArray(targets) || targets.length === 0) return null;
+  for (const t of targets) {
+    if (!t || !t.trap || !t.trap.card) continue;
+    if (t.trap.card.rank !== '4') continue;
+    const ownerIdx = t.ownerIdx;
+    const zone = (G.traps && G.traps[ownerIdx]) ? G.traps[ownerIdx] : [];
+    const idx = zone.indexOf(t.trap);
+    if (idx === -1) continue;
+    const trapped = zone.splice(idx, 1)[0];
+    if (!trapped || !trapped.card) continue;
+    G.faceCard = trapped.card;
+    G.discard.push(trapped.card);
+    G._forcedNextTurn = ownerIdx;
+    addLog(`🛡️ Trap 4 counter! ${G.players[ownerIdx].name}'s 4 is revealed, becomes Face Card, and steals the turn from ${G.players[attackerIdx].name}.`, true);
+    return { ownerIdx, card: trapped.card };
+  }
+  return null;
+}
+
 function _destroyTrapTargets(targets) {
   if (!targets || targets.length === 0) return [];
   const byOwner = {};
@@ -3942,6 +3982,8 @@ function openTrapSapperModal(pidx, n, destroyCap, targets) {
   const modal = document.getElementById('trapSapperModal');
   if (!modal) {
     const fallback = destroyCap === Infinity ? targets : targets.slice(0, destroyCap);
+    const fourCounter = _resolveTrapFourCounter(fallback, pidx);
+    if (fourCounter) return;
     const removedFallback = _destroyTrapTargets(fallback);
     _logTrapSapperResult(pidx, n, removedFallback.length, destroyCap);
     return;
@@ -4013,6 +4055,21 @@ function trapSapperConfirm() {
   const targets = st.destroyCap === Infinity
     ? st.targets
     : st.targets.filter(t => selectedSet.has(`${t.ownerIdx}:${t.trapIdx}`));
+
+  const fourCounter = _resolveTrapFourCounter(targets, st.pidx);
+  if (fourCounter) {
+    const modalCounter = document.getElementById('trapSapperModal');
+    if (modalCounter) modalCounter.style.display = 'none';
+    G._trapSapper = null;
+    G.phase = 'play';
+    G.turnPhase = 'done';
+    renderGame();
+    updateBtns();
+    fireTwoPairPending(0);
+    addLog('Trap Fours resolved by hidden 4 counter. Click END TURN to pass.', false);
+    renderLog();
+    return;
+  }
 
   const removed = _destroyTrapTargets(targets);
   _logTrapSapperResult(st.pidx, st.n, removed.length, st.destroyCap);
@@ -7101,6 +7158,30 @@ function aiSetTraps(pidx) {
   if (!G.traps) G.traps = G.players.map(() => []);
   const animUntil = Date.now() + 1400;
   picks.forEach(card => G.traps[pidx].push({ card, faceUp: false, animUntil }));
+  setTimeout(() => {
+    renderOpponents();
+    const seat = document.querySelectorAll('.opponent-seat')[pidx - 1];
+    const trapWrap = document.getElementById(`opp-traps-${pidx}`);
+    if (!seat || !trapWrap) return;
+    const seatRect = seat.getBoundingClientRect();
+    const startX = seatRect.left + seatRect.width / 2;
+    const startY = seatRect.top + Math.max(16, seatRect.height * 0.25);
+    const slots = trapWrap.querySelectorAll('.opp-trap.trap-new');
+    slots.forEach((slot, i) => {
+      const tr = slot.getBoundingClientRect();
+      const tx = (tr.left + tr.width / 2) - startX;
+      const ty = (tr.top + tr.height / 2) - startY;
+      const flyEl = document.createElement('div');
+      flyEl.className = 'trap-fly-card';
+      flyEl.style.left = `${startX - 18}px`;
+      flyEl.style.top = `${startY - 25}px`;
+      flyEl.style.setProperty('--tx', `${tx}px`);
+      flyEl.style.setProperty('--ty', `${ty}px`);
+      flyEl.style.animationDelay = `${i * 80}ms`;
+      document.body.appendChild(flyEl);
+      setTimeout(() => flyEl.remove(), 550 + i * 80);
+    });
+  }, 0);
   if (G.players[pidx].hand.length === 0) { checkWin(pidx); }
   const trapList = picks.map(c => `${c.rank}${c.suit}`).join(', ');
   addLog(`🎭 ${G.players[pidx].name} sets ${picks.length} trap card(s) [${trapList}] (same rank or ±1 trigger; exact takes next turn, ±1 cannot cut line).`, false);
@@ -7124,7 +7205,7 @@ function advanceTurnIdx(from) {
  
 // ========== PLAY CARDS ==========
 // =====================================================================
-// 🃏 CARD PLAY ANIMATION — each card lands on face card 0.2s apart
+// 🃏 CARD PLAY ANIMATION — each card lands on face card 0.15s apart
 // =====================================================================
 function animateCardsToFaceCard(cards, onDone) {
   const fcd = document.getElementById('faceCardDisplay');
@@ -7135,22 +7216,23 @@ function animateCardsToFaceCard(cards, onDone) {
   function landNext() {
     if (idx >= cards.length) { if (onDone) onDone(); return; }
     const c = cards[idx++];
-    fcd.innerHTML = cardEl(c, 'card-land animating');
+    fcd.innerHTML = cardEl(c, 'card-land-fast animating');
     // Re-trigger animation if same card shows twice
-    const el = fcd.querySelector('.card-land');
+    const el = fcd.querySelector('.card-land-fast');
     if (el) {
       void el.offsetWidth;
-      el.classList.add('card-land');
+      el.classList.add('card-land-fast');
       // Clear transient animation lock so renderCenter can update afterward
-      setTimeout(() => { el.classList.remove('animating'); }, 240);
+      setTimeout(() => { el.classList.remove('animating'); }, 180);
     }
-    setTimeout(landNext, 200);
+    setTimeout(landNext, 150);
   }
   landNext();
 }
 
 function doPlayCards(pidx, cards, opts = {}) {
   const skipAnimation = !!opts.skipAnimation;
+  const visualAnimation = !!opts.visualAnimation;
   // Validate first without side effects
   const ev = evalCombo(cards);
   if (!ev.valid) return false;
@@ -7164,6 +7246,8 @@ function doPlayCards(pidx, cards, opts = {}) {
   renderHand(); // immediately remove from UI
   if (skipAnimation) {
     _doPlayCardsCore(pidx, validCards);
+    // Keep logic synchronous while still rendering face-card animation (used by AI).
+    if (visualAnimation) animateCardsToFaceCard(validCards);
   } else {
     // Animate cards landing on face card, then apply game logic
     animateCardsToFaceCard(validCards, () => {
@@ -7632,7 +7716,7 @@ function aiTurn(pidx) {
     const play = didPlay ? null : (hasWarMomentum ? findBestPlayIgnoreFC(player.hand) : findBestPlay(player.hand));
  
     if (play && play.length > 0) {
-      didPlay = doPlayCards(pidx, play, { skipAnimation:true }) || didPlay;
+      didPlay = doPlayCards(pidx, play, { skipAnimation:true, visualAnimation:true }) || didPlay;
     } else {
       // Draw and try again once
       if (G.deck.length===0) reshuffleDiscard();
@@ -7642,7 +7726,7 @@ function aiTurn(pidx) {
         addLog(`${player.name} draws.`);
         aiDrawAnim(pidx, 1, null);
         if (answersFC(drawn)) {
-          didPlay = doPlayCards(pidx, [drawn], { skipAnimation:true }) || didPlay;
+          didPlay = doPlayCards(pidx, [drawn], { skipAnimation:true, visualAnimation:true }) || didPlay;
         } else {
           addLog(`${player.name} can't play.`);
         }
@@ -7655,7 +7739,7 @@ function aiTurn(pidx) {
       const replay = findBestPlay(suited);
       if (replay && replay.length > 0) {
         addLog(`⭕ ${player.name} Zero Replay in ${zSuit}.`, false);
-        didPlay = doPlayCards(pidx, replay, { skipAnimation:true }) || didPlay;
+        didPlay = doPlayCards(pidx, replay, { skipAnimation:true, visualAnimation:true }) || didPlay;
       } else {
         addLog(`⭕ ${player.name} has no ${zSuit} replay after Zero Ghost.`, false);
       }
@@ -8627,13 +8711,15 @@ function renderOpponents() {
       return `<div class="${cls}" title="${tt}">${txt}</div>`;
     }).join('');
     const trapCount = trapZone.length;
+    const oppPts = (G.pts && Number.isFinite(G.pts[pidx])) ? G.pts[pidx] : 0;
     return `<div class="opponent-seat${active?' active':''}" style="left:${pPos.x}%;top:${pPos.y}%;transform:translate(-50%,-50%)">
       <div class="opponent-avatar">${p.emoji}</div>
       <div class="opponent-label">
         <span class="opp-name">${p.name}${p.isPartner?' 🤝':''}</span>
-        <div class="opp-meta"><span>${trapCount} TRAP${trapCount!==1?'S':''}</span></div>
+        <div class="opp-meta"><span>${oppPts} pts</span><span>${trapCount} TRAP${trapCount!==1?'S':''}</span></div>
       </div>
       <div class="opp-cards">${backs}</div>
+      <div class="opp-traps" id="opp-traps-${pidx}">${trapHtml || '<span class="opp-trap-empty">No traps</span>'}</div>
     </div>`;
   }).join('');
 }
@@ -8641,7 +8727,7 @@ function renderOpponents() {
 function renderCenter() {
   const fcd=document.getElementById('faceCardDisplay');
   // Don't overwrite during card-land animation
-  const landingNow = fcd && fcd.querySelector('.card-land.animating');
+  const landingNow = fcd && fcd.querySelector('.card-land.animating, .card-land-fast.animating');
   if (!landingNow) {
     fcd.innerHTML=G.faceCard?cardEl(G.faceCard):'<div style="width:62px;height:88px;border:2px dashed #333;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#333;font-size:20px">?</div>';
   }
@@ -9544,7 +9630,7 @@ const COMBO_TABLE = [
   ['Pair of 2s','8','Next draws 2 and is skipped'],
   ['Three 2s','25','Next draws 3 and is skipped; flush 1 card'],
   ['Four 2s','65','Next draws 4 and is skipped; flush 2 cards'],
-  ['Trap Fours','8/30/65','Pair 4s destroy any 2 enemy traps, Three 4s destroy any 4 enemy traps, Four 4s wipe all enemy traps'],
+  ['Trap Fours','8/30/65','Pair 4s destroy any 2 enemy traps, Three 4s destroy any 4 enemy traps, Four 4s wipe all enemy traps. If a selected trap is a 4, it is not destroyed: it flips, becomes Face Card, and that trap owner steals the next turn'],
   ['Sixes (pair/trips/quads)','11/39/96','Law Draw +1 per 6 played; stacks up to 4 extra Law Draw cards'],
   ['Pair of 7s','8','Skip next player'],
   ['Three 7s','30','Pick 1 card from discard (recent 10 behind face card), skip 2 players'],
@@ -10866,6 +10952,7 @@ function _buildAddOnsHelp() {
     Valid trap cards include numeric trap ranks plus Joker trap variants.<br>
     A trap triggers when Face Card is <b>same rank</b> or <b>within ±1</b> of trap rank.<br>
     Triggered trap becomes the new Face Card. Exact-rank trigger grants immediate next turn priority.<br>
+    <b>Trap 4 Counter Rule:</b> if Trap Fours targets a face-down trap and that trap is a <b>4</b>, it is not destroyed; it flips into the Face Card and the trap owner immediately takes the next turn.<br>
     Joker trap counters can override, punish, or void major actions depending on suit.
   `);
 }
