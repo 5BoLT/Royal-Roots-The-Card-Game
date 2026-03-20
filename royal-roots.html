@@ -565,6 +565,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 .player-trap-card.facedown{background:var(--card-back-bg);border-color:rgba(240,192,64,.55);color:transparent;box-shadow:0 1px 6px rgba(0,0,0,.5)}
 .player-trap-card.faceup{background:rgba(93,173,226,.32);border-color:#a7d2f1;color:#f1f8ff}
 .player-trap-card.trap-new{animation:trapSetPop .55s cubic-bezier(.2,.8,.2,1)}
+.player-trap-card.peeking{background:rgba(93,173,226,.32);border-color:#a7d2f1;color:#f1f8ff}
 /* Trap card fly: hand → trap bar slot (direct path, lands exactly on slot) */
 @keyframes trapCardFly{
   0%   {transform:translate(0,0) scale(1);opacity:1}
@@ -2263,16 +2264,21 @@ function answersFC(card) {
   const fc = G.faceCard;
   if (!fc) return true;
   const fcRank = fc.rank;
+  const naturalMatch = card.suit === fc.suit || card.rank === fc.rank;
  
   // HIERARCHY: Joker > King = Queen > Jack > numbers
   // Kings & Queens override Jokers (royal jurisdiction)
   if (card.rank === 'K') return true;               // Kings override everything
-  if (card.rank === 'Q') return true;               // Queens override everything (incl. Jokers)
+  if (card.rank === 'Q') {
+    // Queens cannot hard-override Kings/Jokers unless they naturally answer by suit/rank.
+    if (fcRank === 'K' || fcRank === 'JKR') return naturalMatch;
+    return true;                                    // Queens override all other ranks
+  }
   if (card.rank === 'JKR') return true;             // Jokers override everything except K/Q handled above
   if (card.rank === 'J') {
-    // Jacks CANNOT override Kings, Queens, or Jokers
-    if (fcRank === 'K' || fcRank === 'Q' || fcRank === 'JKR') return false;
-    return true;                                    // Jacks override numbers only
+    // Jacks cannot override K/Q/JKR unless they naturally answer by suit/rank.
+    if (fcRank === 'K' || fcRank === 'Q' || fcRank === 'JKR') return naturalMatch;
+    return true; // Jacks override numbers only
   }
   if (card.rank === '8') {
     // 8s cannot override suit — must match suit OR same number
@@ -2456,13 +2462,9 @@ function evalZeroProtocol(cards) {
       : R('Zero Pair (Choice Flush 2) ⭕⭕', 10, 'COMMON', 'zero_pair_diff');
   }
   if (n === 3) {
-    const suits = new Set(cards.map(c => c.suit));
-    if (suits.size !== 3) return { valid:false, reason:'Three 0s must be different suits' };
     return R('Zero Triple (Choice Flush 4) ⭕⭕⭕', 30, 'RARE', 'zero_triple_diff');
   }
   if (n === 4) {
-    const suits = new Set(cards.map(c => c.suit));
-    if (suits.size !== 4) return { valid:false, reason:'Four 0s must all be different suits' };
     return R('Zero Quad (Choice Flush 6) ⭕⭕⭕⭕', 70, 'EPIC', 'zero_quad_diff');
   }
   return { valid:false, reason:'Zero combos support up to 4 cards' };
@@ -7066,9 +7068,26 @@ function renderPlayerTrapBar() {
     const fresh = t.animUntil && t.animUntil > now;
     const cls = `player-trap-card ${t.faceUp ? 'faceup' : 'facedown'}${fresh ? ' trap-new' : ''}`;
     const txt = t.faceUp ? `${t.card.rank}${t.card.suit}` : '🂠';
-    const tt = t.faceUp ? `Your trap: ${t.card.rank}${t.card.suit}` : 'Your face-down trap';
-    return `<div class="${cls}" title="${tt}" data-idx="${idx}">${txt}</div>`;
+    const tt = t.faceUp ? `Your trap: ${t.card.rank}${t.card.suit}` : `Your face-down trap (${t.card.rank}${t.card.suit})`;
+    return `<div class="${cls}" title="${tt}" data-idx="${idx}" data-rank="${t.card.rank}" data-suit="${t.card.suit}">${txt}</div>`;
   }).join('');
+  // Peek behavior: owner may inspect facedown traps without moving/playing them.
+  el.querySelectorAll('.player-trap-card.facedown').forEach(node => {
+    const showPeek = () => {
+      node.classList.add('peeking');
+      node.textContent = `${node.dataset.rank || ''}${node.dataset.suit || ''}`;
+    };
+    const hidePeek = () => {
+      node.classList.remove('peeking');
+      node.textContent = '🂠';
+    };
+    node.addEventListener('mouseenter', showPeek);
+    node.addEventListener('mouseleave', hidePeek);
+    node.addEventListener('touchstart', () => {
+      showPeek();
+      setTimeout(hidePeek, 1200);
+    }, { passive: true });
+  });
 }
 
 function setSelectedTraps(faceUp=false) {
@@ -11177,6 +11196,7 @@ let   _homeStarted   = false; // true once home music has been successfully star
 let   _homeFadeTimer = null;
 let   _ingFadeTimer  = null;
 let   _desktopAutoRetryTimer = null;
+let   _ingameAutoRetryTimer = null;
 
 homeAudio.volume  = 0.65;
 homeAudio.loop    = true;
@@ -11238,6 +11258,18 @@ function _startDesktopAutoplayRetry() {
   }, 2500);
 }
 
+function _startIngameAutoplayRetry() {
+  if (_ingameAutoRetryTimer) return;
+  _ingameAutoRetryTimer = setInterval(() => {
+    if (!ingamePlaying || _musicPaused || document.hidden) return;
+    if (!ingameAudio || !ingameAudio.paused) return;
+    ingameAudio.play().then(() => {
+      _fade(ingameAudio, isMuted ? 0 : 0.65, 500, null, 'ingame');
+      _updatePlayBtn();
+    }).catch(()=>{});
+  }, 2200);
+}
+
 function _stopHomeForGame(onDone) {
   // ONLY called when transitioning to game. Fades out and pauses.
   _homeStarted = false;
@@ -11271,6 +11303,7 @@ function _playIngame() {
   if (ingamePlaying) return;
   ingamePlaying = true;
   _musicPaused = false;
+  _startIngameAutoplayRetry();
   _stopHomeForGame(() => { if (ingamePlaying) _loadTrack(); });
 }
 
@@ -11379,6 +11412,7 @@ showScreen = function(id) {
       // Returned from game — stop ingame, restart home
       ingamePlaying = false;
       _musicPaused = false;
+      if (_ingameAutoRetryTimer) { clearInterval(_ingameAutoRetryTimer); _ingameAutoRetryTimer = null; }
       if (_ingFadeTimer) { clearInterval(_ingFadeTimer); _ingFadeTimer = null; }
       ingameAudio.pause();
       ingameAudio.src = '';
@@ -11415,6 +11449,19 @@ showScreen = function(id) {
     _ingameStarted = false; // allow music to start fresh next game
   }
 };
+
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden && HOME_SCREENS.has(activeScreen)) {
+    _startHomeMusic();
+    _startDesktopAutoplayRetry();
+  }
+  if (!document.hidden && ingamePlaying && !_musicPaused) {
+    _startIngameAutoplayRetry();
+    if (ingameAudio && ingameAudio.paused) {
+      ingameAudio.play().then(() => _fade(ingameAudio, isMuted ? 0 : 0.65, 500, null, 'ingame')).catch(()=>{});
+    }
+  }
+});
 
 
 // ── GOLD SPARKLE TOUCH EFFECT ─────────────────────────────────
