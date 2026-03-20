@@ -498,7 +498,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   100% {transform:translate(var(--tx,0px),var(--ty,0px)) scale(0.98);opacity:0}
 }
 .trap-fly-card{
-  position:fixed;pointer-events:none;z-index:500;
+  position:fixed;pointer-events:none;z-index:520;
   width:36px;height:50px;border-radius:6px;
   display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px;
   border:2px solid rgba(240,192,64,.75);
@@ -506,6 +506,23 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   background:var(--card-back-bg);
   box-shadow:0 4px 18px rgba(0,0,0,.7),0 0 12px rgba(180,120,255,.4);
   animation:trapCardFly 0.5s cubic-bezier(0.25,0.1,0.25,1) forwards;
+}
+/* User trap zone floats above the lower black area */
+#playerTrapBar{
+  position:fixed!important;
+  left:50%;
+  transform:translateX(-50%);
+  bottom:clamp(118px,19vh,185px);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:2px 10px;
+  background:transparent!important;
+  border:none!important;
+  flex-wrap:wrap;
+  z-index:140;
+  pointer-events:none;
 }
 
 .trap-zone-head{font-size:9px;color:rgba(174,214,241,.95);letter-spacing:1px;line-height:1.25}
@@ -1037,6 +1054,11 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   display:flex!important;
   max-width:100%;
   opacity:1!important;
+  background:transparent!important;
+  background-image:none!important;
+  padding:0!important;
+  min-height:auto!important;
+  overflow:visible!important;
 }
 .ace-modal-inner{
   background:var(--modal-bg);border:3px solid var(--modal-border);
@@ -1848,7 +1870,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   </div>
 
   <!-- PLAYER TRAP BAR (above footer gold line) -->
-  <div id="playerTrapBar" style="display:none;align-items:center;justify-content:center;gap:6px;padding:4px 12px;background:rgba(0,0,0,.92);border-top:1px solid rgba(133,193,233,.2);flex-wrap:wrap;position:relative;z-index:49"></div>
+  <div id="playerTrapBar" style="display:none"></div>
 
   <!-- PLAYER FOOTER -->
   <div class="player-footer">
@@ -9027,6 +9049,16 @@ function selectAncestors() {
 }
  
 var inSetupOverlayFlow = false;
+function detachOverlayScreen(screenId) {
+  var ov = document.getElementById('setupOverlay');
+  var el = document.getElementById(screenId);
+  if (!ov || !el) return;
+  if (el.parentNode === ov) {
+    el.classList.remove('active');
+    ov.removeChild(el);
+    document.body.appendChild(el);
+  }
+}
 function closeSetupOverlay() {
   var ov = document.getElementById('setupOverlay');
   if (!ov) return;
@@ -9046,6 +9078,12 @@ function showSetupOverlayWith(screenId) {
   var ov = document.getElementById('setupOverlay');
   var el = document.getElementById(screenId);
   if (!ov || !el) return;
+  while (ov.firstElementChild) {
+    var prev = ov.firstElementChild;
+    prev.classList.remove('active');
+    ov.removeChild(prev);
+    document.body.appendChild(prev);
+  }
   if (el.parentNode) el.parentNode.removeChild(el);
   el.classList.add('active');
   ov.appendChild(el);
@@ -9128,9 +9166,7 @@ function goToMatchPick() {
   SETUP.minBet = Math.max(1, Math.round(SETUP.chips * 0.05));
   _refreshMatchPickScreen();
   if (inSetupOverlayFlow) {
-    var ov = document.getElementById('setupOverlay');
-    var stakes = document.getElementById('stakes-select');
-    if (stakes && stakes.parentNode === ov) { ov.removeChild(stakes); document.body.appendChild(stakes); }
+    detachOverlayScreen('stakes-select');
     showSetupOverlayWith('match-pick');
   } else {
     showScreen('match-pick');
@@ -9190,9 +9226,7 @@ function confirmMatches(n) {
   SETUP.matchesTo = n;
   if (inSetupOverlayFlow) {
     _applySetupToGame();
-    var ov = document.getElementById('setupOverlay');
-    var mp = document.getElementById('match-pick');
-    if (mp && mp.parentNode === ov) { ov.removeChild(mp); document.body.appendChild(mp); }
+    detachOverlayScreen('match-pick');
     showSetupOverlayWith('draft-screen');
     startDraftPhase(true);
   } else {
@@ -9206,9 +9240,7 @@ function confirmCustomMatches() {
   SETUP.matchesTo = Math.min(val, 99);
   if (inSetupOverlayFlow) {
     _applySetupToGame();
-    var ov = document.getElementById('setupOverlay');
-    var mp = document.getElementById('match-pick');
-    if (mp && mp.parentNode === ov) { ov.removeChild(mp); document.body.appendChild(mp); }
+    detachOverlayScreen('match-pick');
     showSetupOverlayWith('draft-screen');
     startDraftPhase(true);
   } else {
@@ -9656,9 +9688,7 @@ function draftConfirm() {
 
   G.draft = null;
   if (inSetupOverlayFlow) {
-    var ov = document.getElementById('setupOverlay');
-    var draftEl = document.getElementById('draft-screen');
-    if (draftEl && draftEl.parentNode === ov) { ov.removeChild(draftEl); document.body.appendChild(draftEl); }
+    detachOverlayScreen('draft-screen');
     inSetupOverlayFlow = false;
     var o = document.getElementById('setupOverlay');
     if (o) { o.classList.remove('open'); o.style.display = 'none'; }
