@@ -700,6 +700,30 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   border-radius:0 0 14px 14px;border-top:1px solid rgba(240,192,64,.1)
 }
 .log-next{font-size:9px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+#logResizeHandle{
+  position:absolute;
+  right:-8px;
+  bottom:-8px;
+  width:30px;
+  height:30px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:nwse-resize;
+  opacity:.92;
+  font-size:15px;
+  line-height:1;
+  color:rgba(240,192,64,.95);
+  background:rgba(0,0,0,.92);
+  border:1px solid rgba(240,192,64,.55);
+  border-radius:50%;
+  box-shadow:0 2px 10px rgba(0,0,0,.6);
+  user-select:none;
+  touch-action:none;
+  -webkit-user-select:none;
+  z-index:30;
+}
+.action-log.minimized #logResizeHandle{display:none!important}
 
 
 /* ── GOLD SPARKLE TOUCH EFFECT ─────────────────────────────── */
@@ -1225,13 +1249,17 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   50%{opacity:.78}
 }
 #betTurnLabel{
-  display:none;margin:14px auto 4px auto;
+  display:none;
+  width:calc(100% - clamp(20px,6vw,44px));
+  max-width:420px;
+  margin:10px auto 8px auto;
   font-size:11px;color:var(--gold);font-family:Cinzel,serif;letter-spacing:3px;
   text-transform:uppercase;padding:6px 20px;
   background:rgba(240,192,64,.07);border-radius:8px;
   border:1px solid rgba(240,192,64,.18);
   animation:pulse 1.5s ease-in-out infinite;
   text-align:center;
+  box-sizing:border-box;
 }
 
 /* ══════════════════════════════════════════════════════════════════ */
@@ -1338,13 +1366,22 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
     bottom:5px;right:5px;border-radius:8px
   }
   .action-log.mobile-docked{
-    top:auto!important;
-    bottom:clamp(200px,28vh,320px)!important;
-    right:8px!important;
-    width:min(42vw,185px)!important;
-    height:min(22dvh,128px)!important;
+    left:auto;
+    top:auto;
+    bottom:clamp(200px,28vh,320px);
+    right:8px;
+    width:min(42vw,185px);
+    height:min(22dvh,128px);
   }
-  #logResizeHandle{width:44px;height:44px;min-width:44px;min-height:44px;font-size:22px}
+  #logResizeHandle{
+    right:-10px;
+    bottom:-10px;
+    width:34px;
+    height:34px;
+    min-width:34px;
+    min-height:34px;
+    font-size:18px;
+  }
   .log-header{padding:4px 8px}
   .log-title{font-size:10px;letter-spacing:1px}
   .log-live{font-size:8px;padding:1px 5px}
@@ -1689,10 +1726,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
         <div class="log-next" id="logNext">⏩ Waiting...</div>
       </div>
       <!-- resize handle (crop/resize corner — visible and tappable on mobile) -->
-      <div id="logResizeHandle"
-        style="position:absolute;bottom:3px;right:3px;width:20px;height:20px;cursor:nwse-resize;opacity:.85;display:flex;align-items:center;justify-content:center;padding:0;font-size:14px;line-height:1;color:rgba(240,192,64,.9);user-select:none;touch-action:none;-webkit-user-select:none;z-index:10;border-radius:0 0 8px 0"
-        title="Resize log"
-      >◢</div>
+      <div id="logResizeHandle" title="Resize log">◢</div>
     </div>
 
     <!-- PHASE BANNER -->
@@ -1961,6 +1995,28 @@ const RANK_VAL = {'0':0,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,
 // ========== STATE ==========
 let G = {};
 let bannerCb = null;
+let _skipCount = 0;
+let _aiWatchdogId = null;
+let _aiLastProgressAt = Date.now();
+
+function _markAiProgress() {
+  _aiLastProgressAt = Date.now();
+}
+
+function _ensureAiWatchdog() {
+  if (_aiWatchdogId !== null) return;
+  _aiWatchdogId = window.setInterval(() => {
+    if (!G || G.phase !== 'play' || G.bet || G.cur === 0 || G.war || G.aceState || G.jackFlush) return;
+    if (G._aiBusy !== null && G._aiBusy !== undefined) return;
+    if (Date.now() - _aiLastProgressAt < 2200) return;
+    _markAiProgress();
+    setTimeout(() => {
+      if (!G || G.phase !== 'play' || G.bet || G.cur === 0 || G.war || G.aceState || G.jackFlush) return;
+      if (G._aiBusy !== null && G._aiBusy !== undefined) return;
+      aiTurn(G.cur);
+    }, 120);
+  }, 900);
+}
  
 function initGame(mode, numPlayers) {
   const names  = ['YOU','Kenzo','Zairis','Hikari','Dante','Solenne','Ryuu','Sable','Nova','Orion','Lyra','Caelum','Vex','Mira','Frost','Axel','Nyx','Zeno'];
@@ -2014,10 +2070,14 @@ function initGame(mode, numPlayers) {
     _zeroReplaySuit: null,
     _zeroReplayOwner: null,
     _warVictorMomentum: null,
+    _aiBusy: null,
     bloodyMaryVictim: undefined,
     bloodyMaryWinner: undefined,
     royalSixWinner: undefined,
   };
+
+  _markAiProgress();
+  _ensureAiWatchdog();
 
   // Build players with correct partner indices
   for (let i = 0; i < numPlayers; i++) {
@@ -7000,7 +7060,7 @@ function aiSetTraps(pidx) {
 function nxt(from) { return (from + G.dir + G.numPlayers) % G.numPlayers; }
 function advanceTurnIdx(from) {
   let next = (from + G.dir + G.numPlayers) % G.numPlayers;
-  while (_skipCount > 0) { next = (next + G.dir + G.numPlayers) % G.numPlayers; _skipCount--; }
+  while ((_skipCount || 0) > 0) { next = (next + G.dir + G.numPlayers) % G.numPlayers; _skipCount--; }
   // Skip eliminated players
   let guard = G.numPlayers;
   while (G.players[next] && G.players[next].eliminated && guard-- > 0) {
@@ -7354,6 +7414,8 @@ function nextMatch() {
   G._zeroReplaySuit = null;
   G._zeroReplayOwner = null;
   G._warVictorMomentum = null;
+  G._aiBusy = null;
+  _markAiProgress();
   buildAndDeal();
 
   // Dead Man's Hand curse: enemies of winner draw 1 extra card
@@ -7447,6 +7509,10 @@ function nextMatch() {
  
 // ========== AI ==========
 function aiTurn(pidx) {
+  if (pidx === 0 || !G.players || !G.players[pidx]) return;
+  if (G._aiBusy !== null && G._aiBusy !== undefined) return;
+  G._aiBusy = pidx;
+  _markAiProgress();
   G.limitNext = 0;
   G.queenBonus = 0; // clear any bonus from previous queen play
   if (G.lockedSuitTurns > 0) {
@@ -7455,6 +7521,7 @@ function aiTurn(pidx) {
   }
   const delay = 700 + Math.random()*400;
   setTimeout(() => {
+    try {
     // Ignore stale AI timers after phase/turn changes (prevents turn theft/freezes).
     if (!['play'].includes(G.phase) || G.war || pidx !== G.cur) return;
 
@@ -7657,6 +7724,23 @@ function aiTurn(pidx) {
       // War/ace is handling turn advancement
       renderGame();
       renderLog();
+    }
+    } catch (err) {
+      console.error('[Royal Roots] AI turn error:', err);
+      if (G.phase === 'play') {
+        const fromIdx = (Number.isInteger(pidx) && G.players[pidx]) ? pidx : (Number.isInteger(G.cur) ? G.cur : 0);
+        G.cur = advanceTurnIdx(fromIdx);
+        G.turnPhase = 'playing';
+        G.freeDrewId = null;
+        G.sel = [];
+        renderGame();
+        renderLog();
+        if (G.cur === 0) startHumanTurn();
+        else setTimeout(() => aiTurn(G.cur), 500);
+      }
+    } finally {
+      G._aiBusy = null;
+      _markAiProgress();
     }
   }, delay);
 }
@@ -8778,8 +8862,10 @@ function exitToHome() {
   G.pendingWar = null;
   G.aceState = null;
   G.bet = null;
+  G._aiBusy = null;
   G.sel = [];
   _skipCount = 0;
+  _markAiProgress();
   // Hide Root Out reveal overlay
   const roOv = document.getElementById('rootOutRevealOverlay');
   if (roOv) roOv.classList.remove('active');
@@ -9878,6 +9964,17 @@ function _clampActionLogToViewport() {
   }
 }
 
+function _anchorActionLogToPixels(log) {
+  if (!log) return;
+  const r = log.getBoundingClientRect();
+  const maxL = Math.max(0, window.innerWidth - r.width);
+  const maxT = Math.max(0, window.innerHeight - r.height);
+  log.style.left = Math.max(0, Math.min(maxL, r.left)) + 'px';
+  log.style.top = Math.max(0, Math.min(maxT, r.top)) + 'px';
+  log.style.right = 'auto';
+  log.style.bottom = 'auto';
+}
+
 function _applyActionLogResponsiveState() {
   const log = document.getElementById('actionLog');
   const handle = document.getElementById('logDragHandle');
@@ -9933,21 +10030,17 @@ function initActionLog() {
     if (dragId !== -1) return;
     e.preventDefault(); e.stopPropagation();
     dragId = e.pointerId;
-    handle.setPointerCapture(dragId);
+    try { handle.setPointerCapture(dragId); } catch (_) {}
+    _anchorActionLogToPixels(log);
     const r = log.getBoundingClientRect();
     dragStartX = e.clientX;
     dragStartY = e.clientY;
     dragStartL = r.left;
     dragStartT = r.top;
-    // Lock to pixel position, clear right/bottom
-    log.style.left   = dragStartL + 'px';
-    log.style.top    = dragStartT + 'px';
-    log.style.right  = 'auto';
-    log.style.bottom = 'auto';
     handle.style.cursor = 'grabbing';
   });
 
-  handle.addEventListener('pointermove', e => {
+  const onDragMove = e => {
     if (e.pointerId !== dragId) return;
     e.preventDefault();
     const newL = dragStartL + (e.clientX - dragStartX);
@@ -9956,10 +10049,15 @@ function initActionLog() {
     const maxT = window.innerHeight - log.offsetHeight;
     log.style.left = Math.max(0, Math.min(maxL, newL)) + 'px';
     log.style.top  = Math.max(0, Math.min(maxT, newT)) + 'px';
+    log.style.right = 'auto';
+    log.style.bottom = 'auto';
     log._userMoved = true;
-  });
+  };
+  handle.addEventListener('pointermove', onDragMove);
+  window.addEventListener('pointermove', onDragMove);
 
   const stopDrag = e => {
+    if (dragId === -1) return;
     if (e.pointerId === dragId) {
       try { handle.releasePointerCapture(dragId); } catch (_) {}
       dragId = -1;
@@ -9968,6 +10066,8 @@ function initActionLog() {
   };
   handle.addEventListener('pointerup',     stopDrag);
   handle.addEventListener('pointercancel', stopDrag);
+  window.addEventListener('pointerup',     stopDrag);
+  window.addEventListener('pointercancel', stopDrag);
 
   // ── RESIZE ────────────────────────────────────────────────────────
   if (resH) {
@@ -9982,19 +10082,26 @@ function initActionLog() {
       if (resId !== -1) return;
       e.preventDefault(); e.stopPropagation();
       resId = e.pointerId;
-      resH.setPointerCapture(resId);
+      try { resH.setPointerCapture(resId); } catch (_) {}
+      _anchorActionLogToPixels(log);
       resStartX = e.clientX; resStartY = e.clientY;
       resStartW = log.offsetWidth; resStartH = log.offsetHeight;
     });
 
-    resH.addEventListener('pointermove', e => {
+    const onResMove = e => {
       if (e.pointerId !== resId) return;
       e.preventDefault();
       log.style.width  = Math.max(140, resStartW + (e.clientX - resStartX)) + 'px';
       log.style.height = Math.max(70,  resStartH + (e.clientY - resStartY)) + 'px';
-    });
+      log.style.right = 'auto';
+      log.style.bottom = 'auto';
+      log._userMoved = true;
+    };
+    resH.addEventListener('pointermove', onResMove);
+    window.addEventListener('pointermove', onResMove);
 
     const stopRes = e => {
+      if (resId === -1) return;
       if (e.pointerId === resId) {
         try { resH.releasePointerCapture(resId); } catch (_) {}
         resId = -1;
@@ -10002,6 +10109,8 @@ function initActionLog() {
     };
     resH.addEventListener('pointerup',     stopRes);
     resH.addEventListener('pointercancel', stopRes);
+    window.addEventListener('pointerup',     stopRes);
+    window.addEventListener('pointercancel', stopRes);
   }
 
   window.addEventListener('resize', _applyActionLogResponsiveState);
@@ -10028,17 +10137,21 @@ function toggleLogMinimize() {
     if (footer) { footer.style.display = ''; }
     if (resH)   { resH.style.display = ''; }
     log.style.height = log._savedH || '';
+    log.style.width = log._savedW || '';
     if (btn) { btn.textContent = '−'; btn.title = 'Minimize'; }
   } else {
     // MINIMIZE
     log._savedH = log.style.height || '';
+    log._savedW = log.style.width || '';
     log.dataset.minimized = '1';
     log.classList.add('minimized');
     if (body)   { body.style.display = 'none'; }
     if (footer) { footer.style.display = 'none'; }
     if (resH)   { resH.style.display = 'none'; }
     const headerHeight = Math.ceil((handle || log).getBoundingClientRect().height || 32);
+    const headerWidth = Math.max(180, Math.ceil(log.getBoundingClientRect().width || 180));
     log.style.height = headerHeight + 'px';
+    log.style.width = headerWidth + 'px';
     if (btn) { btn.textContent = '+'; btn.title = 'Expand'; }
   }
   _clampActionLogToViewport();
@@ -10093,6 +10206,25 @@ function openComboRef() {
 //   bets (per-player committed chips this round), raised (bool)
 // }
 
+function _resolveBettingStarter() {
+  const eligibleOrder = G.players
+    .map((_, i) => i)
+    .filter(i => !(G.players[i] && G.players[i].eliminated));
+  if (eligibleOrder.length === 0) return 0;
+
+  const minCards = Math.min(...eligibleOrder.map(i => (G.players[i].hand || []).length));
+  const tied = eligibleOrder.filter(i => (G.players[i].hand || []).length === minCards);
+  if (tied.length === 1) return tied[0];
+
+  const curPos = eligibleOrder.indexOf(G.cur);
+  if (curPos >= 0) {
+    const rotated = [...eligibleOrder.slice(curPos), ...eligibleOrder.slice(0, curPos)];
+    const fromCur = rotated.find(i => tied.includes(i));
+    if (fromCur !== undefined) return fromCur;
+  }
+  return tied[0];
+}
+
 function startBettingPhase() {
   if (!G.styles || !G.styles.money || !G.chips) {
     // No money — skip straight to play, respecting G.cur from draft/rotation
@@ -10110,11 +10242,12 @@ function startBettingPhase() {
   // Ante: 5% of starting chips (rounded up, min 1)
   const startChips = SETUP.chips || 1000;
   const ante = Math.max(1, Math.ceil(startChips * 0.05));
+  const betStarter = _resolveBettingStarter();
   G.bet = {
     matchPot: 0,
     pointPot: 0,
     currentBet: ante,
-    bettingOrder: G.players.map((_,i)=>i), // starts with first-turn player (G.cur)
+    bettingOrder: G.players.map((_,i)=>i).filter(i => !(G.players[i] && G.players[i].eliminated)),
     betIdx: 0,
     folds: new Set(),
     allIns: new Set(),
@@ -10135,13 +10268,13 @@ function startBettingPhase() {
   // currentBet is now 0 at open — players call/raise from zero
   G.bet.currentBet = 0;
 
-  // Rotate betting order to start from first-turn player
-  const firstIdx = G.bet.bettingOrder.indexOf(G.cur);
+  // Rotate betting order to start from player with the fewest draw cards
+  const firstIdx = G.bet.bettingOrder.indexOf(betStarter);
   if (firstIdx > 0) {
     G.bet.bettingOrder = [...G.bet.bettingOrder.slice(firstIdx), ...G.bet.bettingOrder.slice(0, firstIdx)];
   }
 
-  addLog(`💰 Antes paid (${ante} chips each). Match Pot: ${G.bet.matchPot}. Betting round opens — place your bets!`, true);
+  addLog(`💰 Antes paid (${ante} chips each). Match Pot: ${G.bet.matchPot}. ${G.players[betStarter].name} opens betting (lowest draw count).`, true);
   renderBettingUI();
   advanceBetting();
 }
@@ -10238,7 +10371,7 @@ function showHumanBetActions() {
 
   // Show the turn label above actions
   const turnLbl = document.getElementById('betTurnLabel');
-  if (turnLbl) turnLbl.style.display = 'table';
+  if (turnLbl) turnLbl.style.display = 'block';
 
   acts.innerHTML = `
     <div style="font-size:10px;color:rgba(240,192,64,.5);text-align:center;margin-bottom:10px;letter-spacing:2px;font-family:Cinzel,serif">
@@ -10337,6 +10470,7 @@ function humanBetRaise() {
 
 function aiBet(pidx) {
   if (!G.bet) return;
+  if (G.bet.bettingOrder[G.bet.betIdx] !== pidx) return;
   const needed = Math.max(0, G.bet.currentBet - (G.bet.bets[pidx]||0));
   const myChips = G.chips[pidx];
   const chipRatio = myChips / (SETUP.chips || 500); // how healthy is this AI?
@@ -10351,7 +10485,8 @@ function aiBet(pidx) {
 
   const delay = Math.min(2000, 800 + Math.random() * 800); // max 2s for AI betting
   setTimeout(() => {
-    if (!G.bet) return;
+    if (!G.bet || G.bet.bettingOrder[G.bet.betIdx] !== pidx) return;
+    try {
     let action = '';
 
     if (needed === 0) {
@@ -10421,6 +10556,14 @@ function aiBet(pidx) {
     G.bet.betIdx++;
     renderBettingUI();
     advanceBetting();
+    } catch (err) {
+      console.error('[Royal Roots] aiBet error:', err);
+      if (!G.bet) return;
+      G.bet.acted.add(pidx);
+      G.bet.betIdx++;
+      renderBettingUI();
+      advanceBetting();
+    }
   }, delay);
 }
 
