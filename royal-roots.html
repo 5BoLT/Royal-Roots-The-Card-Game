@@ -3880,6 +3880,8 @@ function jackFlushPick(handIdx) {
   const flushed = player.hand.splice(handIdx, 1)[0];
   if (flushed) {
     G.discard.push(flushed);
+    _playSfx('discard', { volume: 0.8 });
+    animateCardTransfer(0, -1, 1);
     addLog(`🃏 Jack Flush: You discarded ${flushed.rank}${flushed.suit}`, false);
   }
  
@@ -4518,6 +4520,7 @@ function startWar(attackerIdx, defenderIdx, pw) {
 
   G.pts[attackerIdx] = Math.max(0, (G.pts[attackerIdx]||0) - (pw.triggerPts||0));
   addLog(`⚔️ WAR! ${G.players[attackerIdx].name} vs ${G.players[defenderIdx].name} — original effect VOIDED. 1v1!`, true);
+  _playSfx('royal_war_initiated', { restart: true, volume: 0.92 });
 
   if (!humanInvolved) {
     // AI vs AI — show spectator view then auto-resolve
@@ -4847,7 +4850,15 @@ function showWarOutcome(winnerIdx, loserIdx, winningCard = null) {
   const winName = G.players[winnerIdx].name;
   const loseName = G.players[loserIdx].name;
   const drawCount = w.cardsPlayed;
- 
+
+  if (w && !w.humanInvolved) {
+    _playSfx('war_end', { restart: true, volume: 0.9 });
+  } else if (winnerIdx === 0) {
+    _playSfx('war_victory', { restart: true, volume: 0.92 });
+  } else if (loserIdx === 0) {
+    _playSfx('war_fail', { restart: true, volume: 0.92 });
+  }
+
   // Award points
   G.pts[winnerIdx] = (G.pts[winnerIdx]||0) + 10;
   if (winnerIdx === 0) floatPts('+10 WAR WIN!', 'RARE');
@@ -5067,6 +5078,7 @@ function openJokerFreePlay(pidx, suit) {
         const card = G.players[0].hand.splice(i,1)[0];
         if (card) {
           G.discard.push(card); G.faceCard = card;
+          _playSfx('card_to_face', { restart: true, volume: 0.82 });
           addLog('🃏 Free Play: You played ' + card.rank + card.suit + '!', true);
           if (G.players[0].hand.length === 0) { closeJokerModal(true); checkWin(0); return; }
         }
@@ -5108,6 +5120,9 @@ function spadeSwapPick(targetIdx) {
         const theirCard = them.hand.splice(theirIdx,1)[0];
         G.players[0].hand.push(theirCard);
         them.hand.push(myCard);
+        _playSfx('take_card_from_opponent', { restart: true, volume: 0.9 });
+        animateCardTransfer(targetIdx, 0, 1);
+        animateCardTransfer(0, targetIdx, 1);
         addLog('♠ Spade Joker: Swapped '+myCard.rank+myCard.suit+' with '+them.name+' (got '+theirCard.rank+theirCard.suit+')!', true);
         openJokerFreePlay(0, '♠');
       });
@@ -5132,6 +5147,7 @@ function diamondPts() {
     forcePts(i, -10);
     gained += 10;
   });
+  if (gained > 0) _playSfx('pay_tax_points', { restart: true, volume: 0.88 });
   forcePts(0, gained);
   addLog(`♦ Diamond Joker: ${G.players.length - 1} opponent(s) each pay 10pts to you! (+${gained}pts)`, true);
   openJokerFreePlay(0, '♦');
@@ -5149,9 +5165,11 @@ function diamondBet() {
       G.chips[0] = (G.chips[0]||0) + pay;
       chipGained += pay;
     });
+    if (chipGained > 0) _playSfx('pay_tax_coins', { restart: true, volume: 0.9 });
     addLog(`♦ Diamond Joker: All opponents pay ${perPlayer}💰 (1% pot) to you! (+${chipGained}💰)`, true);
   } else {
     G.players.forEach((_,i) => { if (i === 0) return; forcePts(i, -10); });
+    _playSfx('pay_tax_points', { restart: true, volume: 0.88 });
     addLog('♦ Diamond Joker: All opponents pay 10pt penalty!', true);
   }
   openJokerFreePlay(0, '♦');
@@ -5162,6 +5180,7 @@ function cloverPlayCard(handIdx) {
   if (card) {
     G.discard.push(card);
     G.faceCard = card;
+    _playSfx('card_to_face', { restart: true, volume: 0.82 });
     addLog('♣ Clover Joker: You played '+card.rank+card.suit+' freely!', true);
     const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
     const partnerIdx = G.players[0].partnerIdx;
@@ -5172,6 +5191,7 @@ function cloverPlayCard(handIdx) {
         const pCard = partner.hand.shift();
         G.discard.push(pCard);
         G.faceCard = pCard;
+        _playSfx('card_to_face', { restart: true, volume: 0.82 });
         addLog('♣ Clover Joker: Partner played '+pCard.rank+pCard.suit+' freely!', true);
       }
     }
@@ -5221,6 +5241,10 @@ function heartConfirmTake() {
   const indices = [...G._heartPicked].sort((a,b)=>b-a);
   const taken = indices.map(i => them.hand.splice(i,1)[0]).filter(Boolean);
   taken.forEach(c => G.players[0].hand.push(c));
+  if (taken.length > 0) {
+    _playSfx('take_card_from_opponent', { restart: true, volume: 0.92 });
+    animateCardTransfer(targetIdx, 0, taken.length);
+  }
   forceDraw(targetIdx, 2);
   addLog('♥ Heart Joker: Took '+taken.length+' card(s) from '+them.name+'! They draw 2.', true);
   G._heartTarget = null; G._heartPicked = [];
@@ -5423,6 +5447,8 @@ function discardPickConfirm() {
     const realIdx = G.discard.indexOf(item.card);
     if (realIdx !== -1) G.discard.splice(realIdx, 1);
     G.players[0].hand.push(item.card);
+    _playSfx('discard', { volume: 0.76 });
+    animateCardTransfer(-1, 0, 1);
     addLog('🃏 Picked ' + item.card.rank + item.card.suit + ' from discard!', false);
   });
   G._discardPickCards = null;
@@ -5684,6 +5710,7 @@ function kingTaxPick(targetIdx, type) {
     const pctAmt = Math.max(1, Math.round(G.matchPot * 0.01 * Math.pow(2, n-1)));
     G.chips[targetIdx] = Math.max(0, (G.chips[targetIdx]||0) - pctAmt);
     G.chips[0] = (G.chips[0]||0) + pctAmt;
+    if (pctAmt > 0) _playSfx('pay_tax_coins', { restart: true, volume: 0.9 });
     addLog(`👑 King×${n}! ${G.players[targetIdx].name} pays ${pctAmt} chips (1% pot×${n}) to you!`, true);
   } else {
     applyKingTax(targetIdx, n, suit, taxAmt, 0);
@@ -5699,6 +5726,7 @@ function applyKingTax(targetIdx, n, suit, taxAmt, attackerIdx) {
   // Points tax: always deduct from target, always give to attacker
   forcePts(targetIdx, -taxAmt);
   forcePts(attackerIdx, taxAmt);
+  if (taxAmt > 0) _playSfx('pay_tax_points', { restart: true, volume: 0.88 });
   addLog(`👑 King${n>1?' ×'+n:''}! Suit → ${suit} — ${G.players[targetIdx].name} taxed ${taxAmt}pts to ${G.players[attackerIdx].name}!`, true);
 }
 
@@ -5839,7 +5867,7 @@ function flushDiscardPick(idx) {
     closeFlushModal(); return;
   }
   const card = hand.splice(idx,1)[0];
-  if (card) { G.discard.push(card); addLog('Flushed ' + card.rank + card.suit, false); }
+  if (card) { G.discard.push(card); _playSfx('discard', { volume: 0.82 }); animateCardTransfer(0, -1, 1); addLog('Flushed ' + card.rank + card.suit, false); }
   G._flushLeft--;
   if (G._flushLeft > 0 && hand.length > minKeep) {
     renderFlushModal();
@@ -5901,7 +5929,7 @@ function renderJHDiscard() {
 function jhDiscardPick(idx) {
   const hand = G.players[0].hand;
   const card = hand.splice(idx,1)[0];
-  if (card) { G.discard.push(card); addLog('Discarded ' + card.rank + card.suit, false); }
+  if (card) { G.discard.push(card); _playSfx('discard', { volume: 0.82 }); animateCardTransfer(0, -1, 1); addLog('Discarded ' + card.rank + card.suit, false); }
   G._jhDiscardLeft--;
   if (G._jhDiscardLeft > 0 && hand.length > 0) {
     renderJHDiscard();
@@ -6004,6 +6032,7 @@ function _diceStartRoll() {
   // Hide the roll/cancel buttons
   document.getElementById('diceConfirmSection').style.display = 'none';
   document.getElementById('diceModalSub').textContent = 'Rolling...';
+  _startLoopSfx('dice_shake', { volume: 0.78 });
 
   // Start scramble animation
   const die1El = document.getElementById('die1');
@@ -6020,6 +6049,8 @@ function _diceStartRoll() {
 
   setTimeout(() => {
     clearInterval(scrambleInterval);
+    _stopLoopSfx('dice_shake');
+    _playSfx('dice_fall', { restart: true, volume: 0.84 });
     die1El.classList.remove('scrambling');
     die2El.classList.remove('scrambling');
 
@@ -6044,6 +6075,8 @@ function _diceStartRoll() {
 let _pendingDiceResult = null;
 
 function _diceShowResult(d1, d2, total, isDoubles) {
+  const hasComboEffect = !!(isDoubles || total === 2 || total === 7 || total === 9 || total === 11 || total === 12);
+  _playSfx(hasComboEffect ? 'dice_combo_score' : 'dice_lose', { restart: true, volume: 0.86 });
   let rollName, rollDesc, rollColor;
   if (isDoubles) {
     rollName = 'DOUBLE UP! 🔄';
@@ -6126,6 +6159,7 @@ function _resolveRoyalDice(d1, d2, total, isDoubles) {
 
   } else if (total === 2) {
     // SNAKE EYES — draw 2, lose turn (no law draw — already drew)
+    _playSfx('snake_eyes', { restart: true, volume: 0.95 });
     forceDraw(0, 2);
     addLog('🐍 Snake Eyes! Drew 2 cards. Turn lost — next player goes.', true);
     G.forceSingleEndDraw = false; // no additional law draw this turn
@@ -6169,10 +6203,12 @@ function _resolveRoyalDice(d1, d2, total, isDoubles) {
         gained += actual;
         addLog(`${G.players[i].name} pays ${actual} chips to pot.`, false);
       });
+      if (gained > 0) _playSfx('pay_tax_coins', { restart: true, volume: 0.9 });
       addLog(`💰 MONEY MONEY MONEY! ${gained} chips added to pot!`, true);
     } else {
       // No money mode: opponents lose 10pts each
       G.players.forEach((_,i) => { if (i !== 0) forcePts(i, -10); });
+      _playSfx('pay_tax_points', { restart: true, volume: 0.88 });
       addLog('💰 MONEY MONEY MONEY! All opponents lose 10pts.', true);
     }
     G.turnPhase = 'playing'; G.sel = [];
@@ -6257,6 +6293,8 @@ function _luckyBoostSteal(targetIdx) {
   const stealIdx = Math.floor(Math.random() * them.hand.length);
   const stolen = them.hand.splice(stealIdx, 1)[0];
   G.players[0].hand.push(stolen);
+  _playSfx('take_card_from_opponent', { restart: true, volume: 0.92 });
+  animateCardTransfer(targetIdx, 0, 1);
   addLog(`⚡ Lucky Boost: Stole ${stolen.rank}${stolen.suit} from ${them.name}!`, true);
   G.turnPhase = 'playing'; G.sel = []; renderGame(); updateBtns(); renderLog();
 }
@@ -6310,6 +6348,7 @@ function declareRootOut() {
     return;
   }
   G.rootOutUsed = true;
+  _playSfx('root_out_initiated', { restart: true, volume: 0.92 });
   addLog('🎯 YOU call ROOT OUT!', true);
   _aiRootOutReveal(0);
 }
@@ -6420,6 +6459,7 @@ function _aiRootOutReveal(callerIdx) {
 
   // Final: show result bar and accept button
   setTimeout(() => {
+    _playSfx(callerWins ? 'root_out_win' : 'root_out_fail', { restart: true, volume: 0.92 });
     // Highlight winner slot
     const winSlot = document.getElementById('ro-slot-' + winner.pidx);
     if (winSlot) winSlot.classList.add('winner');
@@ -6474,7 +6514,6 @@ function _roAccept() {
       G.faceCard = topCard;
     }
     forcePts(callerIdx, 100);
-    awardBettingPots(callerIdx);
     addLog(`👑 ${G.players[callerIdx].name} wins Root Out! +100pts, pot claimed!`, true);
     endMatch(callerIdx);
 
@@ -6629,6 +6668,7 @@ function triggerJokerEffect(suit, pidx, onDone) {
       const played = h.splice(0, toPlay);
       G.discard.push(...played);
       G.faceCard = played[played.length - 1];
+      played.forEach((_, i) => setTimeout(() => _playSfx('card_to_face', { restart: true, volume: 0.8 }), i * 140));
       addLog(`${G.players[whoIdx].name} plays ${toPlay} free card(s)!`, false);
     };
 
@@ -6650,6 +6690,9 @@ function triggerJokerEffect(suit, pidx, onDone) {
           const myCard = me.hand.splice(0,1)[0];
           const theirCard = them.hand.splice(Math.floor(Math.random()*them.hand.length),1)[0];
           me.hand.push(theirCard); them.hand.push(myCard);
+          _playSfx('card_taken', { restart: true, volume: 0.88 });
+          animateCardTransfer(nextIdx, pidx, 1);
+          animateCardTransfer(pidx, nextIdx, 1);
           addLog(`♠ Spade Joker: ${G.players[pidx].name} swaps with ${them.name}!`, true);
         }
       }
@@ -6668,11 +6711,13 @@ function triggerJokerEffect(suit, pidx, onDone) {
           G.chips[pidx] = (G.chips[pidx] || 0) + pay;
           gained += pay;
         });
+        if (gained > 0) _playSfx('pay_tax_coins', { restart: true, volume: 0.9 });
         addLog(`♦ Diamond Joker: ${G.players[pidx].name} collects ${perPlayer}💰 from each opponent! (+${gained}💰)`, true);
       } else {
         let gained = 0;
         G.players.forEach((_,i) => { if (i !== pidx) { forcePts(i, -10); gained += 10; } });
         forcePts(pidx, gained);
+        if (gained > 0) _playSfx('pay_tax_points', { restart: true, volume: 0.88 });
         addLog(`♦ Diamond Joker: ${G.players[pidx].name} takes 10pts from each opponent! (+${gained}pts)`, true);
       }
       aiFreePlay(pidx, 1);
@@ -6697,6 +6742,10 @@ function triggerJokerEffect(suit, pidx, onDone) {
         stolen.push(G.players[target].hand.splice(r,1)[0]);
       }
       stolen.forEach(c => G.players[pidx].hand.push(c));
+      if (stolen.length > 0) {
+        _playSfx('card_taken', { restart: true, volume: 0.9 });
+        animateCardTransfer(target, pidx, stolen.length);
+      }
       forceDraw(target, 2);
       addLog(`♥ Heart Joker: ${G.players[pidx].name} takes ${stolen.length} card(s) from ${G.players[target].name}!`, true);
       aiFreePlay(pidx, 1);
@@ -6810,6 +6859,8 @@ function _flushLowestCards(pidx, n, why) {
   if (take <= 0) return 0;
   const flushed = p.hand.splice(0, take);
   G.discard.push(...flushed);
+  if (flushed.length > 0) _playSfx('discard', { volume: 0.78 });
+  if (flushed.length > 0) animateCardTransfer(pidx, -1, flushed.length);
   if (why) addLog(`${p.name} flushes ${take} card(s) ${why}.`, true);
   return take;
 }
@@ -6888,6 +6939,8 @@ function takeCardFromDiscard(actorIdx, discardIdx, reasonText='') {
   const card = G.discard.splice(idx, 1)[0];
   if (!card) return null;
   G.players[actorIdx].hand.push(card);
+  _playSfx('discard', { volume: 0.75 });
+  animateCardTransfer(-1, actorIdx, 1);
   _applyCloverTrapCounter(actorIdx, reasonText || 'discard pull');
   return card;
 }
@@ -7235,6 +7288,7 @@ function animateCardsToFaceCard(cards, onDone) {
   function landNext() {
     if (idx >= cards.length) { if (onDone) onDone(); return; }
     const c = cards[idx++];
+    _playSfx('card_to_face', { restart: true, volume: 0.82 });
     fcd.innerHTML = cardEl(c, 'card-land-fast animating');
     // Re-trigger animation if same card shows twice
     const el = fcd.querySelector('.card-land-fast');
@@ -7280,6 +7334,9 @@ function _doPlayCardsCore(pidx, cards) {
   const player = G.players[pidx];
   const ev = evalCombo(cards);
   if (!ev.valid) return false;
+  if (['dead_mans_hand','royal_dead_man','calamity_mary_jane','bloody_mary_jane'].includes(ev.effect)) {
+    _playSfx('dead_mans_hand', { restart: true, volume: 0.96 });
+  }
   const prevFaceCard = G.faceCard ? { ...G.faceCard } : null;
  
   // Cards already removed from hand in doPlayCards before animation
@@ -7451,7 +7508,8 @@ function endMatch(winnerIdx) {
   const w = G.players[winnerIdx];
   G.wins[winnerIdx] = (G.wins[winnerIdx]||0) + 1;
   G.pts[winnerIdx] = (G.pts[winnerIdx]||0) + 200; // Match-Win: +200 pts (empty hand or mythic combo)
-  awardBettingPots(winnerIdx); // pay out Match Pot + Point Pot
+  _playSfx('match_win', { restart: true, volume: 0.94 });
+  awardBettingPots(winnerIdx, { potSfxDelayMs: MATCH_WIN_TO_POT_DELAY_MS }); // pay out Match Pot + Point Pot
  
   const humanWon = winnerIdx === 0;
   const winsNeeded = G.matchesTo || 3;
@@ -7719,6 +7777,7 @@ function aiTurn(pidx) {
         });
         const maxOther = Math.max(...allOtherBest, 0);
         if (myBest.pts > maxOther) {
+          _playSfx('root_out_initiated', { restart: true, volume: 0.92 });
           addLog(`🎯 ${player.name} calls ROOT OUT!`, true);
           G.rootOutUsed = true;
           _aiRootOutReveal(pidx);
@@ -8630,6 +8689,48 @@ function aiDrawAnim(pidx, count, onDone) {
   }
   if (capped === 0 && onDone) onDone();
 }
+
+function _seatCenterForPidx(pidx) {
+  if (pidx === -1) {
+    const fc = document.getElementById('faceCardDisplay');
+    if (fc) {
+      const r = fc.getBoundingClientRect();
+      return { x: r.left + r.width * 0.5, y: r.top + r.height * 0.5 };
+    }
+    return { x: window.innerWidth * 0.5, y: window.innerHeight * 0.45 };
+  }
+  if (pidx === 0) {
+    const hand = document.getElementById('playerHand');
+    if (hand) {
+      const r = hand.getBoundingClientRect();
+      return { x: r.left + r.width * 0.5, y: r.top + Math.max(24, r.height * 0.35) };
+    }
+    return { x: window.innerWidth * 0.5, y: window.innerHeight * 0.83 };
+  }
+  const seats = document.querySelectorAll('.opponent-seat');
+  const seatEl = seats[pidx - 1];
+  if (!seatEl) return { x: window.innerWidth * 0.5, y: window.innerHeight * 0.25 };
+  const r = seatEl.getBoundingClientRect();
+  return { x: r.left + r.width * 0.5, y: r.top + r.height * 0.5 };
+}
+
+function animateCardTransfer(fromIdx, toIdx, count = 1) {
+  const n = Math.max(1, Math.min(3, count|0));
+  const src = _seatCenterForPidx(fromIdx);
+  const dst = _seatCenterForPidx(toIdx);
+  for (let i = 0; i < n; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'ai-draw-card';
+      el.style.left = src.x + 'px';
+      el.style.top = src.y + 'px';
+      el.style.setProperty('--tx', (dst.x - src.x) + 'px');
+      el.style.setProperty('--ty', (dst.y - src.y) + 'px');
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 620);
+    }, i * 90);
+  }
+}
  
 // ========== RENDER ==========
 function renderGame() {
@@ -9304,6 +9405,13 @@ document.addEventListener('keydown', function homeMenuKeydown(e) {
   }
 });
 
+document.addEventListener('click', function _menuSelectClickSfx(e) {
+  if (!e.isTrusted) return;
+  const btn = e.target && e.target.closest ? e.target.closest('button') : null;
+  if (!btn || btn.disabled || btn.getAttribute('aria-disabled') === 'true') return;
+  _playMenuSelectSfx(btn);
+}, true);
+
 // Called when player taps a mode card — store choice, go to match picker
 // ═══════════════════════════════════════════════════════════
 // GAME SETUP STATE
@@ -9517,6 +9625,7 @@ function _refreshStakesScreen() {
  
 function setChips(n, btnEl) {
   SETUP.chips = n;
+  _playCoinSelectSfx();
   // Clear custom input when a preset is clicked
   const ci = document.getElementById('customChipsInput');
   if (ci) ci.value = '';
@@ -9532,6 +9641,7 @@ function handleCustomChipsInput(inputEl) {
   document.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('selected'));
   if (Number.isFinite(val) && val >= 10) {
     SETUP.chips = val;
+    _playCoinSelectSfx();
   } else {
     SETUP.chips = null;
     SETUP.minBet = null;
@@ -9727,6 +9837,7 @@ function cardDraftValue(card) {
 }
 
 function startDraftPhase(skipShowScreen) {
+  _playSfx('card_shuffle', { restart: true, volume: 0.86 });
   const pool = [];
   for (let d=0;d<2;d++)
     for (const s of SUITS)
@@ -9944,6 +10055,7 @@ function animateDeal(numPlayers, firstPlayerIdx, onDone) {
   const overlay = document.getElementById('dealAnimOverlay');
   if (!overlay) { if (onDone) onDone(); return; }
   overlay.innerHTML = '';
+  _playSfx('card_shuffle', { restart: true, volume: 0.86 });
   // Start in-game music 0.4s before animation — only for first game entry
   setTimeout(() => _startIngameMusic(), 0);
 
@@ -9999,6 +10111,7 @@ function animateDeal(numPlayers, firstPlayerIdx, onDone) {
 
   // ── STEP 2: Deal 9 cards to each player clockwise from draw pile ──
   function dealCards() {
+    _startLoopSfx('dealing_cards', { volume: 0.78 });
     const CARDS_PER_PLAYER = 9;
     const dealQueue = [];
     for (let round = 0; round < CARDS_PER_PLAYER; round++) {
@@ -10018,6 +10131,7 @@ function animateDeal(numPlayers, firstPlayerIdx, onDone) {
     function dealNext() {
       if (qi >= dealQueue.length) {
         setTimeout(() => {
+          _stopLoopSfx('dealing_cards');
           overlay.innerHTML = '';
           if (onDone) onDone(); // reveals real hands
         }, FLIGHT_MS + 60);
@@ -10430,6 +10544,7 @@ function startBettingPhase() {
     G.bet.matchPot += pay;
     G.bet.bets[i] = 0; // antes paid separately — betting round starts fresh at 0
     if (G.chips[i] === 0) G.bet.allIns.add(i);
+    setTimeout(() => _playCoinSelectSfx(), i * 60);
   });
   // currentBet is now 0 at open — players call/raise from zero
   G.bet.currentBet = 0;
@@ -10586,6 +10701,7 @@ function humanBetCall() {
   const needed = Math.max(0, G.bet.currentBet - (G.bet.bets[0]||0));
   const pay = Math.min(needed, G.chips[0]);
   G.chips[0] -= pay;
+  _playCoinSelectSfx();
   G.bet.bets[0] = (G.bet.bets[0]||0) + pay;
   G.bet.matchPot += pay;
   if (G.chips[0] === 0) G.bet.allIns.add(0);
@@ -10608,6 +10724,7 @@ function humanBetFold() {
 function humanBetAllIn() {
   const pay = G.chips[0];
   G.chips[0] = 0;
+  _playCoinSelectSfx();
   G.bet.bets[0] = (G.bet.bets[0]||0) + pay;
   G.bet.matchPot += pay;
   G.bet.allIns.add(0);
@@ -10626,6 +10743,7 @@ function humanBetRaise() {
   const totalNeeded = val - (G.bet.bets[0]||0);
   const pay = Math.min(totalNeeded, G.chips[0]);
   G.chips[0] -= pay;
+  _playCoinSelectSfx();
   G.bet.bets[0] = (G.bet.bets[0]||0) + pay;
   G.bet.matchPot += pay;
   G.bet.currentBet = val;
@@ -10669,6 +10787,7 @@ function aiBet(pidx) {
         const pay = capped - (G.bet.bets[pidx]||0);
         if (pay > 0 && capped > G.bet.currentBet) {
           G.chips[pidx] -= pay;
+          _playCoinSelectSfx();
           G.bet.bets[pidx] = (G.bet.bets[pidx]||0) + pay;
           G.bet.matchPot += pay;
           G.bet.currentBet = capped;
@@ -10691,6 +10810,7 @@ function aiBet(pidx) {
         const pay = totalPay - (G.bet.bets[pidx]||0);
         if (pay > 0 && totalPay > G.bet.currentBet) {
           G.chips[pidx] -= pay;
+          _playCoinSelectSfx();
           G.bet.bets[pidx] = (G.bet.bets[pidx]||0) + pay;
           G.bet.matchPot += pay;
           G.bet.currentBet = totalPay;
@@ -10705,6 +10825,7 @@ function aiBet(pidx) {
       }
       // Normal call
       G.chips[pidx] -= needed;
+      _playCoinSelectSfx();
       G.bet.bets[pidx] = (G.bet.bets[pidx]||0) + needed;
       G.bet.matchPot += needed;
       action = 'call';
@@ -10713,6 +10834,7 @@ function aiBet(pidx) {
       // Can't cover the call — go all in only if chips are critically low (<30%) OR forced
       if (chipRatio < 0.3 || myChips < needed) {
         G.chips[pidx] = 0;
+        _playCoinSelectSfx();
         G.bet.bets[pidx] = (G.bet.bets[pidx]||0) + myChips;
         G.bet.matchPot += myChips;
         G.bet.allIns.add(pidx);
@@ -10784,11 +10906,14 @@ function endBettingPhase() {
 }
 
 // Award match pot to match winner, point pot to points leader at match end
-function awardBettingPots(matchWinnerIdx) {
+function awardBettingPots(matchWinnerIdx, opts = {}) {
   if (!G.styles || !G.styles.money) return;
+  const potSfxDelayMs = Number.isFinite(opts.potSfxDelayMs) ? opts.potSfxDelayMs : 0;
+  let paidAnyPot = false;
   if (G.matchPot > 0) {
     G.chips[matchWinnerIdx] = (G.chips[matchWinnerIdx]||0) + G.matchPot;
     addLog(`🏆 ${G.players[matchWinnerIdx].name} wins the Match Pot: ${G.matchPot}💰!`, true);
+    paidAnyPot = true;
     G.matchPot = 0;
   }
   if (G.pointPot > 0) {
@@ -10797,7 +10922,15 @@ function awardBettingPots(matchWinnerIdx) {
     G.players.forEach((_,i) => { if ((G.pts[i]||0) > topPts) { topPts = G.pts[i]; topIdx = i; } });
     G.chips[topIdx] = (G.chips[topIdx]||0) + G.pointPot;
     addLog(`⭐ ${G.players[topIdx].name} wins the Point Pot: ${G.pointPot}💰 (${topPts}pts)!`, true);
+    paidAnyPot = true;
     G.pointPot = 0;
+  }
+  if (paidAnyPot) {
+    if (potSfxDelayMs > 0) {
+      setTimeout(() => _playPotWinSfx({ volume: 0.9 }), potSfxDelayMs);
+    } else {
+      _playPotWinSfx({ volume: 0.9 });
+    }
   }
 }
 
@@ -11197,6 +11330,54 @@ const INGAME_TRACKS = [
   "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/Save.mp3"
 ];
 
+const HOME_MENU_TRACKS = [
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/The Wind.mp3",
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/Elevator Music 1.5.mp3",
+  "https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/Crossroads.mp3"
+];
+
+const _assetUrl = (file) => `https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/${encodeURIComponent(file)}`;
+const SFX_SOURCES = {
+  dealing_cards: _assetUrl('Dealing Cards.mp3'),
+  card_taken: _assetUrl('Card Taken From Player.mp3'),
+  discard: _assetUrl('Discard.mp3'),
+  card_to_face: _assetUrl('Card To Face Card.mp3'),
+  dead_mans_hand: _assetUrl("Dead Man's Hand Sound.mp3"),
+  card_shuffle: _assetUrl('Card Shuffle.mp3'),
+  dice_combo_score: _assetUrl('Dice Combo Score.mp3'),
+  dice_lose: _assetUrl('Dice Lose.mp3'),
+  dice_shake: _assetUrl('Dice Shake.mp3'),
+  dice_fall: _assetUrl('Dice Fall.mp3'),
+  snake_eyes: _assetUrl('Snake eyes.mp3'),
+  coin_select_1: _assetUrl('Coin Select 1.mp3'),
+  coin_select_2: _assetUrl('Coin Select 2.mp3'),
+  coin_select_3: _assetUrl('Coin Select 3.mp3'),
+  coin_select_4: _assetUrl('Coin Select 4.mp3'),
+  coin_select_5: _assetUrl('Coin Select 5.mp3'),
+  coin_select_6: _assetUrl('Coin Select 6.mp3'),
+  coin_select_7: _assetUrl('Coin Select 7.mp3'),
+  match_win: _assetUrl('Match Win.mp3'),
+  menu_select_1: _assetUrl('Menu Select 1.mp3'),
+  menu_select_2: _assetUrl('Menu Select 2.mp3'),
+  pay_tax_coins: _assetUrl('Pay Tax Coins.mp3'),
+  pay_tax_points: _assetUrl('Pay Tax Points.mp3'),
+  pot_win_1: _assetUrl('Pot Win.mp3'),
+  pot_win_2: _assetUrl('Pot Win 2.mp3'),
+  root_out_initiated: _assetUrl('Root Out Initiated.mp3'),
+  root_out_fail: _assetUrl('Root Out Fail.mp3'),
+  root_out_win: _assetUrl('Root Out Win.mp3'),
+  royal_war_initiated: _assetUrl('Royal War Initiated.mp3'),
+  war_fail: _assetUrl('War Fail.mp3'),
+  war_victory: _assetUrl('War Victory.mp3'),
+  war_end: _assetUrl('War End.mp3'),
+  take_card_from_opponent: _assetUrl('Take Card From Opponent.mp3')
+};
+const COIN_SELECT_POOL = ['coin_select_1','coin_select_2','coin_select_3','coin_select_4','coin_select_5','coin_select_6','coin_select_7'];
+const POT_WIN_POOL = ['pot_win_1','pot_win_2'];
+const MATCH_WIN_TO_POT_DELAY_MS = 1200;
+const _sfxNodes = {};
+const _loopSfxNodes = {};
+
 // ─── STATE ───────────────────────────────────────────────────
 const homeAudio     = document.getElementById('home-music');
 let   ingameAudio   = new Audio();
@@ -11208,9 +11389,125 @@ let   _homeFadeTimer = null;
 let   _ingFadeTimer  = null;
 let   _desktopAutoRetryTimer = null;
 let   _ingameAutoRetryTimer = null;
+let   _homeTrackIdx = 0;
 
 homeAudio.volume  = 0.65;
 homeAudio.loop    = true;
+
+function _getActiveScreenId() {
+  const cur = document.querySelector('.screen.active');
+  return cur ? cur.id : null;
+}
+
+function _setHomeTrack(idx) {
+  if (!homeAudio) return;
+  _homeTrackIdx = ((idx % HOME_MENU_TRACKS.length) + HOME_MENU_TRACKS.length) % HOME_MENU_TRACKS.length;
+  homeAudio.src = HOME_MENU_TRACKS[_homeTrackIdx];
+  homeAudio.load();
+}
+
+function _ensureHomeMusicSource() {
+  if (!homeAudio) return;
+  if (!homeAudio.src || homeAudio.src === window.location.href) {
+    _setHomeTrack(_homeTrackIdx);
+  }
+}
+
+function _tryNextHomeTrack() {
+  if (!HOME_MENU_TRACKS.length) return false;
+  if (_homeTrackIdx >= HOME_MENU_TRACKS.length - 1) return false;
+  _setHomeTrack(_homeTrackIdx + 1);
+  return true;
+}
+
+function _newSfxNode(key, loop=false) {
+  const src = SFX_SOURCES[key];
+  if (!src) return null;
+  const a = new Audio(src);
+  a.preload = 'auto';
+  a.loop = !!loop;
+  a.muted = isMuted;
+  return a;
+}
+
+function _playSfx(key, opts = {}) {
+  const src = SFX_SOURCES[key];
+  if (!src) return;
+  const volume = Number.isFinite(opts.volume) ? opts.volume : 0.85;
+  const restart = !!opts.restart;
+  const noOverlap = !!opts.noOverlap;
+  let a = _sfxNodes[key];
+  if (!a) {
+    a = _newSfxNode(key, false);
+    if (!a) return;
+    _sfxNodes[key] = a;
+  }
+  a.muted = isMuted;
+  a.volume = Math.max(0, Math.min(1, volume));
+  if ((noOverlap || restart) && !a.paused) {
+    a.pause();
+    a.currentTime = 0;
+  }
+  if (!restart && !a.paused) return;
+  a.play().catch(() => {});
+}
+
+function _startLoopSfx(key, opts = {}) {
+  const volume = Number.isFinite(opts.volume) ? opts.volume : 0.8;
+  let a = _loopSfxNodes[key];
+  if (!a) {
+    a = _newSfxNode(key, true);
+    if (!a) return;
+    _loopSfxNodes[key] = a;
+  }
+  a.muted = isMuted;
+  a.volume = Math.max(0, Math.min(1, volume));
+  if (!a.paused) return;
+  a.currentTime = 0;
+  a.play().catch(() => {});
+}
+
+function _stopLoopSfx(key) {
+  const a = _loopSfxNodes[key];
+  if (!a) return;
+  a.pause();
+  try { a.currentTime = 0; } catch (_) {}
+}
+
+function _playCoinSelectSfx() {
+  const key = COIN_SELECT_POOL[Math.floor(Math.random() * COIN_SELECT_POOL.length)];
+  _playSfx(key, { restart: true, volume: 0.82 });
+}
+
+function _playPotWinSfx(opts = {}) {
+  const key = POT_WIN_POOL[Math.floor(Math.random() * POT_WIN_POOL.length)];
+  const volume = Number.isFinite(opts.volume) ? opts.volume : 0.9;
+  _playSfx(key, { restart: true, volume });
+}
+
+function _isMenuSelectExcludedButton(btn) {
+  if (!btn) return true;
+  if (btn.classList && btn.classList.contains('chip-btn')) return true;
+  const onclickAttr = (btn.getAttribute('onclick') || '').toLowerCase();
+  if (onclickAttr.includes('setchips(')) return true;
+  return false;
+}
+
+function _isMenuSelect2Button(btn) {
+  if (!btn) return false;
+  const id = (btn.id || '').toLowerCase();
+  const txt = (btn.textContent || '').toLowerCase();
+  if (id === 'endbtn' || id === 'playbtn') return true;
+  if (id.includes('continue') || txt.includes('continue')) return true;
+  if (id.includes('combo') || txt.includes('combo')) return true;
+  return false;
+}
+
+function _playMenuSelectSfx(btn) {
+  if (!btn || _isMenuSelectExcludedButton(btn)) return;
+  const key = _isMenuSelect2Button(btn) ? 'menu_select_2' : 'menu_select_1';
+  _playSfx(key, { restart: true, volume: 0.8 });
+}
 
 // ─── FADE HELPER ─────────────────────────────────────────────
 function _fade(audio, toVol, ms, cb, slot) {
@@ -11238,6 +11535,7 @@ function _fade(audio, toVol, ms, cb, slot) {
 // Called ONCE at page load and ONCE when returning from game.
 // Never called during menu navigation.
 function _startHomeMusic() {
+  _ensureHomeMusicSource();
   if (_homeStarted && !homeAudio.paused) return; // already running — never interrupt
   homeAudio.volume = 0;
   homeAudio.play().then(() => {
@@ -11246,6 +11544,10 @@ function _startHomeMusic() {
     if (_desktopAutoRetryTimer) { clearInterval(_desktopAutoRetryTimer); _desktopAutoRetryTimer = null; }
     _fade(homeAudio, isMuted ? 0 : 0.65, 1200, null, 'home');
   }).catch(() => {
+    if (homeAudio && homeAudio.error && _tryNextHomeTrack()) {
+      setTimeout(_startHomeMusic, 80);
+      return;
+    }
     // Browser blocked autoplay — will retry on first interaction via _onFirstInteraction
     _startDesktopAutoplayRetry();
   });
@@ -11301,6 +11603,8 @@ function _onFirstInteraction() {
   _unlocked = true;
   document.removeEventListener('touchstart', _onFirstInteraction, true);
   document.removeEventListener('click',      _onFirstInteraction, true);
+  document.removeEventListener('pointerdown', _onFirstInteraction, true);
+  document.removeEventListener('keydown', _onFirstInteraction, true);
   // If autoplay already started the music, do nothing — interaction is voided
   if (!homeAudio.paused) return;
   // Autoplay was blocked — start now on first interaction
@@ -11308,6 +11612,8 @@ function _onFirstInteraction() {
 }
 document.addEventListener('touchstart', _onFirstInteraction, { once: true, passive: true, capture: true });
 document.addEventListener('click',      _onFirstInteraction, { once: true, passive: true, capture: true });
+document.addEventListener('pointerdown', _onFirstInteraction, { once: true, passive: true, capture: true });
+document.addEventListener('keydown', _onFirstInteraction, { once: true, capture: true });
 
 // ─── INGAME MUSIC ────────────────────────────────────────────
 function _playIngame() {
@@ -11348,6 +11654,8 @@ function toggleMute() {
   isMuted = !isMuted;
   homeAudio.muted   = isMuted;
   ingameAudio.muted = isMuted;
+  Object.values(_sfxNodes).forEach(a => { if (a) a.muted = isMuted; });
+  Object.values(_loopSfxNodes).forEach(a => { if (a) a.muted = isMuted; });
   const btn = document.getElementById('muteBtn');
   if (btn) btn.textContent = isMuted ? '🔇' : '🔊';
 }
@@ -11429,13 +11737,9 @@ showScreen = function(id) {
       ingameAudio.src = '';
       _homeStarted = false;
       _updatePlayBtn();
-      _startHomeMusic();
-      _startDesktopAutoplayRetry();
-    } else if (homeAudio.paused && _unlocked) {
-      // Unlocked but paused (e.g. navigated away and back) — restart
-      _startHomeMusic();
-      _startDesktopAutoplayRetry();
     }
+    _startHomeMusic();
+    _startDesktopAutoplayRetry();
     // Music already playing → do absolutely nothing
   }
 };
@@ -11462,7 +11766,8 @@ showScreen = function(id) {
 };
 
 document.addEventListener('visibilitychange', function() {
-  if (!document.hidden && HOME_SCREENS.has(activeScreen)) {
+  const activeScreen = _getActiveScreenId();
+  if (!document.hidden && activeScreen && HOME_SCREENS.has(activeScreen)) {
     _startHomeMusic();
     _startDesktopAutoplayRetry();
   }
@@ -11537,6 +11842,7 @@ document.addEventListener('visibilitychange', function() {
 // ──────────────────────────────────────────────────────────────
 
 // Boot: try home music immediately (works on desktop; mobile waits for _onFirstInteraction)
+_ensureHomeMusicSource();
 _startHomeMusic();
 _startDesktopAutoplayRetry();
 // ========== END AUDIO SYSTEM ==========
