@@ -21,7 +21,7 @@
   --menu-orange:#e8952e; --menu-orange-glow:rgba(232,149,46,.4);
   /* Regal card back: royal purple + gold RR/crown (draw pile & face-down traps) */
   --regal-purple:#2d1b4e;
-  --card-back-bg:var(--regal-purple) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 168'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23d4af37'/%3E%3Cstop offset='100%25' style='stop-color:%238b6914'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='168' rx='10' ry='10' fill='%232d1b4e' stroke='url(%23g)' stroke-width='3'/%3E%3Cpath fill='url(%23g)' d='M60 28 L52 48 L60 44 L68 48 Z' opacity='.95'/%3E%3Ctext x='60' y='98' text-anchor='middle' fill='url(%23g)' font-family='Cinzel,serif' font-size='32' font-weight='700'%3ERR%3C/text%3E%3Cpath fill='none' stroke='url(%23g)' stroke-width='1.2' opacity='.6' d='M24 50 Q60 45 96 50 M24 118 Q60 123 96 118 M50 24 Q55 84 50 144 M70 24 Q65 84 70 144'/%3E%3C/svg%3E") center/cover no-repeat;
+  --card-back-bg:var(--regal-purple) url("https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Card_Back.png"), url("https://raw.githubusercontent.com/SBoLT/Royal-Roots-The-Card-Game/main/RR_Card_Back.png"), url("Images/RR_Card_Back.png") center/cover no-repeat;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Cinzel',serif;overflow:hidden}
 button{cursor:pointer;font-family:inherit}
@@ -128,7 +128,7 @@ button{cursor:pointer;font-family:inherit}
   position:relative;
   display:flex;align-items:center;gap:12px;
   padding:12px 20px 12px 36px;
-  background:rgba(24,10,46,.46);
+  background:rgba(20,8,38,.66);
   border:1px solid rgba(240,192,64,.26);
   cursor:pointer;
   font-family:'Cinzel Decorative',Cinzel,serif;
@@ -169,13 +169,13 @@ button{cursor:pointer;font-family:inherit}
   opacity:1;
 }
 .home-menu-item.selected{
-  background:linear-gradient(90deg,rgba(68,34,104,.62) 0%,rgba(22,9,40,.5) 100%);
+  background:linear-gradient(90deg,rgba(68,34,104,.76) 0%,rgba(22,9,40,.66) 100%);
   border-color:rgba(232,149,46,.58);
   box-shadow:0 0 14px rgba(232,149,46,.28);
 }
 .home-menu-item:hover:not(.selected){
   color:var(--menu-gold-bright);
-  background:rgba(34,14,64,.56);
+  background:rgba(34,14,64,.72);
   border-color:rgba(240,192,64,.42);
   text-shadow:
     1px 1px 0 var(--menu-purple-shadow),
@@ -1186,6 +1186,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   border-radius:10px;border:1px solid rgba(240,192,64,.18);
   animation:pulse 1.5s ease-in-out infinite;
   text-align:center;
+  transform:translateX(15%);
 }
 #betTurnLabel{
   display:none;margin:14px auto 4px auto;
@@ -6045,6 +6046,51 @@ function _luckyBoostSteal(targetIdx) {
 // 🌱 ROOT OUT — Full Official Implementation
 // =====================================================================
 
+function _rootOutBestCombo(hand) {
+  if (!hand || hand.length < 1) return { combo: null, pts: 0, ev: null };
+  let best = { combo: null, pts: 0, ev: null };
+  const maxN = Math.min(8, hand.length);
+  for (let n = 1; n <= maxN; n++) {
+    const combos = getCombinations(hand, n);
+    for (const combo of combos) {
+      const ev = evalComboIgnoreFC(combo);
+      if (!ev || !ev.valid) continue;
+      const pts = ev.pts || 0;
+      if (pts > best.pts) {
+        best = { combo: [...combo], pts, ev };
+      } else if (pts === best.pts && pts > 0 && best.combo) {
+        const hiA = Math.max(...combo.map(c => RANK_VAL[c.rank] || 0));
+        const hiB = Math.max(...best.combo.map(c => RANK_VAL[c.rank] || 0));
+        if (hiA > hiB) best = { combo: [...combo], pts, ev };
+      }
+    }
+  }
+  // Fallback to best single card if no valid combo evaluated
+  if (!best.combo) {
+    const sorted = [...hand].sort((a, b) => (RANK_VAL[b.rank] || 0) - (RANK_VAL[a.rank] || 0));
+    const c = sorted[0];
+    if (c) return { combo: [c], pts: 0, ev: { name: `${c.rank}${c.suit}` } };
+  }
+  return best;
+}
+
+function declareRootOut() {
+  if (G.cur !== 0 || G.phase !== 'play') { addLog('It is not your Root Out window.', false); return; }
+  if (G.rootOutUsed) { addLog('Root Out already used this match.', false); return; }
+  if (!G.players || !G.players[0]) return;
+  if (G.players[0].hand.length < 2 || G.players[0].hand.length > 5) {
+    addLog('Root Out requires 2 to 5 cards in hand.', false);
+    return;
+  }
+  if (Array.isArray(G.sel) && G.sel.length > 0) {
+    addLog('Clear selected cards before calling Root Out.', false);
+    return;
+  }
+  G.rootOutUsed = true;
+  addLog('🎯 YOU call ROOT OUT!', true);
+  _aiRootOutReveal(0);
+}
+
 // ══════════════════════════════════════════════════════════════
 // 🎯 ROOT OUT REVEAL — AI caller version with animation sequence
 // ══════════════════════════════════════════════════════════════
@@ -6127,9 +6173,10 @@ function _aiRootOutReveal(callerIdx) {
       addLog(`👁 ${r.name}'s hand revealed (${r.hand.length} cards)`, false);
     }, stepDelay);
 
-    // Scale reveal delay: 3s for small games, 2s for 4+, 1.5s for 5+
-    const perPlayerDelay = G.numPlayers <= 3 ? 3000 : G.numPlayers <= 4 ? 2200 : 1800;
-    stepDelay += isFirst ? 1200 : perPlayerDelay;
+    // AI must hold revealed hand for ~3s before best combo is shown.
+    // Human reveal can be faster for responsiveness.
+    const revealToComboDelay = (r.pidx === 0) ? 1200 : 3000;
+    stepDelay += revealToComboDelay;
 
     // Reveal combo
     setTimeout(() => {
@@ -6251,14 +6298,14 @@ function _roAccept() {
     // Caller penalties: -200pts, draw 4, pay 2× min bet
     const penalty = G.minBet ? G.minBet * 2 : 0;
     if (G.chips && penalty > 0) {
-      const pay = Math.min(penalty, G.chips[0] || 0);
-      G.chips[0] = (G.chips[0] || 0) - pay;
+      const pay = Math.min(penalty, G.chips[callerIdx] || 0);
+      G.chips[callerIdx] = (G.chips[callerIdx] || 0) - pay;
       G.matchPot = (G.matchPot || 0) + pay;
-      addLog(`💸 You pay ${pay} chips (2× min bet) to the pot.`, false);
+      addLog(`💸 ${G.players[callerIdx].name} pays ${pay} chips (2× min bet) to the pot.`, false);
     }
-    forcePts(0, -200);
-    forceDraw(0, 4);
-    addLog('🎯 ROOT OUT failed! −200pts, draw 4 cards. Law Draw still applies at end of your turn.', true);
+    forcePts(callerIdx, -200);
+    forceDraw(callerIdx, 4);
+    addLog(`🎯 ROOT OUT failed for ${G.players[callerIdx].name}! −200pts, draw 4 cards. Law Draw still applies at end of their turn.`, true);
 
     // Caller must still Law Draw at end of their turn (G._rootOutLawDraw flag)
     G.rootOutPenalty = true; // signals endTurn to apply law draw
@@ -6270,7 +6317,7 @@ function _roAccept() {
 
     // Play resumes with the next player (not caller)
     addLog('Play resumes with the next player. Caller still Law Draws at turn end.', false);
-    G.cur = nxt(0);
+    G.cur = nxt(callerIdx);
     G.turnPhase = 'playing';
     G.sel = [];
     renderGame(); renderLog(); updateBtns();
@@ -6915,10 +6962,15 @@ function animateCardsToFaceCard(cards, onDone) {
   function landNext() {
     if (idx >= cards.length) { if (onDone) onDone(); return; }
     const c = cards[idx++];
-    fcd.innerHTML = cardEl(c, 'card-land');
+    fcd.innerHTML = cardEl(c, 'card-land animating');
     // Re-trigger animation if same card shows twice
     const el = fcd.querySelector('.card-land');
-    if (el) { void el.offsetWidth; el.classList.add('card-land'); }
+    if (el) {
+      void el.offsetWidth;
+      el.classList.add('card-land');
+      // Clear transient animation lock so renderCenter can update afterward
+      setTimeout(() => { el.classList.remove('animating'); }, 240);
+    }
     setTimeout(landNext, 200);
   }
   landNext();
@@ -7793,7 +7845,7 @@ function updateBtns() {
   const ts = document.getElementById('turnStatus');
   const rob = document.getElementById('rootOutBtn');
   if (rob) {
-    const canRO = G.cur===0 && G.phase==='play' && !G.rootOutUsed && G.players[0].hand.length >= 2;
+    const canRO = G.cur===0 && G.phase==='play' && !G.rootOutUsed && G.players[0].hand.length >= 2 && G.players[0].hand.length <= 5 && G.sel.length === 0;
     rob.disabled = !canRO;
     rob.style.opacity = canRO ? '1' : '0.3';
     rob.style.cursor = canRO ? 'pointer' : 'not-allowed';
@@ -8392,7 +8444,7 @@ function renderOpponents() {
 function renderCenter() {
   const fcd=document.getElementById('faceCardDisplay');
   // Don't overwrite during card-land animation
-  const landingNow = fcd && fcd.querySelector('.card-land');
+  const landingNow = fcd && fcd.querySelector('.card-land.animating');
   if (!landingNow) {
     fcd.innerHTML=G.faceCard?cardEl(G.faceCard):'<div style="width:62px;height:88px;border:2px dashed #333;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#333;font-size:20px">?</div>';
   }
@@ -10760,6 +10812,7 @@ let   isMuted        = false;
 let   _homeStarted   = false; // true once home music has been successfully started
 let   _homeFadeTimer = null;
 let   _ingFadeTimer  = null;
+let   _desktopAutoRetryTimer = null;
 
 homeAudio.volume  = 0.65;
 homeAudio.loop    = true;
@@ -10795,10 +10848,27 @@ function _startHomeMusic() {
   homeAudio.play().then(() => {
     _homeStarted = true;
     _unlocked = true; // autoplay succeeded — void any pending interaction trigger
+    if (_desktopAutoRetryTimer) { clearInterval(_desktopAutoRetryTimer); _desktopAutoRetryTimer = null; }
     _fade(homeAudio, isMuted ? 0 : 0.65, 1200, null, 'home');
   }).catch(() => {
     // Browser blocked autoplay — will retry on first interaction via _onFirstInteraction
   });
+}
+
+function _isDesktopAutoplayMode() {
+  return window.innerWidth >= 900 && !('ontouchstart' in window);
+}
+
+function _startDesktopAutoplayRetry() {
+  if (!_isDesktopAutoplayMode() || _desktopAutoRetryTimer) return;
+  _desktopAutoRetryTimer = setInterval(() => {
+    if (_homeStarted && !homeAudio.paused) {
+      clearInterval(_desktopAutoRetryTimer);
+      _desktopAutoRetryTimer = null;
+      return;
+    }
+    _startHomeMusic();
+  }, 2500);
 }
 
 function _stopHomeForGame(onDone) {
@@ -11041,6 +11111,7 @@ showScreen = function(id) {
 
 // Boot: try home music immediately (works on desktop; mobile waits for _onFirstInteraction)
 _startHomeMusic();
+_startDesktopAutoplayRetry();
 // ========== END AUDIO SYSTEM ==========
 
 setHomeStage('main', false);
