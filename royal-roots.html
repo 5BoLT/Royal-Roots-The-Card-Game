@@ -107,7 +107,6 @@ button{cursor:pointer;font-family:inherit}
 .home-content{
   position:relative;z-index:3;
   display:flex;flex-direction:column;align-items:flex-start;gap:0;
-  animation:fadeZoomIn .7s ease both;
   max-width:420px;
   transition:transform .4s ease,filter .28s ease,opacity .28s ease;
 }
@@ -129,8 +128,8 @@ button{cursor:pointer;font-family:inherit}
   position:relative;
   display:flex;align-items:center;gap:12px;
   padding:12px 20px 12px 36px;
-  background:rgba(45,27,78,.25);
-  border:1px solid rgba(240,192,64,.32);
+  background:rgba(24,10,46,.46);
+  border:1px solid rgba(240,192,64,.26);
   cursor:pointer;
   font-family:'Cinzel Decorative',Cinzel,serif;
   font-size:clamp(14px,2.2vw,18px);
@@ -170,13 +169,14 @@ button{cursor:pointer;font-family:inherit}
   opacity:1;
 }
 .home-menu-item.selected{
-  background:linear-gradient(90deg,rgba(232,149,46,.25) 0%,rgba(45,27,78,.25) 100%);
-  box-shadow:0 0 24px var(--menu-orange-glow);
+  background:linear-gradient(90deg,rgba(68,34,104,.62) 0%,rgba(22,9,40,.5) 100%);
+  border-color:rgba(232,149,46,.58);
+  box-shadow:0 0 14px rgba(232,149,46,.28);
 }
 .home-menu-item:hover:not(.selected){
   color:var(--menu-gold-bright);
-  background:rgba(45,27,78,.34);
-  border-color:rgba(240,192,64,.45);
+  background:rgba(34,14,64,.56);
+  border-color:rgba(240,192,64,.42);
   text-shadow:
     1px 1px 0 var(--menu-purple-shadow),
     2px 2px 6px var(--menu-purple-shadow),
@@ -227,14 +227,30 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   padding:16px 16px 40px;
   background:#1a0a2a;
   background-image:
-    url('Images/ChatGPT Image Feb 14, 2026, 02_56_49 PM.png'),
-    url('Images/ChatGPT Image Feb 14, 2026, 02_56_49 PM (1).png'),
-    url('https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Background..png'),
-    url('https://raw.githubusercontent.com/SBoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Background..png'),
-    url('https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Background.png');
+    url('https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Logo.png'),
+    url('https://raw.githubusercontent.com/SBoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Logo.png'),
+    url('Images/RR_Menu_Logo.png');
   background-size:cover;background-position:center;background-repeat:no-repeat;
   overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:100%;
   opacity:0;transition:opacity .35s ease;
+}
+#home .home-bg-image{display:block}
+@media(max-width:900px){
+  #home{
+    background-image:
+      url('https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Mobile_Vertical.png'),
+      url('https://raw.githubusercontent.com/SBoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Mobile_Vertical.png'),
+      url('Images/RR_Menu_Mobile_Vertical.png');
+    background-position:center top;
+  }
+  #home .home-bg-image{display:none}
+  #mode-select,#style-select,#stakes-select,#match-pick{
+    background-image:
+      url('https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Mobile_Vertical.png'),
+      url('https://raw.githubusercontent.com/SBoLT/Royal-Roots-The-Card-Game/main/RR_Menu_Mobile_Vertical.png'),
+      url('Images/RR_Menu_Mobile_Vertical.png');
+    background-position:center top;
+  }
 }
 #mode-select.active,#style-select.active,#stakes-select.active,#match-pick.active{opacity:1}
 #mode-select.sliding-out,#style-select.sliding-out{
