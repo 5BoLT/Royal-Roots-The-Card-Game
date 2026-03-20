@@ -13,6 +13,8 @@
   --bg:#0f051a; --bg2:#1a052a; --bg3:#2a0a4a;
   --text:#e8dcc8; --text-dim:#888; --red:#c0392b; --red2:#e74c3c;
   --green:#27ae60; --purple:#9b59b6;
+  --royal-orange:#ff941f; --royal-orange-deep:#d86b09;
+  --royal-candy-purple:#8f4dff; --royal-candy-purple-deep:#5a28b2;
   --card-bg:#1e1e1e; --card-border:#444;
   --modal-bg:#1a052a; --modal-border:#F0C040;
   /* Menu palette: purple, gold, black, orange */
@@ -439,7 +441,11 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 /* TABLE AREA */
 .table-area{
   flex:1;position:relative;display:flex;align-items:center;justify-content:center;
-  padding:clamp(6px,2vw,32px);overflow:hidden
+  padding:clamp(6px,2vw,32px);overflow:hidden;
+  background:
+    radial-gradient(70% 45% at 50% 8%, rgba(255,148,31,.17) 0%, rgba(255,148,31,0) 62%),
+    radial-gradient(80% 55% at 50% 94%, rgba(255,148,31,.14) 0%, rgba(255,148,31,0) 64%),
+    linear-gradient(180deg, #170422 0%, #0c0216 100%)
 }
 .table-area .bg-pattern{position:absolute;inset:0;pointer-events:none}
 
@@ -447,21 +453,44 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 .oval-table{
   position:relative;width:100%;max-width:900px;
   aspect-ratio:2/1;
-  background:linear-gradient(180deg,#1a1a4a 0%,#0a0a2a 100%);
-  border-radius:300px;border:12px solid #2a2a6a;
-  box-shadow:0 0 120px rgba(0,0,0,.8),inset 0 0 80px rgba(0,0,0,.6);
+  background:
+    radial-gradient(120% 120% at 50% 50%, rgba(147,78,255,.16) 0%, rgba(147,78,255,0) 56%),
+    radial-gradient(180% 130% at 50% 50%, #2d0f56 0%, #17072f 62%, #0b0318 100%);
+  border-radius:300px;border:12px solid rgba(255,148,31,.76);
+  box-shadow:
+    0 0 0 2px rgba(255,176,95,.55),
+    0 0 24px rgba(255,148,31,.48),
+    0 0 64px rgba(255,148,31,.28),
+    0 0 120px rgba(0,0,0,.82),
+    inset 0 0 80px rgba(0,0,0,.56);
   display:flex;align-items:flex-end;justify-content:center;
-  flex-shrink:0;overflow:visible;padding-bottom:clamp(6px,2vh,18px)
+  flex-shrink:0;overflow:visible;padding-bottom:clamp(6px,2vh,18px);
+  isolation:isolate;
 }
 .oval-table::before{
-  content:'';position:absolute;inset:32px;
-  border:4px solid rgba(255,255,255,.025);border-radius:280px;pointer-events:none
+  content:'';position:absolute;inset:clamp(12px,2.2vw,28px);
+  border:clamp(2px,.5vw,5px) solid rgba(255,160,58,.9);
+  border-radius:inherit;pointer-events:none;
+  box-shadow:
+    0 0 16px rgba(255,148,31,.45),
+    inset 0 0 20px rgba(255,165,76,.32)
 }
+.oval-table::after{
+  content:'';position:absolute;inset:clamp(20px,3.6vw,44px);border-radius:inherit;
+  background:
+    repeating-conic-gradient(from 0deg,
+      rgba(255,171,77,.11) 0deg 5deg,
+      rgba(143,77,255,.06) 5deg 10deg,
+      transparent 10deg 16deg),
+    radial-gradient(circle at 50% 50%, rgba(255,194,124,.08) 0%, rgba(255,194,124,0) 58%);
+  opacity:.32;pointer-events:none
+}
+.oval-table > *{position:relative;z-index:2}
 .table-watermark{
-  font-family:'IM Fell English',serif;font-style:italic;
-  color:rgba(255,255,255,.03);font-size:36px;text-transform:uppercase;
-  letter-spacing:15px;user-select:none;position:absolute
+  color:rgba(255,182,97,.2);
+  text-shadow:0 0 18px rgba(143,77,255,.3),0 0 30px rgba(255,148,31,.22)
 }
+
 
 /* OPPONENTS ON TABLE */
 .opponent-seat{
@@ -980,11 +1009,18 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 .dice-pair{display:flex;gap:20px;justify-content:center;margin-bottom:24px}
 .die-face{
   width:80px;height:80px;border-radius:14px;
-  background:linear-gradient(145deg,#1a1a1a,#111);
-  border:3px solid rgba(230,126,34,.5);
+  background:
+    radial-gradient(circle at 28% 24%, #ffd699 0%, #ffc164 20%, #ff9b2d 48%, #df7411 78%, #ab4f00 100%);
+  border:3px solid rgba(255,183,102,.9);
   display:flex;align-items:center;justify-content:center;
   font-size:44px;line-height:1;
-  box-shadow:0 4px 20px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.05);
+  color:var(--royal-candy-purple);
+  text-shadow:0 1px 0 rgba(255,230,182,.45),0 0 8px rgba(143,77,255,.55);
+  box-shadow:
+    0 6px 18px rgba(0,0,0,.55),
+    0 0 14px rgba(255,148,31,.38),
+    inset 0 2px 0 rgba(255,225,170,.62),
+    inset 0 -3px 10px rgba(129,55,0,.42);
   transition:transform 0.05s;user-select:none
 }
 .die-face.scrambling{
@@ -1071,6 +1107,9 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 .card.unplayable{opacity:.3;filter:grayscale(.8);transform:scale(.94);cursor:not-allowed}
 .card.trap-card{border:2px solid rgba(133,193,233,.85)!important;box-shadow:0 2px 8px rgba(0,0,0,.5)}
 .card.trap-card.unplayable{opacity:.62;filter:grayscale(.2)}
+.card.trap-card.playable{border-color:#5dade2!important;box-shadow:0 0 0 1px rgba(93,173,226,.45),0 2px 8px rgba(0,0,0,.45)!important}
+.card.trap-card.playable:hover{border-color:#85c1e9!important;transform:translateY(-6px)}
+.card.trap-card.selected{border:3px solid #5dade2!important;box-shadow:0 0 18px rgba(93,173,226,.58)!important}
 .card.free-drew{box-shadow:0 0 15px rgba(201,162,39,.6)!important;border-color:var(--gold-light)!important}
 .card-back{
   width:64px;height:90px;border-radius:9px;
@@ -1161,7 +1200,15 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 .war-vs{font-family:'Cinzel Decorative',cursive;font-size:22px;color:#c0392b;text-shadow:0 0 10px rgba(192,57,43,.8)}
 .war-result{min-height:28px;font-size:13px;color:var(--gold-light);font-family:Cinzel,serif;letter-spacing:2px;margin-bottom:10px}
 .dice-area{display:flex;gap:32px;justify-content:center;align-items:center;margin:12px 0}
-.die{width:40px;height:40px;background:#222;border:2px solid #555;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--gold);transition:all .15s}
+.die{
+  width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:700;transition:all .15s;
+  background:radial-gradient(circle at 30% 26%, #ffd79c 0%, #ffb957 24%, #f18a1f 56%, #bc5908 100%);
+  border:2px solid rgba(255,188,116,.88);
+  color:var(--royal-candy-purple);
+  text-shadow:0 1px 0 rgba(255,224,165,.4),0 0 6px rgba(143,77,255,.5);
+  box-shadow:0 2px 8px rgba(0,0,0,.5),0 0 10px rgba(255,148,31,.32),inset 0 1px 0 rgba(255,228,176,.52)
+}
 .die.rolling{animation:rollDie .08s ease infinite}
 @keyframes rollDie{0%,100%{transform:rotate(0)}50%{transform:rotate(8deg)}}
 .war-btn{display:block;width:100%;margin:8px 0;padding:14px;background:#c0392b;color:#fff;border:none;border-radius:12px;font-family:Cinzel,serif;font-size:14px;letter-spacing:3px;text-transform:uppercase;transition:all .2s}
@@ -1250,9 +1297,11 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 }
 #betTurnLabel{
   display:none;
-  width:calc(100% - clamp(20px,6vw,44px));
-  max-width:420px;
-  margin:10px auto 8px auto;
+  position:relative;
+  left:50%;
+  transform:translateX(-50%);
+  width:min(420px, calc(100% - clamp(20px,6vw,44px)));
+  margin:10px 0 8px 0;
   font-size:11px;color:var(--gold);font-family:Cinzel,serif;letter-spacing:3px;
   text-transform:uppercase;padding:6px 20px;
   background:rgba(240,192,64,.07);border-radius:8px;
@@ -7057,6 +7106,10 @@ function aiSetTraps(pidx) {
   addLog(`🎭 ${G.players[pidx].name} sets ${picks.length} trap card(s) [${trapList}] (same rank or ±1 trigger; exact takes next turn, ±1 cannot cut line).`, false);
   return picks.length > 0;
 }
+function advSkip(n) {
+  const steps = Math.max(0, n|0);
+  _skipCount = (_skipCount || 0) + steps;
+}
 function nxt(from) { return (from + G.dir + G.numPlayers) % G.numPlayers; }
 function advanceTurnIdx(from) {
   let next = (from + G.dir + G.numPlayers) % G.numPlayers;
@@ -9570,20 +9623,11 @@ function startDraftPhase(skipShowScreen) {
     }
   }
   shuffle(pool);
-
-  const cutPoints = [];
-  while (cutPoints.length < 5) {
-    const cut = 1 + Math.floor(Math.random() * (pool.length - 1));
-    if (!cutPoints.includes(cut)) cutPoints.push(cut);
+  // Build six near-even piles so no pile gets starved.
+  const piles = Array.from({ length: 6 }, () => ({ cards: [], used: 0 }));
+  for (let i = 0; i < pool.length; i++) {
+    piles[i % 6].cards.push(pool[i]);
   }
-  cutPoints.sort((a,b)=>a-b);
-
-  const piles = [];
-  let start = 0;
-  cutPoints.concat(pool.length).forEach(cut => {
-    piles.push({ cards: pool.slice(start, cut), used: 0 });
-    start = cut;
-  });
 
   G.draft = {
     piles,
@@ -9606,10 +9650,16 @@ function draftRunAI() {
       setTimeout(() => {
         if (!G.draft) return;
         for (let pick=0; pick<2; pick++) {
-          const avail = G.draft.piles.filter(p => p.used < p.cards.length);
+          const avail = G.draft.piles
+            .map((p, idx) => ({ p, idx, rem: p.cards.length - p.used }))
+            .filter(x => x.rem > 0);
           if (!avail.length) break;
-          const pile = avail[Math.floor(Math.random()*avail.length)];
-          G.draft.playerPicks[pidx].push(pile.cards[pile.used++]);
+          // Prefer fuller piles to keep counts visually balanced across all 6.
+          avail.sort((a, b) => b.rem - a.rem);
+          const topRem = avail[0].rem;
+          const top = avail.filter(x => x.rem === topRem);
+          const choice = top[Math.floor(Math.random() * top.length)];
+          G.draft.playerPicks[pidx].push(choice.p.cards[choice.p.used++]);
         }
         if (pidx === numPlayers-1) G.draft.aiDone = true;
         renderDraftScreen();
@@ -10371,7 +10421,13 @@ function showHumanBetActions() {
 
   // Show the turn label above actions
   const turnLbl = document.getElementById('betTurnLabel');
-  if (turnLbl) turnLbl.style.display = 'block';
+  if (turnLbl) {
+    turnLbl.style.display = 'block';
+    turnLbl.style.position = 'relative';
+    turnLbl.style.left = '50%';
+    turnLbl.style.transform = 'translateX(-50%)';
+    turnLbl.style.margin = '10px 0 8px 0';
+  }
 
   acts.innerHTML = `
     <div style="font-size:10px;color:rgba(240,192,64,.5);text-align:center;margin-bottom:10px;letter-spacing:2px;font-family:Cinzel,serif">
