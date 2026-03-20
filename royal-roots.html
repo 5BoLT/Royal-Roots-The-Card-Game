@@ -8760,6 +8760,11 @@ function renderCenter() {
 // Returns: 'set' | 'flush' | 'straight' | 'face' | 'joker' | 'mixed' | null
 function detectSelectionType(sel) {
   if (!sel || sel.length === 0) return null;
+
+  // A single picked card is just a seed; don't lock it into one combo family yet.
+  // This keeps rank/suit/straight extension paths open for the 2nd pick.
+  if (sel.length === 1) return 'mixed';
+
   const nonJoker = sel.filter(c => c.rank !== 'JKR');
   const jokerCt  = sel.length - nonJoker.length;
 
@@ -8808,6 +8813,12 @@ function detectSelectionType(sel) {
 
 function canExtendSelection(card, currentSel) {
   if (currentSel.length === 0) return answersFC(card);
+
+  // If the seed is a single Joker, let the player branch into any non-zero line.
+  // (0 remains gated behind Mary Jane prefix rules.)
+  if (currentSel.length === 1 && currentSel[0].rank === 'JKR') {
+    return card.rank !== '0';
+  }
 
   const hasZeroInSel = currentSel.some(c => c.rank === '0');
   if (hasZeroInSel) {
