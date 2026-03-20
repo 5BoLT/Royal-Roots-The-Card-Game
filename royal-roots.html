@@ -561,6 +561,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   color:#d6eaf8;background:rgba(52,73,94,.7);
   box-shadow:0 0 10px rgba(93,173,226,.3);
   flex-shrink:0;
+  cursor:pointer;
 }
 .player-trap-card.facedown{background:var(--card-back-bg);border-color:rgba(240,192,64,.55);color:transparent;box-shadow:0 1px 6px rgba(0,0,0,.5)}
 .player-trap-card.faceup{background:rgba(93,173,226,.32);border-color:#a7d2f1;color:#f1f8ff}
@@ -597,7 +598,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   border:none!important;
   flex-wrap:wrap;
   z-index:140;
-  pointer-events:none;
+  pointer-events:auto;
 }
 
 .trap-zone-head{font-size:9px;color:rgba(174,214,241,.95);letter-spacing:1px;line-height:1.25}
@@ -7086,6 +7087,8 @@ function _triggerTrapActivationByFaceCard(enderIdx) {
 
   // Near-only: cover face card but no line-cut.
   if (firedNear.length > 0) {
+    // Near-match trap explicitly cannot cut turn order.
+    G._forcedNextTurn = null;
     const cover = firedNear[firedNear.length - 1];
     G.faceCard = cover.card;
     addLog(`🛡️ Near-match traps resolved. Face Card is now ${cover.card.rank}${cover.card.suit}; turn order remains unchanged.`, false);
@@ -7126,6 +7129,7 @@ function renderPlayerTrapBar() {
   }).join('');
   // Peek behavior: owner may inspect facedown traps without moving/playing them.
   el.querySelectorAll('.player-trap-card.facedown').forEach(node => {
+    const PEEK_MS = 2500;
     const showPeek = () => {
       node.classList.add('peeking');
       node.textContent = `${node.dataset.rank || ''}${node.dataset.suit || ''}`;
@@ -7134,12 +7138,19 @@ function renderPlayerTrapBar() {
       node.classList.remove('peeking');
       node.textContent = '🂠';
     };
-    node.addEventListener('mouseenter', showPeek);
-    node.addEventListener('mouseleave', hidePeek);
-    node.addEventListener('touchstart', () => {
+    const armHide = () => {
+      if (node._peekHideTimer) clearTimeout(node._peekHideTimer);
+      node._peekHideTimer = setTimeout(() => {
+        hidePeek();
+        node._peekHideTimer = null;
+      }, PEEK_MS);
+    };
+    node.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
       showPeek();
-      setTimeout(hidePeek, 1200);
-    }, { passive: true });
+      armHide();
+    });
   });
 }
 
@@ -8051,6 +8062,12 @@ function startHumanTurn() {
   // startHumanTurn() is only called when G.cur === 0 (human's turn).
   // We do NOT override G.cur here so the draft winner / rotation is respected.
 
+  // Safety: clear stale ace state if modal is not active; prevents rare stuck-turn lock.
+  const aceModal = document.getElementById('aceModal');
+  if (G.aceState && (!aceModal || aceModal.style.display !== 'flex')) {
+    G.aceState = null;
+  }
+
   // In team modes, if human already emptied their hand, auto-skip
   const isTeamMode2 = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
   if (isTeamMode2 && G.players[0].hand.length === 0) {
@@ -8325,6 +8342,7 @@ function freeDraw() {
   if (G.phase!=='play'||G.cur!==0||G.turnPhase==='done'||G.freeDrewId) return;
   if (G.deck.length===0) reshuffleDiscard();
   if (G.deck.length===0) { addLog('No cards left to draw!'); return; }
+  _playSfx('card_to_face', { restart: true, volume: 0.82 });
   const drawn = G.deck.pop();
   G.players[0].hand.push(drawn);
   G.freeDrewId = drawn.id;
@@ -9412,6 +9430,15 @@ document.addEventListener('click', function _menuSelectClickSfx(e) {
   _playMenuSelectSfx(btn);
 }, true);
 
+document.addEventListener('pointerdown', function _cardSelectPointerSfx(e) {
+  if (!e.isTrusted) return;
+  const node = e.target && e.target.closest
+    ? e.target.closest('.card, .draw-pile-btn, .draft-pile, .player-trap-card, .opp-trap, .tz-trap, .trap-sapper-card')
+    : null;
+  if (!node) return;
+  _playCardSelectSfx();
+}, true);
+
 // Called when player taps a mode card — store choice, go to match picker
 // ═══════════════════════════════════════════════════════════
 // GAME SETUP STATE
@@ -9902,6 +9929,7 @@ function draftPickFromPile(pileIdx) {
   if ((G.draft.playerPicks[0]||[]).length >= 2) return;
   const pile = G.draft.piles[pileIdx];
   if (pile.used >= pile.cards.length) return;
+  _playSfx('card_to_face', { restart: true, volume: 0.8 });
   G.draft.playerPicks[0].push(pile.cards[pile.used++]);
   if (G.draft.playerPicks[0].length >= 2) G.draft.humanDone = true;
   renderDraftScreen();
@@ -11339,6 +11367,7 @@ const HOME_MENU_TRACKS = [
 const _assetUrl = (file) => `https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/${encodeURIComponent(file)}`;
 const SFX_SOURCES = {
   dealing_cards: _assetUrl('Dealing Cards.mp3'),
+  card_select: _assetUrl('Card Select.mp3'),
   card_taken: _assetUrl('Card Taken From Player.mp3'),
   discard: _assetUrl('Discard.mp3'),
   card_to_face: _assetUrl('Card To Face Card.mp3'),
@@ -11375,6 +11404,7 @@ const SFX_SOURCES = {
 const COIN_SELECT_POOL = ['coin_select_1','coin_select_2','coin_select_3','coin_select_4','coin_select_5','coin_select_6','coin_select_7'];
 const POT_WIN_POOL = ['pot_win_1','pot_win_2'];
 const MATCH_WIN_TO_POT_DELAY_MS = 1200;
+let _lastCardSelectSfxAt = 0;
 const _sfxNodes = {};
 const _loopSfxNodes = {};
 
@@ -11477,6 +11507,13 @@ function _stopLoopSfx(key) {
 function _playCoinSelectSfx() {
   const key = COIN_SELECT_POOL[Math.floor(Math.random() * COIN_SELECT_POOL.length)];
   _playSfx(key, { restart: true, volume: 0.82 });
+}
+
+function _playCardSelectSfx() {
+  const now = Date.now();
+  if ((now - _lastCardSelectSfxAt) < 80) return;
+  _lastCardSelectSfxAt = now;
+  _playSfx('card_select', { restart: true, volume: 0.8 });
 }
 
 function _playPotWinSfx(opts = {}) {
