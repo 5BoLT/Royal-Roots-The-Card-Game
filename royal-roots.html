@@ -2053,6 +2053,13 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 const SUITS = ['♠','♥','♦','♣'];
 const SUIT_NAMES = {'♠':'Spades','♥':'Hearts','♦':'Diamonds','♣':'Clovers','★':'Madame'};
 const JOKER_SUIT_NAMES = {'♠':'Spades','♥':'Hearts','♦':'Diamond','♣':'Clovers','★':'Madame'};
+const JOKER_ICON_SOURCES = {
+  '♥': `https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/${encodeURIComponent('Heart Joker Icon.png')}`,
+  '♠': `https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/${encodeURIComponent('Spade Joker Icon.png')}`,
+  '♣': `https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/${encodeURIComponent('Clover Joker Icon.png')}`,
+  '♦': `https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/${encodeURIComponent('Diamond Joker Icon.png')}`,
+  '★': `https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/${encodeURIComponent('Madame Joker Icon.png')}`,
+};
 const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 const RANK_VAL = {'0':0,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14,'JKR':15};
  
@@ -2070,6 +2077,17 @@ function _markAiProgress() {
 function _ensureAiWatchdog() {
   if (_aiWatchdogId !== null) return;
   _aiWatchdogId = window.setInterval(() => {
+    if (!G || G.phase === 'ended') return;
+    // If AI turn never finished (timer dropped / rare exception path), unblock the match.
+    if (G._aiBusy !== null && G._aiBusy !== undefined && Date.now() - _aiLastProgressAt > 12000) {
+      console.warn('[Royal Roots] Watchdog: clearing stuck _aiBusy');
+      G._aiBusy = null;
+      _markAiProgress();
+      if (G.phase === 'play' && !G.bet && G.cur !== 0 && !G.war && !G.aceState && !G.jackFlush) {
+        setTimeout(() => aiTurn(G.cur), 100);
+      }
+      return;
+    }
     if (!G || G.phase !== 'play' || G.bet || G.cur === 0 || G.war || G.aceState || G.jackFlush) return;
     if (G._aiBusy !== null && G._aiBusy !== undefined) return;
     if (Date.now() - _aiLastProgressAt < 2200) return;
@@ -2092,9 +2110,11 @@ function _isElVisible(id) {
 
 function _activeUIForPhase(phase) {
   switch (phase) {
-    case 'war_prompt': return !!G.pendingWar || _isElVisible('warPrompt');
-    case 'jack_flush': return !!G.jackFlush || _isElVisible('jackModal');
-    case 'ace': return !!G.aceState || _isElVisible('aceModal');
+    // Modal/prompt visibility is the source of truth — stale G.aceState / G.jackFlush / pendingWar
+    // must not block _recoverStalePhaseLock() or the game can soft-lock.
+    case 'war_prompt': return _isElVisible('warPrompt');
+    case 'jack_flush': return _isElVisible('jackModal');
+    case 'ace': return _isElVisible('aceModal');
     case 'joker_effect':
     case 'joker_free_play': return _isElVisible('jokerModal');
     case 'roots_pick': return _isElVisible('rootsModal');
@@ -2112,18 +2132,35 @@ function _activeUIForPhase(phase) {
     case 'royal_roots_choice': return _isElVisible('royalRootsModal');
     case 'root_out': return _isElVisible('rootOutRevealOverlay');
     case 'royal_dice': return _isElVisible('diceRollModal');
-    case 'war': return !!G.war || _isElVisible('warModal');
+    case 'war': return _isElVisible('warModal');
     case 'dealing': return true;
     default: return true;
   }
 }
 
-function _recoverStaleHumanPhaseLock() {
-  if (!G || G.cur !== 0 || G.phase === 'play') return false;
+function _recoverStalePhaseLock() {
+  if (!G || G.phase === 'play' || G.phase === 'ended' || G.phase === 'dealing') return false;
+  if (G.bet) return false;
   if (_activeUIForPhase(G.phase)) return false;
+  const prevCur = G.cur;
   G.phase = 'play';
   if (!G.turnPhase || G.turnPhase !== 'done') G.turnPhase = 'playing';
+  if (!_isElVisible('aceModal')) G.aceState = null;
+  if (!_isElVisible('jackModal')) G.jackFlush = null;
+  G._aiBusy = null;
   addLog('🛠 Recovered from stale effect lock.', false);
+  if (prevCur === 0) {
+    startHumanTurn();
+  } else {
+    renderGame();
+    renderLog();
+    setTimeout(() => {
+      if (!G || G.phase !== 'play') return;
+      if (G.cur !== prevCur) return;
+      if (G.cur === 0) startHumanTurn();
+      else aiTurn(G.cur);
+    }, 80);
+  }
   return true;
 }
  
@@ -2282,6 +2319,7 @@ function shuffle(a) {
 // ========== CARD UTILS ==========
 const isRed = c => c.suit==='♥'||c.suit==='♦';
 const rv    = r => RANK_VAL[r] || 0;
+const _isMadameJokerCard = (card) => !!card && card.rank === 'JKR' && (card.madame || card.suit === '★');
  
 // Suit color palette — Royal Roots™ dark card design
 const SUIT_COLORS = {
@@ -2297,13 +2335,16 @@ function cardEl(card, classes='') {
   const sc = SUIT_COLORS[card.suit] || { color:'#ccc', border:'#666', glow:'rgba(200,200,200,0.2)' };
 
   if (card.rank === 'JKR') {
-    if (card.madame || card.suit === '★') {
+    const isMadame = _isMadameJokerCard(card);
+    const iconSrc = JOKER_ICON_SOURCES[card.suit] || JOKER_ICON_SOURCES['★'];
+    if (isMadame) {
       return `<div class="card joker-card ${classes}" data-id="${card.id}"
         style="background:linear-gradient(145deg,#23140a,#120b05);border-color:#c79a2b;
                box-shadow:0 0 14px rgba(247,215,116,.45),0 4px 16px rgba(0,0,0,.82);
-               display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:14px">
+               display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:10px">
         <div class="corner tl" style="color:#f7d774;font-size:7px;font-weight:700">MJKR<br>★</div>
-        <div style="font-size:26px;margin-top:6px">👑🃏</div>
+        <img src="${iconSrc}" alt="Madame Joker" draggable="false"
+             style="width:38px;height:38px;object-fit:contain;margin-top:7px;filter:drop-shadow(0 0 6px rgba(247,215,116,.55))">
         <div style="font-size:8px;color:#f7d774;text-align:center;line-height:1.2;font-weight:700;letter-spacing:0.6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px">MADAME</div>
       </div>`;
     }
@@ -2311,9 +2352,10 @@ function cardEl(card, classes='') {
     return `<div class="card joker-card ${classes}" data-id="${card.id}"
       style="background:linear-gradient(145deg,#1a1a2e,#0d0d1a);border-color:${sc.border};
              box-shadow:0 0 12px ${sc.glow},0 4px 16px rgba(0,0,0,.8);
-             display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:16px">
+             display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:10px">
       <div class="corner tl" style="color:${sc.color};font-size:7px;font-weight:700">JKR<br>${card.suit}</div>
-      <div style="font-size:26px;margin-top:6px">🃏</div>
+      <img src="${iconSrc}" alt="${jokerLabel} Joker" draggable="false"
+           style="width:36px;height:36px;object-fit:contain;margin-top:7px;filter:drop-shadow(0 0 6px ${sc.glow})">
       <div style="font-size:${jokerLabel.length>6?'7px':'8px'};color:${sc.color};text-align:center;line-height:1.2;font-weight:700;letter-spacing:0.5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px">${jokerLabel}</div>
     </div>`;
   }
@@ -3071,6 +3113,13 @@ function applyEffect(ev, cards, pidx) {
   const n   = cards.length;
   const nextIdx = nxt(pidx);
 
+  if (['royal_flush','royal_roots','royal_five','royal_six','royal_seven','royal_eight'].includes(eff)) {
+    _playSfx('royal_score', { restart: true, volume: 0.94 });
+  }
+  if (['joker_house','royal_joker_house','joker_cascade','royal_jacksons'].includes(eff)) {
+    _playSfx('joker_combos', { restart: true, volume: 0.94 });
+  }
+
   // ── ZERO PROTOCOL ──
   if (eff.startsWith('zero_')) {
     G._skipLawDrawFor = pidx;
@@ -3152,6 +3201,7 @@ function applyEffect(ev, cards, pidx) {
     return;
   }
   if (eff === 'madame_joker') {
+    _playSfx('madame_joker_laugh', { restart: true, volume: 0.95 });
     addLog('👑🃏 MADAME JOKER — THE HOUSE HERSELF!', true);
     _applyMadameJokerCore(pidx);
     return;
@@ -6974,6 +7024,14 @@ function madamePickSuit(suit) {
  
 // Fire a single joker effect — human gets interactive modal, AI gets auto
 function triggerJokerEffect(suit, pidx, onDone) {
+  const laughSfx = suit === '♥' ? 'heart_joker_laugh'
+    : suit === '♠' ? 'spade_joker_laugh'
+    : suit === '♣' ? 'clover_joker_laugh'
+    : suit === '♦' ? 'diamond_joker_laugh'
+    : suit === '★' ? 'madame_joker_laugh'
+    : null;
+  if (laughSfx) _playSfx(laughSfx, { restart: true, volume: 0.95 });
+
   if (suit === '★') {
     _applyMadameJokerCore(pidx);
     renderGame(); renderLog();
@@ -7236,6 +7294,7 @@ function _openingSuitLockApplies(pidx) {
 
 function canSetTrapCard(card) {
   if (!card) return false;
+  if (_isMadameJokerCard(card)) return false;
   return ['3','4','5','6','10','JKR'].includes(card.rank);
 }
 
@@ -7297,8 +7356,9 @@ function _applyHeartTrapCounter(actorIdx, ev) {
   return ownerIdx;
 }
 
-function _applySpadeTrapCounter(actorIdx, ev) {
+function _applySpadeTrapCounter(actorIdx, ev, cards = []) {
   if (!ev) return false;
+  if (ev.effect === 'madame_joker' || (Array.isArray(cards) && cards.some(_isMadameJokerCard))) return false;
   const jokerEffects = new Set(['joker_single','double_joker','triple_joker','quad_joker','joker_house','royal_joker_house','joker_cascade']);
   if (!jokerEffects.has(ev.effect)) return false;
   const ownerIdx = _findFirstEnemyJokerTrap(actorIdx, '♠');
@@ -7561,10 +7621,10 @@ function setSelectedTraps(faceUp=false) {
   const zone = (G.traps && G.traps[0]) ? G.traps[0] : [];
   const trapSpace = Math.max(0, 5 - zone.length);
   if (trapSpace <= 0) { addLog('You already have 5 traps set. Max trap limit reached.', false); return; }
-  if (picks.length === 0) { addLog('Select trap cards first (3, 4, 5, 6, 10, Joker).', false); return; }
+  if (picks.length === 0) { addLog('Select trap cards first (3, 4, 5, 6, 10, Joker except Madame).', false); return; }
   if (picks.length > 2) { addLog('You can set up to 2 traps per turn.', false); return; }
   if (picks.length > trapSpace) { addLog(`Only ${trapSpace} trap slot(s) left (max 5 total).`, false); return; }
-  if (!picks.every(canSetTrapCard)) { addLog('Only 3, 4, 5, 6, 10, or Joker cards can be set as traps.', false); return; }
+  if (!picks.every(canSetTrapCard)) { addLog('Only 3, 4, 5, 6, 10, or Joker cards (not Madame Joker) can be set as traps.', false); return; }
 
   // Capture hand card positions for fly animation (use player hand only)
   const cardPositions = picks.map(card => {
@@ -7812,7 +7872,7 @@ function _doPlayCardsCore(pidx, cards, opts = {}) {
   }
 
   // ♠ Joker Trap can void joker effects before they resolve.
-  const jokerVoidedByTrap = _applySpadeTrapCounter(pidx, ev);
+  const jokerVoidedByTrap = _applySpadeTrapCounter(pidx, ev, cards);
   if (jokerVoidedByTrap) {
     const won = checkWin(pidx);
     return true;
@@ -8578,7 +8638,8 @@ function startHumanTurn() {
                        pw.key.startsWith('jack') ? `${pw.key.split('_')[1]} Jack(s)` : 'a Joker';
       document.getElementById('warPromptText').textContent =
         `⚔️ ${attackerName} played ${cardName}! You have a counter — DECLARE WAR (play your matching card) or Pass (their effect fires).`;
-      showWarPrompt();
+      const wpEl = document.getElementById('warPrompt');
+      if (wpEl) wpEl.classList.add('visible');
       updateBtns();
       addLog(`⚔️ WAR OPPORTUNITY! ${attackerName} played a war card — counter or pass?`, true);
       renderLog();
@@ -8685,7 +8746,10 @@ function updateBtns() {
   const eb = document.getElementById('endBtn');
   const db = document.getElementById('drawFreeBtn');
   const ts = document.getElementById('turnStatus');
-  _recoverStaleHumanPhaseLock();
+  if (_recoverStalePhaseLock()) return;
+  // Orphan flags with phase already back to play — would block AI / end turn forever.
+  if (G.phase === 'play' && G.aceState && !_isElVisible('aceModal')) G.aceState = null;
+  if (G.phase === 'play' && G.jackFlush && !_isElVisible('jackModal')) G.jackFlush = null;
   const freeComboBypass = !!(G._aceComboFree || G._nineFreeCombo || G._nineSoloFree || G._sevenFourFreeCombo || G._nine4SoloFree || G._royalDiceFreeCombo);
   const rob = document.getElementById('rootOutBtn');
   if (rob) {
@@ -8728,7 +8792,7 @@ function updateBtns() {
     return;
   }
   // Async interactive phases — modal is open, lock all buttons
-  const ASYNC_PHASES = ['joker_effect','roots_pick','cascade_pick','even_steven','ace','war','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','discard_pick','trap_sapper','royal_roots_choice','root_out','royal_dice','dealing'];
+  const ASYNC_PHASES = ['joker_effect','joker_free_play','roots_pick','cascade_pick','even_steven','ace','war','eight_suit','madame_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','discard_pick','trap_sapper','royal_roots_choice','root_out','royal_dice','dealing'];
   // Also block if dice modal is showing
   if (document.getElementById('diceRollModal') && document.getElementById('diceRollModal').style.display === 'flex') { pb.disabled=true; eb.disabled=true; if(db) db.disabled=true; return; }
   if (ASYNC_PHASES.includes(G.phase) || G.aceState) {
@@ -8920,7 +8984,7 @@ function playSelected() {
   if (G.queenBonus > 0) { G.queenBonus--; }
  
   // Async phases — modal takes over, resumeAfterEffects() or the modal itself sets turnPhase='done'
-  const ASYNC = ['war_prompt','jack_flush','ace','joker_effect','roots_pick','cascade_pick','even_steven','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','discard_pick','trap_sapper','royal_roots_choice','root_out','joker_free_play'];
+  const ASYNC = ['war_prompt','jack_flush','ace','joker_effect','roots_pick','cascade_pick','even_steven','eight_suit','madame_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','discard_pick','trap_sapper','royal_roots_choice','root_out','joker_free_play'];
   if (ASYNC.some(p => G.phase === p) || G.jackFlush || G.aceState) {
     renderGame(); renderLog(); return;
   }
@@ -8946,8 +9010,8 @@ function playSelected() {
 }
  
 function endTurn() {
-  _recoverStaleHumanPhaseLock();
-  const ASYNC = ['war_prompt','jack_flush','ace','joker_effect','roots_pick','cascade_pick','even_steven','war','eight_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','discard_pick','trap_sapper','royal_roots_choice','root_out','dealing','royal_dice'];
+  if (_recoverStalePhaseLock()) return;
+  const ASYNC = ['war_prompt','jack_flush','ace','joker_effect','joker_free_play','roots_pick','cascade_pick','even_steven','war','eight_suit','madame_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','discard_pick','trap_sapper','royal_roots_choice','root_out','dealing','royal_dice'];
   if (ASYNC.includes(G.phase)||G.cur!==0||G.war||G.jackFlush||G.aceState) return;
 
   if (G._zeroReplayOwner === 0 && G._zeroReplaySuit) {
@@ -11620,11 +11684,11 @@ function _buildAddOnsHelp() {
     <b>Royal War score:</b> +10 points to winner.
   `) +
   sec('🎭','TRAP CARD ADD-ON EFFECTS',`
-    Valid trap cards include numeric trap ranks plus Joker trap variants.<br>
+    Valid trap cards include numeric trap ranks plus Joker trap variants (Madame Joker cannot be set as a trap).<br>
     A trap triggers when Face Card is <b>same rank</b> or <b>within ±1</b> of trap rank.<br>
     Triggered trap becomes the new Face Card. Exact-rank trigger grants immediate next turn priority.<br>
     <b>Trap 4 Counter Rule:</b> if Trap Fours targets a face-down trap and that trap is a <b>4</b>, it is not destroyed; it flips into the Face Card and the trap owner immediately takes the next turn.<br>
-    Joker trap counters can override, punish, or void major actions depending on suit.
+    Joker trap counters can override, punish, or void major actions depending on suit. <b>Madame Joker cannot be negated by Joker traps.</b>
   `);
 }
 
@@ -11874,6 +11938,13 @@ const SFX_SOURCES = {
   root_out_fail: _assetUrl('Root Out Fail.mp3'),
   root_out_win: _assetUrl('Root Out Win.mp3'),
   royal_war_initiated: _assetUrl('Royal War Initiated.mp3'),
+  royal_score: _assetUrl('Royal Score.mp3'),
+  joker_combos: _assetUrl('Joker Combos.mp3'),
+  heart_joker_laugh: _assetUrl('Heart Joker Laugh.mp3'),
+  spade_joker_laugh: _assetUrl('Spade Joker Laugh.mp3'),
+  clover_joker_laugh: _assetUrl('Clover Joker Laugh.mp3'),
+  diamond_joker_laugh: _assetUrl('Diamond Joker Laugh.mp3'),
+  madame_joker_laugh: _assetUrl('Madame Joker Laugh.mp3'),
   war_fail: _assetUrl('War Fail.mp3'),
   war_victory: _assetUrl('War Victory.mp3'),
   war_end: _assetUrl('War End.mp3'),
