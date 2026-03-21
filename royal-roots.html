@@ -986,18 +986,19 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 .btn-end:not(:disabled):hover{background:rgba(240,192,64,.12)}
 .btn-end:disabled{opacity:.25;cursor:not-allowed}
 /* ROOT OUT + ROYAL DICE row */
-.btn-bottom-row{display:flex;gap:6px;width:100%}
+.btn-bottom-row{display:flex;gap:6px;width:100%;min-width:0}
+.btn-bottom-row>button{min-width:0}
 .btn-rootout{
   flex:1;background:none;border:1px solid #8e44ad;color:#9b59b6;
   padding:6px 6px;border-radius:8px;font-family:Cinzel,serif;font-size:9px;
-  letter-spacing:1px;transition:all .2s;text-transform:uppercase;white-space:nowrap
+  letter-spacing:1px;transition:all .2s;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
 }
 .btn-rootout:not(:disabled):hover{border-color:#9b59b6;background:rgba(155,89,182,.1)}
 .btn-rootout:disabled{opacity:.25;cursor:not-allowed}
 .btn-royaldice{
   flex:1;background:none;border:1px solid #e67e22;color:#e67e22;
   padding:6px 6px;border-radius:8px;font-family:Cinzel,serif;font-size:9px;
-  letter-spacing:1px;transition:all .2s;text-transform:uppercase;white-space:nowrap
+  letter-spacing:1px;transition:all .2s;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
 }
 .btn-royaldice:not(:disabled):hover{border-color:#f39c12;background:rgba(230,126,34,.1)}
 .btn-royaldice:disabled{opacity:.25;cursor:not-allowed}
@@ -1420,7 +1421,9 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 @media(max-width:480px){
   /* Phone: keep row layout — cards left, controls right */
   .player-footer-inner{flex-direction:row;gap:6px;align-items:flex-end}
-  .controls-zone{width:clamp(120px,36vw,180px);min-width:unset}
+  .controls-zone{width:clamp(132px,40vw,196px);min-width:unset}
+  .btn-bottom-row{gap:4px}
+  .btn-rootout,.btn-royaldice{font-size:8px;letter-spacing:.4px;padding:6px 4px}
   .player-hand-zone{max-height:calc(40vh - 72px)}
   .card{width:42px!important;height:58px!important}
   .card-back{width:42px!important;height:58px!important}
@@ -2204,7 +2207,7 @@ function initGame(mode, numPlayers) {
     matchPot: 0,
     pointPot: 0,
     _extraLawDraws: 0,
-    royalRollUsed: null,
+    royalRollsUsed: null,
     traps: [],
     trapPlacedThisTurn: false,
     _forcedNextTurn: null,
@@ -6171,6 +6174,13 @@ function closeFlushModal() {
   G.cur = 0;
   G.phase = 'play'; G.turnPhase = 'done'; G._flushLeft = 0; G._flushMinKeep = undefined;
   if (G._flushDoneCallback) { const cb = G._flushDoneCallback; G._flushDoneCallback = null; cb(); return; }
+  if (G.players && G.players[0] && G.players[0].hand.length === 0) {
+    if (checkWin(0)) {
+      renderGame();
+      renderLog();
+      return;
+    }
+  }
   G.forceSingleEndDraw = true;
   renderGame(); updateBtns();
   addLog('Flush done! Click END TURN to draw & pass.', false); renderLog();
@@ -6265,9 +6275,23 @@ function closeRoyalRootsModal() {
 // =====================================================================
 // 🎲 ROYAL DICE (Royal Roll) — Full Implementation
 // =====================================================================
+function _royalDiceRollLimitFor(pidx) {
+  const isTeamMode = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+  return isTeamMode ? 1 : 2;
+}
+
+function _royalDiceRollsUsedFor(pidx) {
+  if (!G.royalRollsUsed) G.royalRollsUsed = G.players.map(() => 0);
+  return G.royalRollsUsed[pidx] || 0;
+}
+
+function _royalDiceRollsRemainingFor(pidx) {
+  return Math.max(0, _royalDiceRollLimitFor(pidx) - _royalDiceRollsUsedFor(pidx));
+}
+
 function declareRoyalDice() {
   if (G.phase !== 'play' || G.cur !== 0) { addLog('Not your turn!', false); return; }
-  if (G.royalRollUsed && G.royalRollUsed[0]) { addLog('Royal Roll already used this hand cycle!', false); return; }
+  if (_royalDiceRollsRemainingFor(0) <= 0) { addLog('Royal Dice already spent for this match.', false); return; }
   if (G.turnPhase === 'done') { addLog('Already played this turn — Royal Dice before playing only.', false); return; }
 
   // Show confirmation screen — player can still cancel here
@@ -6277,8 +6301,11 @@ function declareRoyalDice() {
 function _diceShowConfirm() {
   if (G.phase !== 'play') { addLog('Cannot use Royal Dice right now.', false); return; }
   const modal = document.getElementById('diceRollModal');
+  const used = _royalDiceRollsUsedFor(0);
+  const limit = _royalDiceRollLimitFor(0);
+  const rem = Math.max(0, limit - used);
   document.getElementById('diceModalTitle').textContent = '🎲 ROYAL DICE';
-  document.getElementById('diceModalSub').textContent = "Once you roll, there's no turning back!";
+  document.getElementById('diceModalSub').textContent = `Once you roll, there's no turning back! (${rem} roll${rem===1?'':'s'} left this match)`;
   document.getElementById('diceConfirmSection').style.display = 'block';
   document.getElementById('diceResultSection').style.display = 'none';
   // Reset dice faces to 1 (⚀)
@@ -6294,13 +6321,25 @@ function _diceShowConfirm() {
 
 function _diceCancelConfirm() {
   // User backs out before rolling — no penalty, no state change
+  _pendingDiceResult = null;
   document.getElementById('diceRollModal').style.display = 'none';
+  if (G.phase === 'royal_dice') {
+    G.phase = 'play';
+    renderGame();
+    updateBtns();
+  }
 }
 
 function _diceStartRoll() {
+  if (_royalDiceRollsRemainingFor(0) <= 0) {
+    addLog('No Royal Dice rolls left this match.', false);
+    document.getElementById('diceRollModal').style.display = 'none';
+    G.phase = 'play';
+    return;
+  }
   // POINT OF NO RETURN — mark as used and lock in
-  if (!G.royalRollUsed) G.royalRollUsed = G.players.map(() => false);
-  G.royalRollUsed[0] = true;
+  if (!G.royalRollsUsed) G.royalRollsUsed = G.players.map(() => 0);
+  G.royalRollsUsed[0] = (G.royalRollsUsed[0] || 0) + 1;
   G.phase = 'royal_dice';
 
   // Hide the roll/cancel buttons
@@ -6399,7 +6438,14 @@ function _diceShowResult(d1, d2, total, isDoubles) {
 
 function _diceOkay() {
   document.getElementById('diceRollModal').style.display = 'none';
-  if (!_pendingDiceResult) return;
+  if (!_pendingDiceResult) {
+    if (G.phase === 'royal_dice') {
+      G.phase = 'play';
+      renderGame();
+      updateBtns();
+    }
+    return;
+  }
   const { d1, d2, total, isDoubles } = _pendingDiceResult;
   _pendingDiceResult = null;
   // Now apply the effect via the existing resolver
@@ -7962,8 +8008,6 @@ function checkWin(pidx) {
   if (player.hand.length > 0) return false;
   // Single card cannot end the match — last play must be 2+ card combo
   if (G._lastPlayWasSingle) { G._lastPlayWasSingle = false; return false; }
-  // Reset Royal Roll for this player when they empty their hand
-  if (G.royalRollUsed) G.royalRollUsed[pidx] = false;
 
   // Team modes: both partners must empty hands to win
   const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
@@ -8070,7 +8114,7 @@ function nextMatch() {
   G.extraTurns = 0;
   G.rootOutUsed = false;
   G.rootOutPenalty = false;
-  G.royalRollUsed = G.players ? G.players.map(() => false) : []; // per-player, resets on empty hand
+  G.royalRollsUsed = G.players ? G.players.map(() => 0) : []; // per-player, per-match roll counters
   G.lockedSuit = null;
   G.lockedSuitTurns = 0;
   G.dir = 1;
@@ -8763,13 +8807,16 @@ function updateBtns() {
   if (G.phase === 'play' && G.aceState && !_isElVisible('aceModal')) G.aceState = null;
   if (G.phase === 'play' && G.jackFlush && !_isElVisible('jackModal')) G.jackFlush = null;
   const freeComboBypass = !!(G._aceComboFree || G._nineFreeCombo || G._nineSoloFree || G._sevenFourFreeCombo || G._nine4SoloFree || G._royalDiceFreeCombo);
+  const isNarrowMobile = !!(window.matchMedia && window.matchMedia('(max-width: 480px)').matches);
   const rob = document.getElementById('rootOutBtn');
   if (rob) {
     const canRO = G.cur===0 && G.phase==='play' && !G.rootOutUsed && G.players[0].hand.length >= 2 && G.players[0].hand.length <= 5 && G.sel.length === 0;
     rob.disabled = !canRO;
     rob.style.opacity = canRO ? '1' : '0.3';
     rob.style.cursor = canRO ? 'pointer' : 'not-allowed';
-    rob.textContent = G.rootOutUsed ? '🎯 ROOT OUT (used)' : '🎯 ROOT OUT!';
+    rob.textContent = G.rootOutUsed
+      ? (isNarrowMobile ? '🎯 ROOT OUT ✓' : '🎯 ROOT OUT (used)')
+      : (isNarrowMobile ? '🎯 ROOT OUT' : '🎯 ROOT OUT!');
   }
   const rdb = document.getElementById('royalDiceBtn');
   const tdb = document.getElementById('trapDownBtn');
@@ -8777,12 +8824,16 @@ function updateBtns() {
   const trapRow = document.getElementById('trapBtnRow');
   if (trapRow) trapRow.style.display = 'none';
   if (rdb) {
-    const rdUsed = G.royalRollUsed && G.royalRollUsed[0];
-    const canRD = G.cur===0 && G.phase==='play' && !rdUsed && G.turnPhase !== 'done';
+    const rdUsed = _royalDiceRollsUsedFor(0);
+    const rdLimit = _royalDiceRollLimitFor(0);
+    const rdRemaining = Math.max(0, rdLimit - rdUsed);
+    const canRD = G.cur===0 && G.phase==='play' && rdRemaining > 0 && G.turnPhase !== 'done';
     rdb.disabled = !canRD;
     rdb.style.opacity = canRD ? '1' : '0.3';
     rdb.style.cursor = canRD ? 'pointer' : 'not-allowed';
-    rdb.textContent = rdUsed ? '🎲 ROLLED (used)' : '🎲 ROYAL DICE';
+    rdb.textContent = rdRemaining > 0
+      ? (isNarrowMobile ? `🎲 DICE ${rdUsed}/${rdLimit}` : `🎲 ROYAL DICE (${rdUsed}/${rdLimit})`)
+      : (isNarrowMobile ? `🎲 USED ${rdUsed}/${rdLimit}` : `🎲 ROLLED (${rdUsed}/${rdLimit})`);
   }
  
   // Jack flush phase
@@ -11603,7 +11654,10 @@ function showRules() {
       War tiebreaker after 3 tied rounds. Both roll 2d6. Highest total wins. Re-roll on tie. Loser draws 3.
     `},
     { h:'🎲 ROYAL DICE', body:`
-      Once per player per hand-cycle. Tap <b>🎲 ROYAL DICE</b> before playing on your turn.<br>
+      Royal Dice is limited <b>per match</b>:<br>
+      • <b>Solo / FFA:</b> each player gets <b>2 rolls</b> per match<br>
+      • <b>Team modes:</b> each teammate gets <b>1 roll</b> per match (2 total per team)<br>
+      Tap <b>🎲 ROYAL DICE</b> before playing on your turn.<br>
       Roll 2d6 — see the <b>Royal Dice tab</b> for the full results table.
     `},
 
@@ -11731,12 +11785,14 @@ function _buildRoyalDiceHelp() {
     </div>`;
 
   return sec('🎲','WHAT IS ROYAL DICE?',`
-    <b>Royal Dice</b> is a once-per-hand-cycle power play. Tap the <b>🎲 ROYAL DICE</b> button on your turn — before you play any card.<br><br>
+    <b>Royal Dice</b> is a per-match power play. Tap the <b>🎲 ROYAL DICE</b> button on your turn — before you play any card.<br><br>
     You roll 2 six-sided dice. The total (and whether it's doubles) determines a special effect that fires immediately.<br><br>
-    <b>Important:</b> Your Royal Roll resets every time you empty your hand. In longer formats like Roulette, you'll get one nearly every match — use it wisely!
+    <b>Match limits:</b><br>
+    • <b>Solo / FFA:</b> 2 rolls per player, per match<br>
+    • <b>Team modes:</b> 1 roll per teammate, per match (2 total per team)
   `) +
   sec('📋','HOW TO USE IT',`
-    1. It must be <b>your turn</b> and you must not have already rolled this hand-cycle.<br>
+    1. It must be <b>your turn</b> and you must have at least one Royal Dice roll remaining this match.<br>
     2. Tap <b>🎲 ROYAL DICE</b> before playing any card or ending your turn.<br>
     3. The dice roll and the effect fires immediately.<br>
     4. After the effect, your turn continues normally <i>(unless Snake Eyes — you lose your turn)</i>.
@@ -11751,10 +11807,10 @@ function _buildRoyalDiceHelp() {
     ${row('Other','WASTED ROLL 💨','#888','No effect. Your turn continues normally — at least you tried.')}
   `) +
   sec('🔄','WHEN IT RESETS',`
-    Your Royal Roll is <b>not</b> tied to the full game — it resets whenever you empty your hand.<br><br>
-    This means in a standard match, you get <b>one roll per match</b>.<br>
-    In Roulette format where hands cycle more often, you'll get a roll nearly every round — the stakes are higher and the chaos is real!<br><br>
-    The button shows <b>"🎲 ROLLED (used)"</b> when your roll is spent, and reactivates automatically when your hand is emptied.
+    Royal Dice counters reset at the <b>start of each new match</b>.<br><br>
+    • <b>Solo / FFA:</b> 2 rolls per player each match.<br>
+    • <b>Team modes:</b> each teammate gets 1 roll each match (2 total per team).<br><br>
+    The button shows your usage as <b>used/limit</b> (example: <b>0/2</b>, <b>1/2</b>, or <b>1/1</b> in team modes).
   `) +
   sec('⚡','QUICK REFERENCE',`
     <div style="background:rgba(230,126,34,.06);border:1px solid rgba(230,126,34,.25);border-radius:8px;padding:14px;font-family:Cinzel,serif;font-size:12px;line-height:2">
@@ -11814,7 +11870,7 @@ function _buildGameModesHelp() {
     <b>Win:</b> Both teammates empty their hands. Partners exit together.<br><br>
     <b>Format:</b> Knockout cycling — when both players on a team empty their hands, that team <b>officially exits</b>. The last team standing loses.<br>
     Play cycles through all active players. Once your whole team exits, you're done.<br><br>
-    <b>Royal Dice</b> resets every time a player empties their hand — expect a roll nearly every round.<br>
+    <b>Royal Dice</b> in Roulette still follows per-match limits: each teammate gets 1 roll (2 total per team).<br>
     <b>Root Out</b> in Roulette: win = both teammates exit (2-way empty hands); lose = team stays and draws new cards next round.<br><br>
     <b>Stakes are higher</b> — one bad Root Out call can keep your entire team locked in while others advance.<br><br>
     <i>Best for:</i> Large groups, tournaments, and chaotic high-stakes sessions.
