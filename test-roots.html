@@ -3081,7 +3081,7 @@ const COMBO_EFFECT_DESC = {
   joker_house: 'Joker House (3J+2Joker): Enemies draw 2, dismiss 4, both Joker effects cascade',
   royal_flush: 'Royal Flush: Flush 4 cards (can flush hand clean)',
   royal_joker_house: 'Royal Joker House (2J+3Joker): Enemies draw 2, dismiss 4, 3 Joker effects, skip 2',
-  madame_joker: 'Madame Joker: You/teammate skip Law Draw this turn, all enemies take +1 Law Draw and pay 10 points + 100 coins, all trap cards flip face-up',
+  madame_joker: 'Madame Joker: You/teammate skip Law Draw this turn, all enemies take +1 Law Draw and pay 10 points + 100 coins, all trap cards flip face-up, then you declare what suit the next player must open with (same suit only — no override)',
   dead_mans_hand: 'Dead Man\'s Hand: Auto-match win. Enemies +2 cards next match',
   calamity_mary_jane: 'Calamity Mary Jane: Auto-match win. Enemies +1 card next match',
   royal_roots: 'Royal Roots (in suit): Auto-match win. Winner starts with 3 flushed next match',
@@ -3206,7 +3206,7 @@ function applyEffect(ev, cards, pidx) {
   if (eff === 'madame_joker') {
     _playSfx('madame_joker_laugh', { restart: true, volume: 0.95 });
     addLog('👑🃏 MADAME JOKER — THE HOUSE HERSELF!', true);
-    _applyMadameJokerCore(pidx);
+    _applyMadameJokerCore(pidx, pidx === 0 ? () => resumeAfterEffects(pidx) : null);
     return;
   }
   if (eff === 'royal_joker_house') {
@@ -6993,7 +6993,7 @@ function _revealAllTrapsFaceUp() {
   return { flippedNow, total };
 }
 
-function _applyMadameJokerCore(pidx) {
+function _applyMadameJokerCore(pidx, onDone) {
   const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
   const partnerIdx = G.players[pidx] ? G.players[pidx].partnerIdx : null;
   const hasPartner = isTeam && partnerIdx !== null && partnerIdx !== undefined && partnerIdx !== pidx;
@@ -7031,6 +7031,23 @@ function _applyMadameJokerCore(pidx) {
   addLog(`⚖️ Madame Joker: all enemies get +1 Law Draw on their next turn.`, true);
   addLog(`💸 Madame Joker Tax: +${ptsGain}pts${hasMoney ? ` and +${chipsGain}💰` : ''} to ${G.players[pidx].name}.`, true);
   addLog(`🪤 Trap Reveal: ${reveal.total} trap(s) face-up${reveal.flippedNow > 0 ? ` (${reveal.flippedNow} flipped now)` : ''}.`, true);
+
+  // Wildcard: choose what suit the next player must open with (same suit only, no override)
+  const targetIdx = nxt(pidx);
+  const SUIT_LABEL = {'♠':'Spades','♥':'Hearts','♦':'Diamonds','♣':'Clubs'};
+  function _applyMadameWildcard(suit) {
+    G._openingSuitLock = { playerIdx: targetIdx, suit };
+    addLog(`👑🃏 Madame Wildcard: ${G.players[targetIdx].name} must open their turn with ${suit} ${SUIT_LABEL[suit]||suit}. Same suit only — no override.`, true);
+    if (typeof onDone === 'function') onDone();
+  }
+  if (pidx === 0) {
+    // Human picks the suit via modal
+    openMadameSuitModal(pidx, _applyMadameWildcard);
+  } else {
+    // AI auto-picks best suit from next player's perspective (suits the AI player wants to force)
+    const aiSuit = _pickMadameSuitForPlayer(pidx);
+    _applyMadameWildcard(aiSuit);
+  }
 }
 
 function openMadameSuitModal(pidx, onPick) {
@@ -7076,9 +7093,10 @@ function triggerJokerEffect(suit, pidx, onDone) {
   if (laughSfx) _playSfx(laughSfx, { restart: true, volume: 0.95 });
 
   if (suit === '★') {
-    _applyMadameJokerCore(pidx);
-    renderGame(); renderLog();
-    setTimeout(() => { if (typeof onDone === 'function') onDone(); }, 250);
+    _applyMadameJokerCore(pidx, () => {
+      renderGame(); renderLog();
+      setTimeout(() => { if (typeof onDone === 'function') onDone(); }, 250);
+    });
     return;
   }
   const nextIdx = nxt(pidx);
@@ -10432,7 +10450,7 @@ const COMBO_TABLE = [
   ['Diamond Joker','13','Wildcard: everyone pays 1% Match Pot OR 10 points each to player/team, play any card (declare war against any joker)'],
   ['Clover Joker','13','Wildcard: you and partner play any card (solo: play any 2 cards), declare war against any joker'],
   ['Heart Joker','15','Wildcard: take up to 2 cards from any person, they draw 2 new cards, play any card (declare war against any joker)'],
-  ['Madame Joker (Overrides All — No Joker War)','25','Wildcard! You & teammate skip Law Draw this turn, all enemies take 1 extra Law Draw and pay 10 points + 100 coins. All Trap Cards flip Face-Up'],
+  ['Madame Joker (Overrides All — No Joker War)','25','Wildcard! You & teammate skip Law Draw this turn, all enemies take 1 extra Law Draw and pay 10 points + 100 coins. All Trap Cards flip Face-Up. Then declare what suit the next player must open with — same suit only, no override.'],
   ['Double / Triple / Quad Joker','40/100/500','40 for Double, 100 for Triple, 500 for Quad; all played joker effects activate, play any combo'],
   ['Full House','40','House Party: you have 2 cards to give away. Whoever gets 1 must draw 2'],
   ['Triple Double','65','Two 3-of-a-kinds: you have 2 cards to give away (or 3 solo), teammate has 2. Each given card forces draw 2'],
