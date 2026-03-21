@@ -3557,43 +3557,40 @@ function applyEffect(ev, cards, pidx) {
   // ── POWER PAIRS ──
   if (eff.startsWith('power_2_')) {
     const draws = n===2?2:n===3?3:4;
-    if (_comboActorWantsToSkip(pidx, `${n===2?'Pair':n===3?'Three':'Four'} 2s draw+skip`)) {
-      addLog(`💀 ${n===2?'Pair':n===3?'Three':'Four'} 2s effect skipped.`, false);
-    } else {
-      forceDraw(nextIdx, draws);
-      addLog(`💀 ${n===2?'Pair':n===3?'Three':'Four'} 2s! ${G.players[nextIdx].name} draws ${draws} & skipped!`, true);
-      advSkip(1);
-    }
+    forceDraw(nextIdx, draws);
+    addLog(`💀 ${n===2?'Pair':n===3?'Three':'Four'} 2s! ${G.players[nextIdx].name} draws ${draws} & skipped!`, true);
+    advSkip(1);
     if (n === 3) {
       // Three 2s: attacker flushes 1 card
-      if (_comboActorWantsToSkip(pidx, 'Three 2s flush')) {
-        addLog('💀 Three 2s self-flush skipped.', false);
+      if (pidx === 0) {
+        G.phase = 'flush_discard'; G._flushLeft = 1;
+        G._flushMinKeep = 0;
+        document.getElementById('flushDiscardTitle').textContent = 'THREE 2s — FLUSH 1 CARD';
+        renderFlushModal(); document.getElementById('flushDiscardModal').style.display = 'flex';
       } else {
-        if (pidx === 0) {
-          G.phase = 'flush_discard'; G._flushLeft = 1;
-          document.getElementById('flushDiscardTitle').textContent = 'THREE 2s — FLUSH 1 CARD';
-          renderFlushModal(); document.getElementById('flushDiscardModal').style.display = 'flex';
-        } else {
-          const h = G.players[pidx].hand;
-          if (h.length > 1) { h.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0)); G.discard.push(h.shift()); }
-          addLog(G.players[pidx].name + ' flushes 1 card (Three 2s)!', false);
+        const h = G.players[pidx].hand;
+        const toFlush = Math.min(1, h.length);
+        if (toFlush > 0) {
+          h.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+          G.discard.push(...h.splice(0, toFlush));
         }
+        addLog(G.players[pidx].name + ' flushes ' + toFlush + ' card(s) (Three 2s)!', false);
       }
     } else if (n === 4) {
       // Four 2s: attacker flushes 2 cards
-      if (_comboActorWantsToSkip(pidx, 'Four 2s flush')) {
-        addLog('💀 Four 2s self-flush skipped.', false);
+      if (pidx === 0) {
+        G.phase = 'flush_discard'; G._flushLeft = 2;
+        G._flushMinKeep = 0;
+        document.getElementById('flushDiscardTitle').textContent = 'FOUR 2s — FLUSH 2 CARDS';
+        renderFlushModal(); document.getElementById('flushDiscardModal').style.display = 'flex';
       } else {
-        if (pidx === 0) {
-          G.phase = 'flush_discard'; G._flushLeft = 2;
-          document.getElementById('flushDiscardTitle').textContent = 'FOUR 2s — FLUSH 2 CARDS';
-          renderFlushModal(); document.getElementById('flushDiscardModal').style.display = 'flex';
-        } else {
-          const h = G.players[pidx].hand;
-          const toFlush = Math.min(2, h.length - 1);
-          if (toFlush > 0) { h.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0)); G.discard.push(...h.splice(0, toFlush)); }
-          addLog(G.players[pidx].name + ' flushes ' + toFlush + ' card(s) (Four 2s)!', false);
+        const h = G.players[pidx].hand;
+        const toFlush = Math.min(2, h.length);
+        if (toFlush > 0) {
+          h.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+          G.discard.push(...h.splice(0, toFlush));
         }
+        addLog(G.players[pidx].name + ' flushes ' + toFlush + ' card(s) (Four 2s)!', false);
       }
     }
     _queueJokersFromCards(cards, pidx);
@@ -7643,6 +7640,16 @@ function setSelectedTraps(faceUp=false) {
   picks.forEach(card => G.traps[0].push({ card, faceUp: !!faceUp, animUntil }));
   G.trapPlacedThisTurn = true;
   G.turnPhase = 'done';
+  G.extraTurn = false;
+  G.extraTurns = 0;
+  G._aceComboFree = false;
+  G._nineFreeCombo = false;
+  G._nineSoloFree = false;
+  G._nineSoloFreeCount = 0;
+  G._sevenFourFreeCombo = false;
+  G._nine4SoloFree = false;
+  G._royalDiceFreeCombo = false;
+  G._royalDiceExtraMoves = 0;
 
   if (G.players[0].hand.length === 0) { checkWin(0); return; }
   const trapList = picks.map(c => `${c.rank}${c.suit}`).join(', ');
@@ -8242,6 +8249,11 @@ function aiTurn(pidx) {
       renderGame(); renderLog();
       if (G.cur !== 0) { setTimeout(() => aiTurn(G.cur), 400); }
       else { startHumanTurn(); }
+      return;
+    }
+
+    if (G.pendingWar && G.pendingWar.defenderIdx === pidx) {
+      aiDecideWar(pidx, G.pendingWar.key);
       return;
     }
 
@@ -8861,6 +8873,10 @@ function updateBtns() {
   // Play button
   if (G.sel.length === 0) { pb.disabled=true; return; }
   const cards = G.sel.map(id=>G.players[0].hand.find(c=>c.id===id)).filter(Boolean);
+  if (!freeComboBypass && cards.length > 0 && cards.every(canSetTrapCard) && !answersFC(cards[0])) {
+    pb.disabled = true;
+    return;
+  }
   const ev = freeComboBypass ? evalComboIgnoreFC(cards) : evalCombo(cards);
   let valid = !!ev.valid;
   if (valid && G._zeroReplayOwner === 0 && G._zeroReplaySuit) {
@@ -8916,6 +8932,11 @@ function playSelected() {
     return;
   }
   const cards = G.sel.map(id=>G.players[0].hand.find(c=>c.id===id)).filter(Boolean);
+  const freeComboBypass = !!(G._aceComboFree || G._nineFreeCombo || G._nineSoloFree || G._sevenFourFreeCombo || G._nine4SoloFree || G._royalDiceFreeCombo);
+  if (!freeComboBypass && cards.length > 0 && cards.every(canSetTrapCard) && !answersFC(cards[0])) {
+    addLog('Trap cards cannot override the Face Card opener.', false);
+    return;
+  }
   const replayWasActive = G._zeroReplayOwner === 0 && !!G._zeroReplaySuit;
   if (G._zeroReplayOwner === 0 && G._zeroReplaySuit) {
     const badSuit = cards.some(c => c.suit !== G._zeroReplaySuit);
@@ -8937,7 +8958,6 @@ function playSelected() {
       return;
     }
   }
-  const freeComboBypass = !!(G._aceComboFree || G._nineFreeCombo || G._nineSoloFree || G._sevenFourFreeCombo || G._nine4SoloFree || G._royalDiceFreeCombo);
   let ev;
   if (freeComboBypass) {
     // Bypass face card matching — any combo is valid
@@ -9389,13 +9409,14 @@ function renderOpponents() {
       const tt = t.faceUp ? `Trap ${t.card.rank}${t.card.suit}` : 'Face-down trap';
       return `<div class="${cls}" title="${tt}">${txt}</div>`;
     }).join('');
-    const trapCount = trapZone.length;
+    const cardCount = p.hand ? p.hand.length : 0;
     const oppPts = (G.pts && Number.isFinite(G.pts[pidx])) ? G.pts[pidx] : 0;
+    const oppCoins = (G.chips && Number.isFinite(G.chips[pidx])) ? G.chips[pidx] : 0;
     return `<div class="opponent-seat${active?' active':''}" style="left:${pPos.x}%;top:${pPos.y}%;transform:translate(-50%,-50%)">
       <div class="opponent-avatar">${p.emoji}</div>
       <div class="opponent-label">
         <span class="opp-name">${p.name}${p.isPartner?' 🤝':''}</span>
-        <div class="opp-meta"><span>${oppPts} pts</span><span>${trapCount} TRAP${trapCount!==1?'S':''}</span></div>
+        <div class="opp-meta"><span>${cardCount} Cards - ${oppPts} Points - ${oppCoins} Coins</span></div>
       </div>
       <div class="opp-cards">${backs}</div>
       <div class="opp-traps" id="opp-traps-${pidx}">${trapHtml || '<span class="opp-trap-empty">No traps</span>'}</div>
