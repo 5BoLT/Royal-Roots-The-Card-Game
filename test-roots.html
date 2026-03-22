@@ -525,7 +525,8 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   max-width:clamp(80px,18vw,160px);overflow:hidden
 }
 .opp-name{font-size:11px;font-family:'Cinzel',serif;color:var(--gold);text-transform:uppercase;letter-spacing:3px}
-.opp-meta{display:flex;flex-direction:column;gap:2px;font-size:9px;color:rgba(240,192,64,.7);font-family:monospace;line-height:1.1}
+.opp-meta{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:9px;color:rgba(240,192,64,.7);font-family:monospace;line-height:1.12}
+.opp-meta-main,.opp-meta-coins{white-space:nowrap}
 .opp-cards{display:flex;margin-top:4px;opacity:.75}
 .opp-cards .card-back-mini{
   width:22px;height:30px;
@@ -1467,10 +1468,18 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 }
 
 @media(max-width:600px){
+  .game-header{padding:8px 8px}
+  .header-left{gap:8px}
+  .header-right{gap:10px}
+  #helpBtn{position:relative;right:6px}
+  .player-footer{max-height:54vh}
+  #playerTrapBar{bottom:clamp(160px,24vh,245px)}
+  .player-trap-card{width:calc(36px * .93);height:calc(50px * .93);font-size:12px}
+  .trap-fly-card{width:calc(36px * .93);height:calc(50px * .93)}
   .opponent-avatar{width:clamp(28px,7vw,44px);height:clamp(28px,7vw,44px);font-size:clamp(14px,4vw,22px);border-width:2px}
-  .opponent-label{padding:3px 8px;border-radius:16px}
+  .opponent-label{padding:4px 8px;border-radius:16px;min-width:94px}
   .opp-name{font-size:clamp(7px,2vw,9px);letter-spacing:1px}
-  .opp-meta{font-size:clamp(6px,1.5vw,8px);gap:4px}
+  .opp-meta{font-size:clamp(6px,1.5vw,8px);gap:1px}
   .opp-cards .card-back-mini{width:10px;height:14px;margin-left:-4px} /* tiny on small screens */
   .opponent-seat{gap:2px}
   .table-area{padding:8px 6px}
@@ -1710,7 +1719,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
       <div class="header-brand">👑 Royal Roots™</div>
       <div class="header-badge" id="styleBadge">Standard</div>
       <button onclick="toggleComboRef()" id="comboRefBtn" style="background:none;border:1px solid rgba(240,192,64,.4);color:var(--gold);padding:4px 12px;border-radius:20px;font-size:10px;font-family:Cinzel,serif;letter-spacing:2px;cursor:pointer;transition:all .2s" title="Combo Reference">📊 COMBOS</button>
-      <button onclick="showRules()" style="background:none;border:1px solid rgba(240,192,64,.4);color:var(--gold);padding:4px 12px;border-radius:20px;font-size:10px;font-family:Cinzel,serif;letter-spacing:2px;cursor:pointer;transition:all .2s" title="How To Play">📜 HELP</button>
+      <button id="helpBtn" onclick="showRules()" style="background:none;border:1px solid rgba(240,192,64,.4);color:var(--gold);padding:4px 12px;border-radius:20px;font-size:10px;font-family:Cinzel,serif;letter-spacing:2px;cursor:pointer;transition:all .2s" title="How To Play">📜 HELP</button>
     </div>
     <div class="header-right">
       <div class="score-box">
@@ -2208,6 +2217,7 @@ function initGame(mode, numPlayers) {
     pointPot: 0,
     _extraLawDraws: 0,
     royalRollsUsed: null,
+    royalRollBonus: null,
     traps: [],
     trapPlacedThisTurn: false,
     _forcedNextTurn: null,
@@ -2223,6 +2233,8 @@ function initGame(mode, numPlayers) {
     _zeroReplayOwner: null,
     _warVictorMomentum: null,
     _aiFreeComboFor: null,
+    _jokerComboQueuedFor: {},
+    _heartState: null,
     _turnEndReverseFor: null,
     _nineTurnEndTeammate: null,
     _nineSoloSkipAfterReverse: 0,
@@ -2444,7 +2456,7 @@ function evalCombo(cards) {
     const r = c0.rank;
     if (r === 'JKR') {
       if (c0.madame || c0.suit === '★') return R('Madame Joker 👑🃏', 25, 'MYTHICAL', 'madame_joker');
-      const jokerPts = c0.suit === '♥' ? 15 : 13;
+      const jokerPts = 15;
       return R(`${SUIT_NAMES[c0.suit]} Joker 🃏`, jokerPts, 'COMMON', 'joker_single');
     }
     if (r === 'K')   return R('King', 5, 'COMMON', 'king');
@@ -2536,6 +2548,17 @@ function evalCombo(cards) {
     }
     const r = njRanks[0] || 'JKR';
     return evalSameRank(r, n, jCount > 0);
+  }
+
+  // Mixed combos cannot include a natural 4/5/6/7/8-of-a-kind fragment.
+  // If a rank reaches 4+, the play must be a pure same-rank line.
+  if (n >= 4) {
+    const rankCounts = {};
+    nonJ.forEach(c => { rankCounts[c.rank] = (rankCounts[c.rank] || 0) + 1; });
+    const maxNatural = Object.values(rankCounts).reduce((m, v) => Math.max(m, v), 0);
+    if (maxNatural >= 4) {
+      return { valid:false, reason:'4/5/6/7/8-of-a-kind cannot be mixed with other ranks' };
+    }
   }
  
   // ── STRAIGHT FLUSH ───────────────────────────────────────────
@@ -2785,7 +2808,7 @@ function tryStraight(cards) {
       return { valid:false, reason:'Aces in straights only work in A-2-3-4-5 or 10-J-Q-K-A' };
     }
     const W = jokers.length > 0 ? ' 🃏' : '';
-    let result = R(`Straight (5)${W}`, 45, 'COMMON', 'straight');
+    let result = R(`Straight (5)${W}`, 40, 'COMMON', 'straight');
     if (jokers.length > 0) result.pts += 10;
     return result;
   }
@@ -2811,10 +2834,10 @@ function tryStraight(cards) {
     const runMin = vals[0], runMax = vals[vals.length-1];
     const adjacent = fcVal === runMin - 1 || fcVal === runMax + 1;
     if (!adjacent) return { valid:false, reason:'4-card straight must connect to the face card' };
-    return { ...R('Straight (4) ⚠️', 45, 'COMMON', 'straight'), faceCardPenalty:true }; // -5 in core → 40
+    return { ...R('Straight (4) ⚠️', 40, 'COMMON', 'straight'), faceCardPenalty:true }; // -5 in core → 35
   }
 
-  const basePts = 45; // 45 base, +5 per card extension (6 card +5, 7 card +10, etc.)
+  const basePts = 40; // 40 base, +5 per card extension (6 card +5, 7 card +10, etc.)
   const ext = n > 5 ? (n - 5) * 5 : 0;
   const W = jokers.length > 0 ? ' 🃏' : '';
   const sevenPlus = n >= 7;
@@ -2840,10 +2863,10 @@ function tryFlush(cards) {
     if (jokers.length > 0) return { valid:false, reason:'Jokers cannot fill a 4-card flush' };
     const fc = G.faceCard;
     if (!fc || fc.suit !== suit) return { valid:false, reason:'4-card flush must connect to the face card suit' };
-    return { ...R('Flush (4) ⚠️', 55, 'COMMON', 'flush'), faceCardPenalty:true }; // -5 in core → 50
+    return { ...R('Flush (4) ⚠️', 50, 'COMMON', 'flush'), faceCardPenalty:true }; // -5 in core → 45
   }
 
-  const basePts = 55; // 55 base, +5 per card extension (6 card +5, 7 card +10, etc.)
+  const basePts = 50; // 50 base, +5 per card extension (6 card +5, 7 card +10, etc.)
   const ext = n > 5 ? (n - 5) * 5 : 0;
   const W = jokers.length > 0 ? ' 🃏' : '';
   const sevenPlus = n >= 7;
@@ -2918,16 +2941,28 @@ function tryTripleDouble(cards) {
   const nonJ   = cards.filter(c=>c.rank!=='JKR');
   const counts = {};
   nonJ.forEach(c => { counts[c.rank]=(counts[c.rank]||0)+1; });
-  const vals = Object.values(counts).sort((a,b)=>b-a);
-  // Two natural 3s, or one 3 + jokers, etc.
   const total = nonJ.length + jokers;
   if (total !== 6) return { valid:false };
-  // Need exactly two groups of 3 (jokers fill gaps)
-  if (Object.keys(counts).length === 2) {
-    const [a,b] = vals;
-    const needed = (3-a)+(3-b);
-    if (needed <= jokers) return R('Triple Double ✌️', 65, 'RARE', 'triple_double');
+
+  const vals = Object.values(counts);
+  if (vals.length === 0 || vals.length > 2) return { valid:false };
+
+  // Exactly two 3-card groups are required.
+  // Allow jokers to fill only missing slots (cannot reduce overfilled natural groups like 4+2).
+  if (vals.length === 2) {
+    const a = vals[0], b = vals[1];
+    if (a > 3 || b > 3) return { valid:false };
+    const needed = (3 - a) + (3 - b);
+    if (needed === jokers) return R('Triple Double ✌️', 70, 'RARE', 'triple_double');
+    return { valid:false };
   }
+
+  // One natural rank plus jokers can still form 3+3 only if jokers
+  // complete the natural trip and fully create a second trip.
+  const c = vals[0];
+  if (c > 3) return { valid:false };
+  const neededSingle = (3 - c) + 3;
+  if (neededSingle === jokers) return R('Triple Double ✌️', 70, 'RARE', 'triple_double');
   return { valid:false };
 }
 
@@ -2942,20 +2977,20 @@ function tryFullHouse(cards) {
   const W = jokers.length > 0 ? ' 🃏' : '';
  
   // Exact: [2,3]
-  if (jokers.length===0 && JSON.stringify(vals)==='[2,3]') return R('Full House'+W, 40, 'RARE', 'full_house');
+  if (jokers.length===0 && JSON.stringify(vals)==='[2,3]') return R('Full House'+W, 55, 'RARE', 'full_house');
   // 1 joker: [2,2]→[2,3] or [1,3]→[2,3] or [4]→FH (4+1 one rank, Joker makes pair)
   if (jokers.length===1) {
-    if (vals.length===2 && vals[0]===2 && vals[1]===2) return R('Full House'+W, 40, 'RARE', 'full_house');
-    if (vals.length===2 && ((vals[0]===1&&vals[1]===3)||(vals[0]===3&&vals[1]===1))) return R('Full House'+W, 40, 'RARE', 'full_house');
-    if (vals.length===1 && vals[0]===4) return R('Full House'+W, 40, 'RARE', 'full_house');
+    if (vals.length===2 && vals[0]===2 && vals[1]===2) return R('Full House'+W, 55, 'RARE', 'full_house');
+    if (vals.length===2 && ((vals[0]===1&&vals[1]===3)||(vals[0]===3&&vals[1]===1))) return R('Full House'+W, 55, 'RARE', 'full_house');
+    if (vals.length===1 && vals[0]===4) return R('Full House'+W, 55, 'RARE', 'full_house');
   }
   // 2 jokers: [1,2]→[3,2] or [3]→[3,2] or [2,1]
   if (jokers.length===2) {
-    if (vals.length===2) return R('Full House'+W, 40, 'RARE', 'full_house');
-    if (vals.length===1 && vals[0]===3) return R('Full House'+W, 40, 'RARE', 'full_house');
+    if (vals.length===2) return R('Full House'+W, 55, 'RARE', 'full_house');
+    if (vals.length===1 && vals[0]===3) return R('Full House'+W, 55, 'RARE', 'full_house');
   }
   // 3 jokers: any 2 non-jokers of different ranks → FH
-  if (jokers.length===3 && nonJ.length===2 && vals.length===2) return R('Full House'+W, 40, 'RARE', 'full_house');
+  if (jokers.length===3 && nonJ.length===2 && vals.length===2) return R('Full House'+W, 55, 'RARE', 'full_house');
   return { valid:false };
 }
  
@@ -3074,14 +3109,15 @@ function getComboPoints(cards) { return evalCombo(cards).pts || 0; }
 
 // Combo effect descriptions for Action Log (name + info when triggered)
 const COMBO_EFFECT_DESC = {
-  even_steven: 'Even Steven (2-4-6-8-10): Flush 2, pick 2 from discard, teammate plays any 2',
+  joker_single: 'Joker: trigger suit wildcard effect, then play any combo',
+  even_steven: 'Even Steven (2-4-6-8-10): You/partner flush 2, you pick 2 from discard, teammate plays any combo (solo: +1 Royal Dice)',
   roots: 'Roots (J-Q-K-A-Joker): Pick 2 enemies — they draw 4, others draw 2',
   cascade_house: 'Cascade House (44499/44999): Switch hands with an enemy; they draw 4 after',
   royal_five: 'Royal Five (5-of-a-kind): Banish enemy 2,3,J,Q,K,A,Joker to discard; 3oaK skill',
   joker_house: 'Joker House (3J+2Joker): Enemies draw 2, dismiss 4, both Joker effects cascade',
   royal_flush: 'Royal Flush: Flush 4 cards (can flush hand clean)',
   royal_joker_house: 'Royal Joker House (2J+3Joker): Enemies draw 2, dismiss 4, 3 Joker effects, skip 2',
-  madame_joker: 'Madame Joker: You/teammate skip Law Draw this turn, all enemies take +1 Law Draw and pay 10 points + 100 coins, all trap cards flip face-up, then you declare what suit the next player must open with (same suit only — no override)',
+  madame_joker: 'Madame Joker: You/teammate skip Law Draw this turn, all enemies take +1 Law Draw and pay 10 points + 100 coins to player/team, all trap cards flip face-up, then declare next opener suit',
   dead_mans_hand: 'Dead Man\'s Hand: Auto-match win. Enemies +2 cards next match',
   calamity_mary_jane: 'Calamity Mary Jane: Auto-match win. Enemies +1 card next match',
   royal_roots: 'Royal Roots (in suit): Auto-match win. Winner starts with 3 flushed next match',
@@ -3296,23 +3332,27 @@ function applyEffect(ev, cards, pidx) {
     return;
   }
   if (eff === 'royal_six') {
-    addLog('👑 Royal Six! Auto-match win. Winner (and teammate) start next match with 6 cards.', true);
+    addLog('👑 Royal Six! Auto-match win (counts as 2 match wins). Winner (and teammate) start next match with 6 cards.', true);
     G.royalSixWinner = pidx;
+    G.jokerCascadeWin = Math.max(Number(G.jokerCascadeWin || 0), 2);
     endMatch(pidx);
     return;
   }
   if (eff === 'royal_seven') {
-    addLog('👑 Royal Seven! Auto-match win!', true);
+    addLog('👑 Royal Seven! Auto-match win (counts as 4 match wins)!', true);
+    G.jokerCascadeWin = Math.max(Number(G.jokerCascadeWin || 0), 4);
     endMatch(pidx);
     return;
   }
   if (eff === 'royal_eight') {
-    addLog('👑 Royal Eight! Auto-match win!', true);
+    addLog('👑 Royal Eight! Auto-match win (counts as 10 match wins)!', true);
+    G.jokerCascadeWin = Math.max(Number(G.jokerCascadeWin || 0), 10);
     endMatch(pidx);
     return;
   }
   if (eff === 'royal_jacksons') {
-    addLog('👑 Royal Jacksons! Auto-match win!', true);
+    addLog('👑 Royal Jacksons! Auto-match win (counts as 20 match wins)!', true);
+    G.jokerCascadeWin = Math.max(Number(G.jokerCascadeWin || 0), 20);
     endMatch(pidx);
     return;
   }
@@ -3332,7 +3372,10 @@ function applyEffect(ev, cards, pidx) {
     return;
   }
   if (eff === 'joker_single') {
-    triggerJokerEffect(cards[0].suit, pidx, () => resumeAfterEffects(pidx));
+    const suit = cards[0].suit;
+    triggerJokerEffect(suit, pidx, () => {
+      _grantJokerComboTurn(pidx, `${SUIT_NAMES[suit] || suit} Joker`);
+    });
     return;
   }
   if (eff === 'roots') {
@@ -3348,9 +3391,23 @@ function applyEffect(ev, cards, pidx) {
     return;
   }
   if (eff === 'even_steven') {
-    addLog('🎯 Even Steven! Flush 2 cards, pick 2 from discard!', true);
+    const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+    const partnerIdx = G.players[pidx] ? G.players[pidx].partnerIdx : null;
+    const hasPartner = isTeam && partnerIdx !== null && partnerIdx !== undefined && partnerIdx !== pidx;
+    addLog('🎯 Even Steven! Flush 2 cards, pick 2 from discard.', true);
+    if (hasPartner) {
+      const partnerFlush = _flushLowestCards(partnerIdx, 2, '(Even Steven teammate bonus)');
+      if (partnerFlush > 0) {
+        addLog(`🎯 Even Steven: ${G.players[partnerIdx].name} flushes ${partnerFlush} and gains a play-any-combo turn.`, true);
+      } else {
+        addLog(`🎯 Even Steven: ${G.players[partnerIdx].name} gains a play-any-combo turn.`, true);
+      }
+      _queueJokerComboFor(partnerIdx, 1);
+    } else {
+      _grantRoyalDiceRolls(pidx, 1, '🎯 Even Steven');
+    }
     if (pidx === 0) openEvenStevenModal();
-    else aiEvenStevenEffect(pidx);
+    else aiEvenSteven(pidx);
     return;
   }
   if (eff === 'cascade_house') {
@@ -3426,16 +3483,17 @@ function applyEffect(ev, cards, pidx) {
       if (_comboActorWantsToSkip(pidx, 'Straight draw')) {
         addLog('📈 Straight draw effect skipped.', false);
       } else {
-        // Partner is ALWAYS safe — only opponents draw
-        const partnerIdx = G.players[pidx].partnerIdx;
-        const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
-        G.players.forEach((_,i) => {
-          const isPartner = isTeam && i === partnerIdx;
-          if (i !== pidx && !isPartner) forceDraw(i, drawCount);
-        });
         if (isSevenPlus) {
-          addLog('📈 Straight (' + cards.length + ')! 7+ CARD — ALL opponents draw 3, partner safe!', true);
+          G.players.forEach((_,i) => forceDraw(i, drawCount));
+          addLog('📈 Straight (' + cards.length + ')! 7+ CARD — all players draw 3!', true);
         } else {
+          // Partner is safe on normal straight effects.
+          const partnerIdx = G.players[pidx].partnerIdx;
+          const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+          G.players.forEach((_,i) => {
+            const isPartner = isTeam && i === partnerIdx;
+            if (i !== pidx && !isPartner) forceDraw(i, drawCount);
+          });
           addLog('📈 Straight (' + cards.length + ')! All opponents draw 2 — partner safe!', true);
         }
       }
@@ -3504,17 +3562,17 @@ function applyEffect(ev, cards, pidx) {
 
     if (pidx === 0) {
       // Human: always open the flush modal
-      // Solo 7+: flush 2 cards; otherwise flush 1
-      const selfFlushCount = (!hasPartner && isSevenPlus) ? 2 : 1;
+      const selfFlushCount = isSevenPlus ? 2 : 1;
       openFlushModal(selfFlushCount, hasPartner, isSevenPlus);
     } else {
       // AI
       const hand = G.players[pidx].hand;
-      const selfFlush = (!hasPartner && isSevenPlus) ? 2 : 1;
-      if (hand.length >= selfFlush) {
+      const selfFlush = isSevenPlus ? 2 : 1;
+      const selfTake = Math.min(selfFlush, hand.length);
+      if (selfTake > 0) {
         hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
-        G.discard.push(...hand.splice(0, selfFlush));
-        addLog(G.players[pidx].name + ' flushes ' + selfFlush + ' card(s) (Flush)!', false);
+        G.discard.push(...hand.splice(0, selfTake));
+        addLog(G.players[pidx].name + ' flushes ' + selfTake + ' card(s) (Flush)!', false);
       }
       // Partner flushes 2 in team modes
       if (hasPartner) {
@@ -4338,6 +4396,7 @@ function trapSapperConfirm() {
  
 function openAceModal(totalActions) {
   G.aceState = { actionsLeft: totalActions, totalActions, pidx: 0 };
+  G._aceDiscardPickBusy = false;
   G.phase = 'ace'; // pause normal flow
   showAceChoice();
 }
@@ -4457,9 +4516,14 @@ function cancelAceReplace() {
 }
 
 function aceDrawFromDiscard() {
+  if (!G.aceState || G.phase !== 'ace') return;
+  if (G._aceDiscardPickBusy) return;
+  G._aceDiscardPickBusy = true;
   // Hide ace modal temporarily, open discard picker (max 10, excludes face card)
   document.getElementById('aceModal').style.display = 'none';
   openDiscardPickerModal(1, () => {
+    G._aceDiscardPickBusy = false;
+    if (!G.aceState) return;
     // After picking 1 card from discard, consume the ace action
     addLog('🌟 Ace: Drew 1 card from the discard pile!', true);
     renderGame();
@@ -4470,7 +4534,8 @@ function aceDrawFromDiscard() {
 }
  
 function aceConsumeAction() {
-  G.aceState.actionsLeft--;
+  if (!G.aceState) return;
+  G.aceState.actionsLeft = Math.max(0, (G.aceState.actionsLeft || 0) - 1);
   if (G.aceState.actionsLeft <= 0) {
     // All actions done
     closeAceModal();
@@ -4482,6 +4547,7 @@ function aceConsumeAction() {
  
 function closeAceModal() {
   document.getElementById('aceModal').style.display = 'none';
+  G._aceDiscardPickBusy = false;
   G.aceState = null;
   G.phase = 'play';
   if (G.cur === 0 && G.players[0].hand.length === 0) { checkWin(0); return; }
@@ -4504,6 +4570,13 @@ function closeAceModal() {
     renderGame(); updateBtns();
     addLog('🌟 Four Aces — play any combo freely! (face card rules bypassed)', true);
     renderLog();
+    return;
+  }
+
+  // Pair Aces inside Two Pairs: resolve queued second pair effect now.
+  fireTwoPairPending(0);
+  if (G.phase !== 'play' || G.aceState || G.jackFlush) {
+    renderGame(); renderLog(); updateBtns();
     return;
   }
 
@@ -5258,7 +5331,7 @@ function openJokerEffectModal(suit, pidx, onDone) {
  
   if (suit === '♠') {
     title.textContent = '♠ SPADE JOKER';
-    sub.textContent = 'Swap a card with anyone OR pull from the discard pile';
+    sub.textContent = 'Choose 1 action: swap, discard draw, draw-replace, or force draw';
     const opponents = G.players.map((p,i)=>({p,i})).filter(({i})=>i!==0);
     let html = '<div style="margin-bottom:8px;font-size:11px;color:var(--text-dim);font-family:Cinzel,serif">SWAP WITH:</div>';
     opponents.forEach(({p,i}) => {
@@ -5273,40 +5346,40 @@ function openJokerEffectModal(suit, pidx, onDone) {
     } else {
       html += '<div style="font-size:11px;color:var(--text-dim);margin-top:8px">Discard pile empty — swap only</div>';
     }
+    html += '<button class="ace-action-btn" style="margin-top:8px;border-color:#7f8c8d;color:#bdc3c7" onclick="spadeDrawReplace()">🔄 Draw & Replace (draw 1, discard 1)</button>';
+    html += '<div style="margin-top:10px;font-size:11px;color:var(--text-dim);font-family:Cinzel,serif;letter-spacing:1px">FORCE DRAW:</div>';
+    opponents.forEach(({p,i}) => {
+      html += '<button class="ace-action-btn force" onclick="spadeForceDrawTarget('+i+')">💀 Force <strong>'+p.name+'</strong> to draw 1</button>';
+    });
     body.innerHTML = html;
   } else if (suit === '♦') {
     title.textContent = '♦ DIAMOND JOKER';
+    const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+    const partnerIdx = G.players[0] ? G.players[0].partnerIdx : null;
+    const hasPartner = isTeam && partnerIdx !== null && partnerIdx !== undefined && partnerIdx !== 0;
+    const payTargetLabel = hasPartner ? 'YOU + TEAMMATE' : 'YOU';
     const hasMoney = G.styles && G.styles.money && G.chips;
     const pot = G.matchPot || 0;
-    const pct1 = hasMoney && pot > 0 ? Math.max(1, Math.round(pot * 0.01)) : 0;
-    const chipLabel = hasMoney && pct1 > 0
-      ? `💰 All opponents pay 1% of pot (${pct1} chips each → YOU)`
-      : `💰 All opponents pay 10 chips each → YOU`;
+    const pct2 = hasMoney && pot > 0 ? Math.max(1, Math.round(pot * 0.02)) : 0;
+    const chipLabel = hasMoney && pct2 > 0
+      ? `💰 Enemies pay 2% of Match Pot (${pct2} each → ${payTargetLabel})`
+      : `💰 2% Match Pot option unavailable (Money Master + pot required)`;
     sub.textContent = 'Choose your effect:';
     body.innerHTML =
-      `<button class="ace-action-btn" style="border-color:#f39c12;color:#f0c040" onclick="diamondBet()">${chipLabel}</button>` +
-      `<button class="ace-action-btn force" onclick="diamondPts()">⭐ All opponents pay 10pts each → YOU</button>`;
+      `<button class="ace-action-btn" style="border-color:#f39c12;color:#f0c040;${(hasMoney && pct2 > 0) ? '' : 'opacity:.45'}" ${(hasMoney && pct2 > 0) ? '' : 'disabled'} onclick="diamondBet()">${chipLabel}</button>` +
+      `<button class="ace-action-btn force" onclick="diamondPts()">⭐ Enemies pay 10pts each → ${payTargetLabel}</button>`;
   } else if (suit === '♣') {
     title.textContent = '♣ CLOVER JOKER';
-    sub.textContent = 'You play any card freely. In duos, your partner also plays any card.';
-    body.innerHTML = '<div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Tap a card to play it freely:</div><div class="ace-replace-hand" id="cloverPickHand"></div>';
-    setTimeout(() => {
-      const el = document.getElementById('cloverPickHand');
-      if (!el) return;
-      el.innerHTML = G.players[0].hand.map(c => cardEl(c,'')).join('');
-      el.querySelectorAll('.card').forEach((cel,i) => {
-        cel.addEventListener('click', () => cloverPlayCard(i));
-      });
-    }, 40);
+    const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+    sub.textContent = isTeam
+      ? 'You and your partner each gain a free any-combo turn.'
+      : 'Solo: gain a free any-combo turn and +1 Royal Dice roll.';
+    body.innerHTML = '<button class="ace-action-btn" onclick="cloverConfirmComboBonus()">✅ APPLY CLOVER BONUS</button>';
   } else if (suit === '♥') {
     title.textContent = '♥ HEART JOKER';
-    sub.textContent = 'Take up to 2 cards from any opponent — they draw 2 replacements';
-    const opponents = G.players.map((p,i)=>({p,i})).filter(({i})=>i!==0);
-    let html = '<div style="margin-bottom:8px;font-size:11px;color:var(--text-dim);font-family:Cinzel,serif">TARGET:</div>';
-    opponents.forEach(({p,i}) => {
-      html += '<button class="ace-action-btn force" onclick="heartTargetPick('+i+')">Take from <strong>'+p.name+'</strong> ('+p.hand.length+' cards)</button>';
-    });
-    body.innerHTML = html;
+    sub.textContent = '2 actions: banish 1-2 cards (target draws same) OR destroy 1-2 traps';
+    G._heartState = { actionsLeft: 2, targetIdx: null, picks: [], trapTargets: [], trapPicks: [] };
+    heartShowActionMenu();
   }
   modal.style.display = 'flex';
 }
@@ -5345,12 +5418,20 @@ function openJokerFreePlay(pidx, suit) {
 function closeJokerModal(skipDone) {
   document.getElementById('jokerModal').style.display = 'none';
   G._jokerFreePlaySuit = null;
+  G._heartState = null;
   G.phase = 'play';
   renderGame(); renderLog();
-  if (!skipDone) { const done = G._jokerDone; G._jokerDone = null; if (done) done(); }
+  const done = G._jokerDone;
+  G._jokerDone = null;
+  if (!skipDone && done) done();
 }
  
 function spadeSwapPick(targetIdx) {
+  if (!G.players[0] || G.players[0].hand.length === 0) {
+    addLog('♠ Spade Joker: no card available to swap.', false);
+    closeJokerModal();
+    return;
+  }
   const sub  = document.getElementById('jokerModalSub');
   const body = document.getElementById('jokerModalBody');
   sub.textContent = 'Pick a card from YOUR hand to give to '+G.players[targetIdx].name+':';
@@ -5363,6 +5444,11 @@ function spadeSwapPick(targetIdx) {
       cel.addEventListener('click', () => {
         const myCard = G.players[0].hand.splice(i,1)[0];
         const them = G.players[targetIdx];
+        if (!them || them.hand.length === 0) {
+          if (myCard) G.players[0].hand.push(myCard);
+          addLog('♠ Spade Joker: target has no card to swap.', false);
+          return;
+        }
         const theirIdx = Math.floor(Math.random()*them.hand.length);
         const theirCard = them.hand.splice(theirIdx,1)[0];
         G.players[0].hand.push(theirCard);
@@ -5371,7 +5457,7 @@ function spadeSwapPick(targetIdx) {
         animateCardTransfer(targetIdx, 0, 1);
         animateCardTransfer(0, targetIdx, 1);
         addLog('♠ Spade Joker: Swapped '+myCard.rank+myCard.suit+' with '+them.name+' (got '+theirCard.rank+theirCard.suit+')!', true);
-        openJokerFreePlay(0, '♠');
+        closeJokerModal();
       });
     });
   }, 30);
@@ -5383,119 +5469,312 @@ function spadeDiscardPull(dIdx) {
     const card = takeCardFromDiscard(0, idx, 'Spade Joker pull');
     if (card) addLog('♠ Spade Joker: Pulled ' + card.rank + card.suit + ' from discard!', true);
   }
-  openJokerFreePlay(0, '♠'); // play any card after
+  closeJokerModal();
+}
+
+function spadeDrawReplace() {
+  if (G.deck.length === 0) reshuffleDiscard();
+  if (G.deck.length > 0) {
+    const draw = G.deck.pop();
+    G.players[0].hand.push(draw);
+    _playSfx('draw_card', { volume: 0.82 });
+    addLog(`♠ Spade Joker: Drew ${draw.rank}${draw.suit}. Choose a card to discard.`, true);
+  } else {
+    addLog('♠ Spade Joker: deck empty, choose a card to discard anyway.', false);
+  }
+  if (!G.players[0] || G.players[0].hand.length === 0) {
+    addLog('♠ Spade Joker: no card available to discard for replace.', false);
+    closeJokerModal();
+    return;
+  }
+  const sub  = document.getElementById('jokerModalSub');
+  const body = document.getElementById('jokerModalBody');
+  sub.textContent = 'Draw & Replace — pick 1 card from your hand to discard:';
+  body.innerHTML = '<div class="ace-replace-hand" id="spadeReplaceHand"></div>';
+  setTimeout(() => {
+    const el = document.getElementById('spadeReplaceHand');
+    if (!el) return;
+    el.innerHTML = G.players[0].hand.map(c => cardEl(c,'')).join('');
+    el.querySelectorAll('.card').forEach((cel, i) => {
+      cel.addEventListener('click', () => spadeConfirmReplace(i));
+    });
+  }, 30);
+}
+
+function spadeConfirmReplace(handIdx) {
+  const card = G.players[0].hand.splice(handIdx, 1)[0];
+  if (card) {
+    G.discard.push(card);
+    _playSfx('discard', { volume: 0.82 });
+    animateCardTransfer(0, -1, 1);
+    addLog(`♠ Spade Joker: Replaced by discarding ${card.rank}${card.suit}.`, true);
+  }
+  closeJokerModal();
+}
+
+function spadeForceDrawTarget(targetIdx) {
+  forceDraw(targetIdx, 1);
+  addLog(`♠ Spade Joker: Forced ${G.players[targetIdx].name} to draw 1!`, true);
+  closeJokerModal();
 }
  
-function diamondPts() {
-  // Each opponent loses 10pts, human gains 10pts per opponent
+function _diamondPayTargetLabel(pidx) {
+  const teamRecipients = _jokerTeamRecipients(pidx);
+  if (pidx === 0) return teamRecipients.length > 1 ? 'your team' : 'you';
+  return teamRecipients.length > 1 ? `${G.players[pidx].name}'s team` : G.players[pidx].name;
+}
+
+function diamondPts(pidx = 0, opts) {
+  const closeModal = !opts || opts.closeModal !== false;
   let gained = 0;
   G.players.forEach((_, i) => {
-    if (i === 0) return;
+    if (i === pidx || !isEnemy(pidx, i)) return;
     forcePts(i, -10);
     gained += 10;
   });
   if (gained > 0) _playSfx('pay_tax_points', { restart: true, volume: 0.88 });
-  forcePts(0, gained);
-  addLog(`♦ Diamond Joker: ${G.players.length - 1} opponent(s) each pay 10pts to you! (+${gained}pts)`, true);
-  openJokerFreePlay(0, '♦');
+  _awardPtsToPlayerTeam(pidx, gained);
+  const teamText = _diamondPayTargetLabel(pidx);
+  addLog(`♦ Diamond Joker: enemies pay 10pts each to ${teamText}! (+${gained}pts total)`, true);
+  if (closeModal) closeJokerModal();
 }
  
-function diamondBet() {
-  if (G.styles && G.styles.money && G.chips) {
-    const pot = G.matchPot || 0;
-    const perPlayer = pot > 0 ? Math.max(1, Math.round(pot * 0.01)) : Math.max(1, G.minBet||10);
-    let chipGained = 0;
-    G.players.forEach((_,i) => {
-      if (i === 0) return;
-      const pay = Math.min(perPlayer, G.chips[i]||0);
-      G.chips[i] = (G.chips[i]||0) - pay;
-      G.chips[0] = (G.chips[0]||0) + pay;
-      chipGained += pay;
-    });
-    if (chipGained > 0) _playSfx('pay_tax_coins', { restart: true, volume: 0.9 });
-    addLog(`♦ Diamond Joker: All opponents pay ${perPlayer}💰 (1% pot) to you! (+${chipGained}💰)`, true);
-  } else {
-    G.players.forEach((_,i) => { if (i === 0) return; forcePts(i, -10); });
-    _playSfx('pay_tax_points', { restart: true, volume: 0.88 });
-    addLog('♦ Diamond Joker: All opponents pay 10pt penalty!', true);
+function diamondBet(pidx = 0, opts) {
+  const closeModal = !opts || opts.closeModal !== false;
+  if (!(G.styles && G.styles.money && G.chips)) {
+    diamondPts(pidx, opts);
+    return;
   }
-  openJokerFreePlay(0, '♦');
+  const pot = G.matchPot || 0;
+  const perPlayer = Math.max(1, Math.round(pot * 0.02));
+  let chipGained = 0;
+  G.players.forEach((_,i) => {
+    if (i === pidx || !isEnemy(pidx, i)) return;
+    const pay = Math.min(perPlayer, G.chips[i]||0);
+    G.chips[i] = (G.chips[i]||0) - pay;
+    chipGained += pay;
+  });
+  _awardChipsToPlayerTeam(pidx, chipGained);
+  if (chipGained > 0) _playSfx('pay_tax_coins', { restart: true, volume: 0.9 });
+  const teamText = _diamondPayTargetLabel(pidx);
+  addLog(`♦ Diamond Joker: enemies pay ${perPlayer}💰 each (2% Match Pot) to ${teamText}! (+${chipGained}💰 total)`, true);
+  if (closeModal) closeJokerModal();
 }
- 
-function cloverPlayCard(handIdx) {
-  const card = G.players[0].hand.splice(handIdx,1)[0];
-  if (card) {
-    G.discard.push(card);
-    G.faceCard = card;
-    _playSfx('card_to_face', { restart: true, volume: 0.82 });
-    addLog('♣ Clover Joker: You played '+card.rank+card.suit+' freely!', true);
-    const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
-    const partnerIdx = G.players[0].partnerIdx;
-    if (isTeam && partnerIdx !== null && partnerIdx !== undefined && partnerIdx !== 0) {
-      const partner = G.players[partnerIdx];
-      if (partner && partner.hand.length > 0) {
-        partner.hand.sort((a,b)=>(RANK_VAL[b.rank]||0)-(RANK_VAL[a.rank]||0));
-        const pCard = partner.hand.shift();
-        G.discard.push(pCard);
-        G.faceCard = pCard;
-        _playSfx('card_to_face', { restart: true, volume: 0.82 });
-        addLog('♣ Clover Joker: Partner played '+pCard.rank+pCard.suit+' freely!', true);
-      }
-    }
-    if (G.players[0].hand.length === 0) { closeJokerModal(true); checkWin(0); return; }
-  }
-  // Solo: play a 2nd free card. Team modes: done after you+partner each play 1.
+
+function cloverConfirmComboBonus() {
   const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
-  if (!isTeam && G.players[0].hand.length > 0) openJokerFreePlay(0, '♣');
-  else closeJokerModal();
-}
- 
-function heartTargetPick(targetIdx) {
-  const them = G.players[targetIdx];
-  if (them.hand.length === 0) {
-    addLog('♥ Heart Joker: '+them.name+' has no cards!', false);
-    closeJokerModal(); return;
+  const partnerIdx = G.players[0] ? G.players[0].partnerIdx : null;
+  const hasPartner = isTeam && partnerIdx !== null && partnerIdx !== undefined && partnerIdx !== 0;
+  if (hasPartner) {
+    _queueJokerComboFor(partnerIdx, 1);
+    addLog(`♣ Clover Joker: ${G.players[partnerIdx].name} gets a free any-combo turn on their next turn.`, true);
+  } else {
+    _grantRoyalDiceRolls(0, 1, '♣ Clover Joker');
+    addLog('♣ Clover Joker (solo): +1 Royal Dice roll gained.', true);
   }
-  G._heartTarget = targetIdx; G._heartPicked = [];
+  closeJokerModal();
+}
+
+function openAIDiamondChoiceModal(pidx, onDone) {
+  G.phase = 'joker_effect';
+  G._jokerDone = onDone;
+  const modal = document.getElementById('jokerModal');
+  const title = document.getElementById('jokerModalTitle');
+  const sub   = document.getElementById('jokerModalSub');
+  const body  = document.getElementById('jokerModalBody');
+  const actor = G.players[pidx];
+  if (!modal || !title || !sub || !body || !actor) {
+    diamondPts(pidx, { closeModal:false });
+    closeJokerModal();
+    return;
+  }
+
+  const hasMoney = G.styles && G.styles.money && G.chips;
+  const perPlayer = hasMoney ? Math.max(1, Math.round((G.matchPot || 0) * 0.02)) : 0;
+  title.textContent = `♦ DIAMOND JOKER — ${actor.name}`;
+  sub.textContent = `${actor.name} is choosing tax mode...`;
+  body.innerHTML =
+    `<button class="ace-action-btn" style="border-color:#f39c12;color:#f0c040;${(hasMoney && perPlayer > 0) ? '' : 'opacity:.45'}" ${(hasMoney && perPlayer > 0) ? '' : 'disabled'}>💰 Tax Coins (2% Match Pot each)</button>` +
+    `<button class="ace-action-btn force">⭐ Tax Points (10 each)</button>`;
+  modal.style.display = 'flex';
+
+  setTimeout(() => {
+    const chooseCoins = (hasMoney && perPlayer > 0) && Math.random() < 0.55;
+    if (chooseCoins) diamondBet(pidx, { closeModal:false });
+    else diamondPts(pidx, { closeModal:false });
+    closeJokerModal();
+  }, 900);
+}
+
+function heartShowActionMenu() {
+  const st = G._heartState;
+  if (!st) return;
   const sub  = document.getElementById('jokerModalSub');
   const body = document.getElementById('jokerModalBody');
-  sub.textContent = 'Pick up to 2 cards from '+them.name+':';
+  if (!sub || !body) return;
+  sub.textContent = `♥ HEART JOKER — ${st.actionsLeft} action(s) left`;
+  body.innerHTML =
+    '<button class="ace-action-btn" onclick="heartShowBanishTargets()">🗡️ Banish 1-2 cards from a player</button>' +
+    '<button class="ace-action-btn force" onclick="heartShowTrapTargets()">💣 Destroy 1-2 enemy trap cards</button>' +
+    '<button class="ace-action-btn" style="border-color:#7f8c8d;color:#bdc3c7" onclick="heartSkipAction()">⏭ Skip this action</button>';
+}
+
+function heartShowBanishTargets() {
+  const st = G._heartState;
+  if (!st) return;
+  const body = document.getElementById('jokerModalBody');
+  const opponents = G.players.map((p,i)=>({p,i})).filter(({i})=>i!==0);
+  body.innerHTML = '<div style="margin-bottom:8px;font-size:11px;color:var(--text-dim);font-family:Cinzel,serif">BANISH FROM:</div>';
+  opponents.forEach(({p,i}) => {
+    body.innerHTML += '<button class="ace-action-btn" onclick="heartTargetPick('+i+')">'+p.name+' ('+p.hand.length+' cards)</button>';
+  });
+  body.innerHTML += '<button class="ace-action-btn" style="border-color:#555;color:#888" onclick="heartShowActionMenu()">↩ Back</button>';
+}
+
+function heartTargetPick(targetIdx) {
+  const st = G._heartState;
+  if (!st) return;
+  const them = G.players[targetIdx];
+  if (!them || them.hand.length === 0) {
+    addLog('♥ Heart Joker: target has no cards to banish.', false);
+    heartShowActionMenu();
+    return;
+  }
+  st.targetIdx = targetIdx;
+  st.picks = [];
+  const sub  = document.getElementById('jokerModalSub');
+  const body = document.getElementById('jokerModalBody');
+  sub.textContent = 'Pick 1-2 cards to banish from '+them.name+':';
   renderHeartPicker(them, body);
 }
- 
+
 function renderHeartPicker(them, body) {
-  body.innerHTML = '<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">Blind grab: card faces are hidden.</div><div class="ace-replace-hand" id="heartPickHand"></div><div style="margin-top:8px;font-size:11px;color:var(--text-dim)">'+G._heartPicked.length+'/2 selected</div><button class="ace-action-btn" style="margin-top:6px" onclick="heartConfirmTake()">Take Selected ('+G._heartPicked.length+')</button>';
+  const st = G._heartState;
+  if (!st) return;
+  body.innerHTML = '<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">Blind banish: card faces are hidden.</div><div class="ace-replace-hand" id="heartPickHand"></div><div style="margin-top:8px;font-size:11px;color:var(--text-dim)">'+st.picks.length+'/2 selected</div><button class="ace-action-btn" style="margin-top:6px" onclick="heartConfirmTake()">Banish Selected ('+st.picks.length+')</button><button class="ace-action-btn" style="margin-top:6px;border-color:#555;color:#888" onclick="heartShowBanishTargets()">↩ Back</button>';
   setTimeout(() => {
     const el = document.getElementById('heartPickHand');
     if (!el) return;
     el.innerHTML = them.hand.map((_,i) => {
-      const sel = G._heartPicked.includes(i);
+      const sel = st.picks.includes(i);
       return `<div class="card-back" style="width:52px;height:74px;font-size:16px;border:${sel?'2px solid var(--gold)':'1px solid var(--gold-dark)'};box-shadow:${sel?'0 0 10px rgba(240,192,64,.5)':'none'};cursor:pointer" title="Unknown card">🂠</div>`;
     }).join('');
     el.querySelectorAll('.card-back').forEach((cel,i) => {
       cel.addEventListener('click', () => {
-        if (G._heartPicked.includes(i)) G._heartPicked = G._heartPicked.filter(x=>x!==i);
-        else if (G._heartPicked.length < 2) G._heartPicked.push(i);
-        renderHeartPicker(G.players[G._heartTarget], body);
+        if (st.picks.includes(i)) st.picks = st.picks.filter(x=>x!==i);
+        else if (st.picks.length < 2) st.picks.push(i);
+        renderHeartPicker(G.players[st.targetIdx], body);
       });
     });
   }, 30);
 }
- 
+
 function heartConfirmTake() {
-  const targetIdx = G._heartTarget;
+  const st = G._heartState;
+  if (!st) return;
+  const targetIdx = st.targetIdx;
+  if (targetIdx === null || targetIdx === undefined) return;
   const them = G.players[targetIdx];
-  const indices = [...G._heartPicked].sort((a,b)=>b-a);
-  const taken = indices.map(i => them.hand.splice(i,1)[0]).filter(Boolean);
-  taken.forEach(c => G.players[0].hand.push(c));
-  if (taken.length > 0) {
-    _playSfx('take_card_from_opponent', { restart: true, volume: 0.92 });
-    animateCardTransfer(targetIdx, 0, taken.length);
+  const indices = [...st.picks].sort((a,b)=>b-a);
+  if (indices.length === 0) {
+    addLog('♥ Heart Joker: select at least 1 card to banish.', false);
+    return;
   }
-  forceDraw(targetIdx, 2);
-  addLog('♥ Heart Joker: Took '+taken.length+' card(s) from '+them.name+'! They draw 2.', true);
-  G._heartTarget = null; G._heartPicked = [];
-  openJokerFreePlay(0, '♥');
+  const banished = indices.map(i => them.hand.splice(i,1)[0]).filter(Boolean);
+  if (banished.length > 0) {
+    G.discard.push(...banished);
+    _playSfx('discard', { volume: 0.82 });
+    animateCardTransfer(targetIdx, -1, banished.length);
+  }
+  forceDraw(targetIdx, banished.length);
+  addLog('♥ Heart Joker: Banished '+banished.length+' card(s) from '+them.name+' — they draw '+banished.length+' replacement(s).', true);
+  st.targetIdx = null;
+  st.picks = [];
+  heartConsumeAction();
+}
+
+function heartShowTrapTargets() {
+  const st = G._heartState;
+  if (!st) return;
+  const body = document.getElementById('jokerModalBody');
+  st.trapTargets = [];
+  st.trapPicks = st.trapPicks || [];
+  for (let ownerIdx = 1; ownerIdx < G.numPlayers; ownerIdx++) {
+    if (!isEnemy(0, ownerIdx)) continue;
+    const zone = G.traps[ownerIdx] || [];
+    zone.forEach((t, trapIdx) => {
+      if (!t || !t.card) return;
+      st.trapTargets.push({ ownerIdx, trapIdx, trap: t });
+    });
+  }
+  if (st.trapTargets.length === 0) {
+    addLog('♥ Heart Joker: no enemy traps to destroy.', false);
+    heartShowActionMenu();
+    return;
+  }
+  body.innerHTML = '<div style="margin-bottom:8px;font-size:11px;color:var(--text-dim);font-family:Cinzel,serif">Select up to 2 traps to destroy:</div>';
+  st.trapTargets.forEach((t, i) => {
+    const selected = st.trapPicks.includes(i);
+    const txt = t.trap.faceUp ? `${t.trap.card.rank}${t.trap.card.suit}` : '🂠';
+    body.innerHTML += `<button class="ace-action-btn${selected ? ' gold' : ''}" onclick="heartToggleTrapPick(${i})">${selected ? 'OK ' : ''}${G.players[t.ownerIdx].name} trap ${txt}</button>`;
+  });
+  body.innerHTML += '<button class="ace-action-btn force" style="margin-top:8px" onclick="heartConfirmTrapDestroy()">Destroy Selected</button>';
+  body.innerHTML += '<button class="ace-action-btn" style="border-color:#555;color:#888" onclick="heartShowActionMenu()">↩ Back</button>';
+}
+
+function heartToggleTrapPick(idx) {
+  const st = G._heartState;
+  if (!st) return;
+  if (st.trapPicks.includes(idx)) st.trapPicks = st.trapPicks.filter(x => x !== idx);
+  else if (st.trapPicks.length < 2) st.trapPicks.push(idx);
+  heartShowTrapTargets();
+}
+
+function heartConfirmTrapDestroy() {
+  const st = G._heartState;
+  if (!st) return;
+  const picks = [...(st.trapPicks || [])];
+  if (picks.length === 0) {
+    addLog('♥ Heart Joker: select at least 1 trap to destroy.', false);
+    return;
+  }
+  const chosen = picks.map(i => st.trapTargets[i]).filter(Boolean);
+  const removed = [];
+  chosen.forEach(t => {
+    const zone = G.traps[t.ownerIdx] || [];
+    const idx = zone.indexOf(t.trap);
+    if (idx === -1) return;
+    const popped = zone.splice(idx, 1)[0];
+    if (popped && popped.card) removed.push({ ownerIdx: t.ownerIdx, card: popped.card });
+  });
+  if (removed.length > 0) {
+    G.discard.push(...removed.map(r => r.card));
+    addLog('♥ Heart Joker: Destroyed '+removed.length+' trap card(s)!', true);
+  }
+  st.trapTargets = [];
+  st.trapPicks = [];
+  heartConsumeAction();
+}
+
+function heartSkipAction() {
+  addLog('♥ Heart Joker: skipped one action.', false);
+  heartConsumeAction();
+}
+
+function heartConsumeAction() {
+  const st = G._heartState;
+  if (!st) return;
+  st.actionsLeft = Math.max(0, (st.actionsLeft || 0) - 1);
+  if (st.actionsLeft <= 0) {
+    heartFinishActions();
+    return;
+  }
+  heartShowActionMenu();
+}
+
+function heartFinishActions() {
+  G._heartState = null;
+  closeJokerModal();
 }
  
 // =====================================================================
@@ -6091,13 +6370,12 @@ function _fhFinish() {
 // ♠ FLUSH DISCARD MODAL (for Flush and Straight Flush)
 // =====================================================================
 function openFlushModal(selfFlushCount, hasPartner, isSevenPlus) {
-  // selfFlushCount: how many cards the human flushes (default: 1 team / 1 solo, 2 solo 7+)
+  // selfFlushCount: how many cards the human flushes (default: 1, or 2 on 7+ flush)
   const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
   if (selfFlushCount === undefined) {
-    // Legacy call: derive from context
-    selfFlushCount = (!isTeam && (isSevenPlus || false)) ? 2 : 1;
-    hasPartner = isTeam && G.players[0].partnerIdx !== null && G.players[0].partnerIdx !== undefined;
+    selfFlushCount = isSevenPlus ? 2 : 1;
   }
+  hasPartner = isTeam && G.players[0].partnerIdx !== null && G.players[0].partnerIdx !== undefined;
   G.phase = 'flush_discard';
   G._flushLeft = Math.min(selfFlushCount, G.players[0].hand.length);
   // Flush effects should allow flushing down to empty hand when possible.
@@ -6285,8 +6563,27 @@ function _royalDiceRollsUsedFor(pidx) {
   return G.royalRollsUsed[pidx] || 0;
 }
 
+function _royalDiceRollBonusFor(pidx) {
+  if (!G.royalRollBonus) G.royalRollBonus = G.players.map(() => 0);
+  return G.royalRollBonus[pidx] || 0;
+}
+
+function _royalDiceRollBudgetFor(pidx) {
+  return _royalDiceRollLimitFor(pidx) + _royalDiceRollBonusFor(pidx);
+}
+
 function _royalDiceRollsRemainingFor(pidx) {
-  return Math.max(0, _royalDiceRollLimitFor(pidx) - _royalDiceRollsUsedFor(pidx));
+  return Math.max(0, _royalDiceRollBudgetFor(pidx) - _royalDiceRollsUsedFor(pidx));
+}
+
+function _grantRoyalDiceRolls(pidx, count, source) {
+  const add = Math.max(0, Number(count) || 0);
+  if (add <= 0 || !G.players || !G.players[pidx]) return;
+  if (!G.royalRollBonus) G.royalRollBonus = G.players.map(() => 0);
+  G.royalRollBonus[pidx] = (G.royalRollBonus[pidx] || 0) + add;
+  const who = pidx === 0 ? 'You' : G.players[pidx].name;
+  const reason = source ? ` (${source})` : '';
+  addLog(`🎲 ${who} gain${pidx === 0 ? '' : 's'} +${add} Royal Dice roll${add === 1 ? '' : 's'}${reason}.`, true);
 }
 
 function declareRoyalDice() {
@@ -6302,7 +6599,7 @@ function _diceShowConfirm() {
   if (G.phase !== 'play') { addLog('Cannot use Royal Dice right now.', false); return; }
   const modal = document.getElementById('diceRollModal');
   const used = _royalDiceRollsUsedFor(0);
-  const limit = _royalDiceRollLimitFor(0);
+  const limit = _royalDiceRollBudgetFor(0);
   const rem = Math.max(0, limit - used);
   document.getElementById('diceModalTitle').textContent = '🎲 ROYAL DICE';
   document.getElementById('diceModalSub').textContent = `Once you roll, there's no turning back! (${rem} roll${rem===1?'':'s'} left this match)`;
@@ -6387,21 +6684,20 @@ function _diceStartRoll() {
 // Store roll result for _diceOkay to apply
 let _pendingDiceResult = null;
 
-function _diceShowResult(d1, d2, total, isDoubles) {
+function _diceResultMeta(total, isDoubles, actorLabel = 'You') {
   const hasComboEffect = !!(isDoubles || total === 2 || total === 7 || total === 9 || total === 11 || total === 12);
-  _playSfx(hasComboEffect ? 'dice_combo_score' : 'dice_lose', { restart: true, volume: 0.86 });
   let rollName, rollDesc, rollColor;
   if (isDoubles) {
     rollName = 'DOUBLE UP! 🔄';
-    rollDesc = 'You & your partner each discard 2 cards of choice. Solo: you discard 2.';
+    rollDesc = `${actorLabel} & partner each discard 2 cards. Solo: ${actorLabel} discards 2.`;
     rollColor = '#e67e22';
   } else if (total === 2) {
     rollName = 'SNAKE EYES 🐍';
-    rollDesc = 'Draw 2 cards and lose your turn.';
+    rollDesc = `${actorLabel} draws 2 cards and loses the turn.`;
     rollColor = '#e74c3c';
   } else if (total === 7) {
     rollName = 'DOUBLE DOWN ✌️';
-    rollDesc = 'Team: Partner plays before you this turn. Solo: play two moves this turn.';
+    rollDesc = `Team: Partner plays before ${actorLabel}. Solo: ${actorLabel} gets two moves this turn.`;
     rollColor = '#3498db';
   } else if (total === 9) {
     rollName = 'MONEY MONEY MONEY 💰';
@@ -6409,17 +6705,24 @@ function _diceShowResult(d1, d2, total, isDoubles) {
     rollColor = '#f0c040';
   } else if (total === 11) {
     rollName = 'LUCKY BOOST ⚡';
-    rollDesc = 'Draw 1 card from the discard pile OR steal a random card from any player.';
+    rollDesc = 'Draw 1 card from discard OR steal a random card from any player.';
     rollColor = '#2ecc71';
   } else if (total === 12) {
     rollName = 'ROYAL ROOTS! 👑';
-    rollDesc = 'Play any legal combo this turn — Face Card restrictions ignored.';
+    rollDesc = `${actorLabel} can play any legal combo this turn — Face Card restrictions ignored.`;
     rollColor = '#f0c040';
   } else {
     rollName = 'NO LUCK 💨';
-    rollDesc = `Rolled ${total} — no effect. Your turn continues normally.`;
+    rollDesc = `Rolled ${total} — no effect. ${actorLabel}'s turn continues normally.`;
     rollColor = '#888';
   }
+  return { hasComboEffect, rollName, rollDesc, rollColor };
+}
+
+function _diceShowResult(d1, d2, total, isDoubles) {
+  const meta = _diceResultMeta(total, isDoubles, 'You');
+  const { hasComboEffect, rollName, rollDesc, rollColor } = meta;
+  _playSfx(hasComboEffect ? 'dice_combo_score' : 'dice_lose', { restart: true, volume: 0.86 });
 
   _pendingDiceResult = { d1, d2, total, isDoubles };
 
@@ -6450,6 +6753,203 @@ function _diceOkay() {
   _pendingDiceResult = null;
   // Now apply the effect via the existing resolver
   _resolveRoyalDice(d1, d2, total, isDoubles);
+}
+
+function _startAiRoyalDiceRoll(pidx, onDone) {
+  if (!G.players || !G.players[pidx]) { if (onDone) onDone(false); return; }
+  if (G.phase !== 'play' || G.cur !== pidx || _royalDiceRollsRemainingFor(pidx) <= 0) {
+    if (onDone) onDone(false);
+    return;
+  }
+
+  if (!G.royalRollsUsed) G.royalRollsUsed = G.players.map(() => 0);
+  G.royalRollsUsed[pidx] = (G.royalRollsUsed[pidx] || 0) + 1;
+  G.phase = 'royal_dice';
+
+  const modal = document.getElementById('diceRollModal');
+  const die1El = document.getElementById('die1');
+  const die2El = document.getElementById('die2');
+  const actorName = G.players[pidx].name;
+
+  if (!modal || !die1El || !die2El) {
+    const d1 = Math.floor(Math.random() * 6) + 1;
+    const d2 = Math.floor(Math.random() * 6) + 1;
+    _resolveAiRoyalDice(pidx, d1, d2, d1 + d2, d1 === d2);
+    if (onDone) onDone(true);
+    return;
+  }
+
+  document.getElementById('diceModalTitle').textContent = `🎲 ${actorName} — ROYAL DICE`;
+  document.getElementById('diceModalSub').textContent = 'Rolling...';
+  document.getElementById('diceConfirmSection').style.display = 'none';
+  document.getElementById('diceResultSection').style.display = 'none';
+  const lbc = document.getElementById('luckyBoostChoices');
+  if (lbc) lbc.remove();
+
+  die1El.textContent = '⚀';
+  die2El.textContent = '⚀';
+  die1El.classList.add('scrambling');
+  die2El.classList.add('scrambling');
+  modal.style.display = 'flex';
+  _startLoopSfx('dice_shake', { volume: 0.78 });
+
+  const FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+  const scrambleInterval = setInterval(() => {
+    die1El.textContent = FACES[Math.floor(Math.random() * 6)];
+    die2El.textContent = FACES[Math.floor(Math.random() * 6)];
+  }, 80);
+
+  setTimeout(() => {
+    clearInterval(scrambleInterval);
+    _stopLoopSfx('dice_shake');
+    _playSfx('dice_fall', { restart: true, volume: 0.84 });
+    die1El.classList.remove('scrambling');
+    die2El.classList.remove('scrambling');
+
+    const d1 = Math.floor(Math.random() * 6) + 1;
+    const d2 = Math.floor(Math.random() * 6) + 1;
+    const total = d1 + d2;
+    const isDoubles = d1 === d2;
+    die1El.textContent = FACES[d1 - 1];
+    die2El.textContent = FACES[d2 - 1];
+    addLog(`🎲 ${actorName} ROYAL ROLL! ${d1} + ${d2} = ${total}${isDoubles ? ' (DOUBLES!)' : ''}`, true);
+
+    const meta = _diceResultMeta(total, isDoubles, actorName);
+    _playSfx(meta.hasComboEffect ? 'dice_combo_score' : 'dice_lose', { restart: true, volume: 0.86 });
+    document.getElementById('diceModalTitle').textContent = `${actorName}: ${d1} + ${d2} = ${total}`;
+    document.getElementById('diceModalSub').textContent = isDoubles ? '🎉 DOUBLES!' : `Roll: ${d1} + ${d2}`;
+    const nameEl = document.getElementById('diceResultName');
+    nameEl.textContent = meta.rollName;
+    nameEl.style.color = meta.rollColor;
+    document.getElementById('diceResultDesc').textContent = meta.rollDesc;
+    document.getElementById('diceResultSection').style.display = 'block';
+    document.getElementById('diceOkayBtn').style.borderColor = meta.rollColor;
+    document.getElementById('diceOkayBtn').style.background = meta.rollColor;
+    document.getElementById('diceOkayBtn').textContent = '🤖 APPLYING...';
+
+    setTimeout(() => {
+      document.getElementById('diceRollModal').style.display = 'none';
+      _resolveAiRoyalDice(pidx, d1, d2, total, isDoubles);
+      if (onDone) onDone(true);
+    }, 1100);
+  }, 2100);
+}
+
+function _resolveAiRoyalDice(pidx, d1, d2, total, isDoubles) {
+  if (!G.players || !G.players[pidx]) return;
+  const actorName = G.players[pidx].name;
+  G.phase = 'play';
+
+  if (isDoubles) {
+    const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+    const partnerIdx = G.players[pidx].partnerIdx;
+    if (isTeam && partnerIdx !== null && partnerIdx !== undefined && partnerIdx !== pidx) {
+      _flushLowestCards(partnerIdx, 2, '(Royal Dice Double Up teammate)');
+    }
+    const selfFlush = _flushLowestCards(pidx, 2, '(Royal Dice Double Up)');
+    addLog(`🎲 DOUBLE UP! ${actorName} discards ${selfFlush} card(s).`, true);
+    G.turnPhase = 'playing';
+    G.sel = [];
+    renderGame(); renderLog(); updateBtns();
+    return;
+  }
+
+  if (total === 2) {
+    _playSfx('snake_eyes', { restart: true, volume: 0.95 });
+    forceDraw(pidx, 2);
+    addLog(`🐍 Snake Eyes! ${actorName} drew 2 cards and loses the turn.`, true);
+    G.forceSingleEndDraw = false;
+    const snakeNext = nxt(pidx);
+    G.cur = snakeNext;
+    G.turnPhase = 'playing';
+    G.sel = [];
+    renderGame(); renderLog(); updateBtns();
+    if (snakeNext === 0) setTimeout(() => startHumanTurn(), 800);
+    else setTimeout(() => aiTurn(snakeNext), 800);
+    return;
+  }
+
+  if (total === 7) {
+    addLog(`🎲 DOUBLE DOWN! ${actorName} gains an extra move this turn.`, true);
+    G.extraTurns = Math.max(Number(G.extraTurns || 0), 1);
+    G.turnPhase = 'playing';
+    G.sel = [];
+    renderGame(); renderLog(); updateBtns();
+    return;
+  }
+
+  if (total === 9) {
+    if (G.styles && G.styles.money && G.chips && G.minBet) {
+      const pay = G.minBet * 2;
+      let gained = 0;
+      G.players.forEach((_, i) => {
+        if (i === pidx || !isEnemy(pidx, i)) return;
+        const actual = Math.min(pay, G.chips[i] || 0);
+        G.chips[i] = (G.chips[i] || 0) - actual;
+        gained += actual;
+      });
+      _awardChipsToPlayerTeam(pidx, gained);
+      if (gained > 0) _playSfx('pay_tax_coins', { restart: true, volume: 0.9 });
+      addLog(`💰 MONEY MONEY MONEY! ${actorName} gains ${gained} chips from enemies.`, true);
+    } else {
+      G.players.forEach((_, i) => { if (i !== pidx && isEnemy(pidx, i)) forcePts(i, -10); });
+      _playSfx('pay_tax_points', { restart: true, volume: 0.88 });
+      addLog(`💰 MONEY MONEY MONEY! Enemies of ${actorName} lose 10pts.`, true);
+    }
+    G.turnPhase = 'playing';
+    G.sel = [];
+    renderGame(); renderLog(); updateBtns();
+    return;
+  }
+
+  if (total === 11) {
+    const recent = getRecentDiscard(10).filter(x => x && x.card);
+    const stealTargets = G.players
+      .map((p, i) => ({ p, i }))
+      .filter(({ i, p }) => i !== pidx && p.hand && p.hand.length > 0);
+    const canDiscardPick = recent.length > 0;
+    const canSteal = stealTargets.length > 0;
+
+    if (canDiscardPick && (!canSteal || Math.random() < 0.55)) {
+      recent.sort((a, b) => (RANK_VAL[b.card.rank] || 0) - (RANK_VAL[a.card.rank] || 0));
+      const best = recent[0];
+      const card = takeCardFromDiscard(pidx, best.discardIdx, 'Lucky Boost AI');
+      if (card) addLog(`⚡ Lucky Boost: ${actorName} pulls ${card.rank}${card.suit} from discard.`, true);
+      else addLog(`⚡ Lucky Boost: ${actorName} had no valid discard pick.`, false);
+    } else if (canSteal) {
+      stealTargets.sort((a, b) => (b.p.hand.length || 0) - (a.p.hand.length || 0));
+      const target = stealTargets[0];
+      const idx = Math.floor(Math.random() * target.p.hand.length);
+      const stolen = target.p.hand.splice(idx, 1)[0];
+      if (stolen) {
+        G.players[pidx].hand.push(stolen);
+        _playSfx('take_card_from_opponent', { restart: true, volume: 0.9 });
+        animateCardTransfer(target.i, pidx, 1);
+        addLog(`⚡ Lucky Boost: ${actorName} steals ${stolen.rank}${stolen.suit} from ${target.p.name}.`, true);
+      }
+    } else {
+      addLog(`⚡ Lucky Boost: ${actorName} has no available target.`, false);
+    }
+
+    G.turnPhase = 'playing';
+    G.sel = [];
+    renderGame(); renderLog(); updateBtns();
+    return;
+  }
+
+  if (total === 12) {
+    _queueJokerComboFor(pidx, 1);
+    addLog(`👑 ROYAL ROOTS! ${actorName} may play any legal combo this turn.`, true);
+    G.turnPhase = 'playing';
+    G.sel = [];
+    renderGame(); renderLog(); updateBtns();
+    return;
+  }
+
+  addLog(`🎲 Wasted Roll (${total}) — no effect for ${actorName}.`, false);
+  G.turnPhase = 'playing';
+  G.sel = [];
+  renderGame(); renderLog(); updateBtns();
 }
 
 // _showRoyalDiceModal replaced by _diceShowConfirm / _diceShowResult / _diceOkay
@@ -6953,13 +7453,9 @@ function _queueJokersFromCards(cards, pidx) {
   if (!cards) return;
   const jokers = cards.filter(c => c.rank === 'JKR');
   if (jokers.length === 0) return;
-  if (pidx === 0) {
-    queueJokerEffects(jokers, pidx, () => {
-      openJokerFreePlay(0, jokers[jokers.length-1].suit);
-    });
-  } else {
-    queueJokerEffects(jokers, pidx, () => { G.extraTurn = true; });
-  }
+  queueJokerEffects(jokers, pidx, () => {
+    _grantJokerComboTurn(pidx, 'Joker effect');
+  });
 }
 
 function queueJokerEffects(jokerCards, pidx, onDone) {
@@ -7012,24 +7508,25 @@ function _applyMadameJokerCore(pidx, onDone) {
     if (hasMoney) {
       const pay = Math.min(100, G.chips[i] || 0);
       G.chips[i] = (G.chips[i] || 0) - pay;
-      G.chips[pidx] = (G.chips[pidx] || 0) + pay;
       chipsGain += pay;
     }
   });
   if (ptsGain > 0) {
-    forcePts(pidx, ptsGain);
+    _awardPtsToPlayerTeam(pidx, ptsGain);
     _playSfx('pay_tax_points', { restart: true, volume: 0.88 });
   }
   if (chipsGain > 0) {
+    _awardChipsToPlayerTeam(pidx, chipsGain);
     _playSfx('pay_tax_coins', { restart: true, volume: 0.9 });
   }
 
   const reveal = _revealAllTrapsFaceUp();
 
   const teammateName = hasPartner ? G.players[partnerIdx].name : null;
+  const payoutLabel = hasPartner ? `${G.players[pidx].name} + ${teammateName}` : G.players[pidx].name;
   addLog(`👑🃏 Madame Joker: Law Pass on ${G.players[pidx].name}${teammateName ? ' + ' + teammateName : ''}.`, true);
   addLog(`⚖️ Madame Joker: all enemies get +1 Law Draw on their next turn.`, true);
-  addLog(`💸 Madame Joker Tax: +${ptsGain}pts${hasMoney ? ` and +${chipsGain}💰` : ''} to ${G.players[pidx].name}.`, true);
+  addLog(`💸 Madame Joker Tax: +${ptsGain}pts${hasMoney ? ` and +${chipsGain}💰` : ''} to ${payoutLabel}.`, true);
   addLog(`🪤 Trap Reveal: ${reveal.total} trap(s) face-up${reveal.flippedNow > 0 ? ` (${reveal.flippedNow} flipped now)` : ''}.`, true);
 
   // Wildcard: choose what suit the next player must open with (same suit only, no override)
@@ -7099,104 +7596,116 @@ function triggerJokerEffect(suit, pidx, onDone) {
     });
     return;
   }
-  const nextIdx = nxt(pidx);
   if (pidx !== 0) {
     // AI logic
     const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
     const partnerIdx = G.players[pidx].partnerIdx;
     const hasPartner = isTeam && partnerIdx !== null && partnerIdx !== undefined;
-    const aiFreePlay = (whoIdx, count) => {
-      const h = G.players[whoIdx].hand;
-      const toPlay = Math.min(count, h.length);
-      if (toPlay <= 0) return;
-      h.sort((a,b)=>(RANK_VAL[b.rank]||0)-(RANK_VAL[a.rank]||0));
-      const played = h.splice(0, toPlay);
-      G.discard.push(...played);
-      G.faceCard = played[played.length - 1];
-      played.forEach((_, i) => setTimeout(() => _playSfx('card_to_face', { restart: true, volume: 0.8 }), i * 140));
-      addLog(`${G.players[whoIdx].name} plays ${toPlay} free card(s)!`, false);
-    };
 
     if (suit === '♠') {
-      // AI: pull best from recent discard (max 10 behind face) if possible; otherwise swap.
       const pullable = getRecentDiscard(10);
-      if (pullable.length > 0 && Math.random() < 0.65) {
+      const others = G.players.map((_,i)=>i).filter(i=>i!==pidx);
+      const actionRoll = Math.random();
+      if (pullable.length > 0 && actionRoll < 0.30) {
         pullable.sort((a,b)=>(RANK_VAL[b.card.rank]||0)-(RANK_VAL[a.card.rank]||0));
         const best = pullable[0];
         const realIdx = best.discardIdx;
         if (realIdx !== -1) {
           const card = takeCardFromDiscard(pidx, realIdx, 'Spade Joker AI pull');
-          if (card) addLog(`♠ Spade Joker: ${G.players[pidx].name} pulls ${card.rank}${card.suit} from discard!`, true);
+          if (card) addLog(`♠ Spade Joker: ${G.players[pidx].name} pulls ${card.rank}${card.suit} from discard.`, true);
         }
-      } else {
-        const me = G.players[pidx], them = G.players[nextIdx];
+      } else if (actionRoll < 0.60 && others.length > 0) {
+        const me = G.players[pidx];
+        const target = others.sort((a,b)=>(G.players[b].hand.length||0)-(G.players[a].hand.length||0))[0];
+        const them = G.players[target];
         if (me.hand.length && them.hand.length) {
           me.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
           const myCard = me.hand.splice(0,1)[0];
           const theirCard = them.hand.splice(Math.floor(Math.random()*them.hand.length),1)[0];
           me.hand.push(theirCard); them.hand.push(myCard);
           _playSfx('card_taken', { restart: true, volume: 0.88 });
-          animateCardTransfer(nextIdx, pidx, 1);
-          animateCardTransfer(pidx, nextIdx, 1);
-          addLog(`♠ Spade Joker: ${G.players[pidx].name} swaps with ${them.name}!`, true);
+          animateCardTransfer(target, pidx, 1);
+          animateCardTransfer(pidx, target, 1);
+          addLog(`♠ Spade Joker: ${G.players[pidx].name} swaps with ${them.name}.`, true);
+        }
+      } else if (actionRoll < 0.85) {
+        if (G.deck.length === 0) reshuffleDiscard();
+        if (G.deck.length > 0) {
+          const draw = G.deck.pop();
+          G.players[pidx].hand.push(draw);
+          const h = G.players[pidx].hand;
+          h.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+          const drop = h.shift();
+          if (drop) G.discard.push(drop);
+          addLog(`♠ Spade Joker: ${G.players[pidx].name} draw-replaces a card.`, true);
+        }
+      } else if (others.length > 0) {
+        const target = others.sort((a,b)=>(G.players[a].hand.length||0)-(G.players[b].hand.length||0))[0];
+        forceDraw(target, 1);
+        addLog(`♠ Spade Joker: ${G.players[pidx].name} forces ${G.players[target].name} to draw 1.`, true);
+      }
+    } else if (suit === '♦') {
+      openAIDiamondChoiceModal(pidx, onDone);
+      return;
+    } else if (suit === '♣') {
+      if (hasPartner) {
+        _queueJokerComboFor(partnerIdx, 1);
+        addLog(`♣ Clover Joker: ${G.players[partnerIdx].name} gains a free any-combo turn.`, true);
+      } else {
+        _grantRoyalDiceRolls(pidx, 1, '♣ Clover Joker');
+        addLog(`♣ Clover Joker: ${G.players[pidx].name} gains +1 Royal Dice roll.`, true);
+      }
+    } else if (suit === '♥') {
+      for (let action = 0; action < 2; action++) {
+        const enemyTrapTargets = [];
+        for (let ownerIdx = 0; ownerIdx < G.numPlayers; ownerIdx++) {
+          if (ownerIdx === pidx) continue;
+          const zone = G.traps[ownerIdx] || [];
+          zone.forEach(t => { if (t && t.card) enemyTrapTargets.push({ ownerIdx, trap: t }); });
+        }
+        const enemyPlayers = G.players.map((_,i)=>i).filter(i=>i!==pidx);
+        const canDestroy = enemyTrapTargets.length > 0;
+        const canBanish = enemyPlayers.some(i => (G.players[i].hand || []).length > 0);
+        if (!canDestroy && !canBanish) break;
+
+        const pickDestroy = canDestroy && (!canBanish || Math.random() < 0.45);
+        if (pickDestroy) {
+          const shuffled = enemyTrapTargets.sort(() => Math.random() - 0.5);
+          const chosen = shuffled.slice(0, Math.min(2, shuffled.length));
+          let destroyed = 0;
+          chosen.forEach(t => {
+            const zone = G.traps[t.ownerIdx] || [];
+            const idx = zone.indexOf(t.trap);
+            if (idx === -1) return;
+            const popped = zone.splice(idx, 1)[0];
+            if (popped && popped.card) {
+              G.discard.push(popped.card);
+              destroyed++;
+            }
+          });
+          if (destroyed > 0) addLog(`♥ Heart Joker: ${G.players[pidx].name} destroys ${destroyed} enemy trap(s).`, true);
+          continue;
+        }
+
+        const target = enemyPlayers
+          .sort((a,b)=>(G.players[b].hand.length||0)-(G.players[a].hand.length||0))[0];
+        const th = G.players[target].hand;
+        const banishN = Math.min(2, th.length);
+        const banished = [];
+        for (let k = 0; k < banishN; k++) {
+          const r = Math.floor(Math.random() * th.length);
+          const c = th.splice(r, 1)[0];
+          if (c) banished.push(c);
+        }
+        if (banished.length > 0) {
+          G.discard.push(...banished);
+          forceDraw(target, banished.length);
+          addLog(`♥ Heart Joker: ${G.players[pidx].name} banishes ${banished.length} card(s) from ${G.players[target].name}.`, true);
         }
       }
-      aiFreePlay(pidx, 1);
-    } else if (suit === '♦') {
-      // Diamond Joker: opponents pay 1% of Match Pot (chips) OR 10pts each to the joker player.
-      const hasMoney = G.styles && G.styles.money && G.chips;
-      const pot = G.matchPot || 0;
-      if (hasMoney && pot > 0) {
-        const perPlayer = Math.max(1, Math.round(pot * 0.01));
-        let gained = 0;
-        G.players.forEach((_,i) => {
-          if (i === pidx) return;
-          const pay = Math.min(perPlayer, G.chips[i] || 0);
-          G.chips[i] = (G.chips[i] || 0) - pay;
-          G.chips[pidx] = (G.chips[pidx] || 0) + pay;
-          gained += pay;
-        });
-        if (gained > 0) _playSfx('pay_tax_coins', { restart: true, volume: 0.9 });
-        addLog(`♦ Diamond Joker: ${G.players[pidx].name} collects ${perPlayer}💰 from each opponent! (+${gained}💰)`, true);
-      } else {
-        let gained = 0;
-        G.players.forEach((_,i) => { if (i !== pidx) { forcePts(i, -10); gained += 10; } });
-        forcePts(pidx, gained);
-        if (gained > 0) _playSfx('pay_tax_points', { restart: true, volume: 0.88 });
-        addLog(`♦ Diamond Joker: ${G.players[pidx].name} takes 10pts from each opponent! (+${gained}pts)`, true);
-      }
-      aiFreePlay(pidx, 1);
-    } else if (suit === '♣') {
-      // Clover Joker: you play any card; partner also plays any card (team). Solo: you play any 2 cards.
-      if (hasPartner) {
-        aiFreePlay(pidx, 1);
-        aiFreePlay(partnerIdx, 1);
-      } else {
-        aiFreePlay(pidx, 2);
-      }
-      addLog('♣ Clover Joker: free plays resolved!', true);
-    } else if (suit === '♥') {
-      // AI targets player with fewest cards
-      let target = nextIdx;
-      G.players.forEach((_,i)=>{ if(i!==pidx && G.players[i].hand.length < G.players[target].hand.length) target=i; });
-      // Take up to 2 cards from target
-      const stolen = [];
-      const takeN = Math.min(2, G.players[target].hand.length);
-      for (let k=0;k<takeN;k++) {
-        const r = Math.floor(Math.random()*G.players[target].hand.length);
-        stolen.push(G.players[target].hand.splice(r,1)[0]);
-      }
-      stolen.forEach(c => G.players[pidx].hand.push(c));
-      if (stolen.length > 0) {
-        _playSfx('card_taken', { restart: true, volume: 0.9 });
-        animateCardTransfer(target, pidx, stolen.length);
-      }
-      forceDraw(target, 2);
-      addLog(`♥ Heart Joker: ${G.players[pidx].name} takes ${stolen.length} card(s) from ${G.players[target].name}!`, true);
-      aiFreePlay(pidx, 1);
     }
     renderGame(); renderLog();
-    setTimeout(onDone, 400);
+    setTimeout(() => { if (typeof onDone === 'function') onDone(); }, 400);
     return;
   }
   // Human — open interactive modal
@@ -7303,6 +7812,79 @@ function isTeammate(aIdx, bIdx) {
   const a = G.players[aIdx], b = G.players[bIdx];
   if (!a || !b) return false;
   return a.teamId === b.teamId;
+}
+
+function _jokerTeamRecipients(pidx) {
+  const out = [pidx];
+  const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+  const partnerIdx = G.players[pidx] ? G.players[pidx].partnerIdx : null;
+  if (isTeam && partnerIdx !== null && partnerIdx !== undefined && partnerIdx !== pidx) out.push(partnerIdx);
+  return out;
+}
+
+function _awardPtsToPlayerTeam(pidx, totalPts) {
+  let remain = Math.max(0, totalPts|0);
+  if (remain <= 0) return 0;
+  const recips = _jokerTeamRecipients(pidx);
+  recips.forEach((idx, k) => {
+    const give = (k === recips.length - 1) ? remain : Math.floor(totalPts / recips.length);
+    if (give > 0) {
+      forcePts(idx, give);
+      remain -= give;
+    }
+  });
+  return totalPts;
+}
+
+function _awardChipsToPlayerTeam(pidx, totalChips) {
+  if (!(G.styles && G.styles.money && G.chips)) return 0;
+  let remain = Math.max(0, totalChips|0);
+  if (remain <= 0) return 0;
+  const recips = _jokerTeamRecipients(pidx);
+  recips.forEach((idx, k) => {
+    const give = (k === recips.length - 1) ? remain : Math.floor(totalChips / recips.length);
+    if (give > 0) {
+      G.chips[idx] = (G.chips[idx] || 0) + give;
+      remain -= give;
+    }
+  });
+  return totalChips;
+}
+
+function _ensureJokerComboQueueMap() {
+  if (!G._jokerComboQueuedFor || typeof G._jokerComboQueuedFor !== 'object') G._jokerComboQueuedFor = {};
+}
+
+function _queueJokerComboFor(pidx, count = 1) {
+  _ensureJokerComboQueueMap();
+  const k = String(pidx);
+  G._jokerComboQueuedFor[k] = (G._jokerComboQueuedFor[k] || 0) + Math.max(1, count|0);
+}
+
+function _consumeJokerComboFor(pidx) {
+  _ensureJokerComboQueueMap();
+  const k = String(pidx);
+  const ct = Math.max(0, Number(G._jokerComboQueuedFor[k] || 0));
+  if (ct > 0) delete G._jokerComboQueuedFor[k];
+  return ct;
+}
+
+function _grantJokerComboTurn(pidx, label = 'Joker') {
+  if (pidx === 0) {
+    G.cur = 0;
+    G.phase = 'play';
+    G.turnPhase = 'playing';
+    G._aceComboFree = true;
+    G.sel = [];
+    renderGame();
+    updateBtns();
+    updateComboInfo();
+    addLog(`🃏 ${label}: play any combo now!`, true);
+    renderLog();
+    return;
+  }
+  G._aiFreeComboFor = pidx;
+  G.extraTurn = true;
 }
 
 function _ensureLawDrawMaps() {
@@ -7446,13 +8028,27 @@ function _applyCloverTrapCounter(actorIdx, reasonText='') {
 
   let pay = 0;
   if (G.styles && G.styles.money && G.chips) {
-    const penalty = Math.max(1, (G.minBet || 1) * 2);
+    const penalty = Math.max(1, Math.round((G.matchPot || 0) * 2), (G.minBet || 1) * 2);
     pay = Math.min(penalty, G.chips[actorIdx] || 0);
     G.chips[actorIdx] = (G.chips[actorIdx] || 0) - pay;
     G.matchPot = (G.matchPot || 0) + pay;
   }
   addLog(`♣ Joker Trap! ${G.players[ownerIdx].name} punishes ${actor.name}${reasonText?` (${reasonText})`:''}: discard ${dropN}, pay ${pay}💰.`, true);
   return true;
+}
+
+function _applyDiamondTrapCounter(trapOwnerIdx, reasonText='') {
+  const ownerIdx = _findFirstEnemyJokerTrap(trapOwnerIdx, '♦');
+  if (ownerIdx === null || ownerIdx === undefined) return null;
+  const consumed = _consumeJokerTrap(ownerIdx, '♦');
+  if (!consumed) return null;
+  G.discard.push(consumed.card);
+
+  const stealPts = 20;
+  forcePts(trapOwnerIdx, -stealPts);
+  forcePts(ownerIdx, stealPts);
+  addLog(`♦ Joker Trap! ${G.players[ownerIdx].name} overrides ${G.players[trapOwnerIdx].name}'s steal-turn trap${reasonText ? ` (${reasonText})` : ''} and steals ${stealPts}pts.`, true);
+  return ownerIdx;
 }
 
 function takeCardFromDiscard(actorIdx, discardIdx, reasonText='') {
@@ -7499,8 +8095,8 @@ function _triggerTrapActivationByFaceCard(enderIdx) {
     return zone.splice(idx, 1)[0] || null;
   };
 
-  const firedExact = [];
-  const firedNear  = [];
+  let firedExact = [];
+  let firedNear  = [];
   exact.forEach(e => {
     const fired = _popTrap(e);
     if (fired) firedExact.push({ ownerIdx:e.ownerIdx, card:fired.card });
@@ -7509,6 +8105,25 @@ function _triggerTrapActivationByFaceCard(enderIdx) {
     const fired = _popTrap(e);
     if (fired) firedNear.push({ ownerIdx:e.ownerIdx, card:fired.card });
   });
+
+  // ♦ Joker Trap can override exact-match trap steal-turn attempts.
+  if (firedExact.length > 0) {
+    const survivors = [];
+    firedExact.forEach(f => {
+      if (f.ownerIdx === enderIdx) {
+        survivors.push(f);
+        return;
+      }
+      const overriddenBy = _applyDiamondTrapCounter(f.ownerIdx, `${f.card.rank}${f.card.suit}`);
+      if (overriddenBy !== null && overriddenBy !== undefined) {
+        G.discard.push(f.card);
+        addLog(`🎭 ${G.players[f.ownerIdx].name}'s exact trap ${f.card.rank}${f.card.suit} is discarded by ♦ Joker Trap.`, false);
+      } else {
+        survivors.push(f);
+      }
+    });
+    firedExact = survivors;
+  }
 
   if (firedExact.length === 0 && firedNear.length === 0) return false;
 
@@ -8133,6 +8748,7 @@ function nextMatch() {
   G.rootOutUsed = false;
   G.rootOutPenalty = false;
   G.royalRollsUsed = G.players ? G.players.map(() => 0) : []; // per-player, per-match roll counters
+  G.royalRollBonus = G.players ? G.players.map(() => 0) : []; // bonus Royal Dice rolls from effects
   G.lockedSuit = null;
   G.lockedSuitTurns = 0;
   G.dir = 1;
@@ -8184,6 +8800,8 @@ function nextMatch() {
   G._zeroReplayOwner = null;
   G._warVictorMomentum = null;
   G._aiBusy = null;
+  G._jokerComboQueuedFor = {};
+  G._heartState = null;
   _markAiProgress();
   buildAndDeal();
 
@@ -8323,6 +8941,11 @@ function aiTurn(pidx) {
     // If they play the matching card type, doPlayCards detects it and starts war.
     // If they play anything else, the pendingWar counter-detect block resolves it as a pass.
     const player = G.players[pidx];
+    const queuedJokerCombos = _consumeJokerComboFor(pidx);
+    if (queuedJokerCombos > 0) {
+      G._aiFreeComboFor = pidx;
+      addLog(`🃏 Clover Joker bonus: ${player.name} may play any combo this turn.`, false);
+    }
     const hasWarMomentum = G._warVictorMomentum === pidx;
     const hasAiFreeCombo = G._aiFreeComboFor === pidx;
     if (hasWarMomentum) G._warVictorMomentum = null;
@@ -8334,6 +8957,17 @@ function aiTurn(pidx) {
         renderLog();
         return;
       }
+    }
+
+    if (!G.pendingWar && !hasWarMomentum && !hasAiFreeCombo && _royalDiceRollsRemainingFor(pidx) > 0 && Math.random() < 0.16) {
+      addLog(`🎲 ${player.name} calls ROYAL DICE!`, true);
+      _startAiRoyalDiceRoll(pidx, (resolved) => {
+        if (!resolved) return;
+        if (G.phase === 'play' && G.cur === pidx && !G.war && !G.aceState) {
+          setTimeout(() => aiTurn(pidx), 420);
+        }
+      });
+      return;
     }
 
     // ── AI Root Out decision ─────────────────────────────────
@@ -8685,6 +9319,11 @@ function startHumanTurn() {
   G.freeDrewId = null;
   G.sel = [];
   G._selectionTouchedThisTurn = false;
+  const queuedJokerCombos = _consumeJokerComboFor(0);
+  if (queuedJokerCombos > 0) {
+    G._aceComboFree = true;
+    addLog('🃏 Clover Joker bonus: you may play any combo this turn.', true);
+  }
 
   if (!(G.pendingWar && G.pendingWar.defenderIdx === 0)) {
     if (checkSpecialHandWin(0, G._warVictorMomentum === 0 ? 'war_momentum' : 'turn_start')) {
@@ -8843,7 +9482,7 @@ function updateBtns() {
   if (trapRow) trapRow.style.display = 'none';
   if (rdb) {
     const rdUsed = _royalDiceRollsUsedFor(0);
-    const rdLimit = _royalDiceRollLimitFor(0);
+    const rdLimit = _royalDiceRollBudgetFor(0);
     const rdRemaining = Math.max(0, rdLimit - rdUsed);
     const canRD = G.cur===0 && G.phase==='play' && rdRemaining > 0 && G.turnPhase !== 'done';
     rdb.disabled = !canRD;
@@ -9467,6 +10106,11 @@ function renderOpponents() {
     const pidx = i + 1;
     const active = G.cur === pidx;
     const pPos = pos[i] || pos[0];
+    const compactLayout = window.innerWidth <= 700;
+    const spreadX = compactLayout ? (50 + ((pPos.x - 50) * 1.08)) : pPos.x;
+    const liftY = compactLayout ? (pPos.y - 5) : pPos.y;
+    const seatX = Math.max(2, Math.min(98, spreadX));
+    const seatY = Math.max(4, Math.min(94, liftY));
     // Show up to 8 card backs
     const maxBacks = Math.min(p.hand.length, 8);
     const backs = Array(maxBacks).fill('<div class="card-back-mini"></div>').join('');
@@ -9481,11 +10125,14 @@ function renderOpponents() {
     const cardCount = p.hand ? p.hand.length : 0;
     const oppPts = (G.pts && Number.isFinite(G.pts[pidx])) ? G.pts[pidx] : 0;
     const oppCoins = (G.chips && Number.isFinite(G.chips[pidx])) ? G.chips[pidx] : 0;
-    return `<div class="opponent-seat${active?' active':''}" style="left:${pPos.x}%;top:${pPos.y}%;transform:translate(-50%,-50%)">
+    return `<div class="opponent-seat${active?' active':''}" style="left:${seatX}%;top:${seatY}%;transform:translate(-50%,-50%)">
       <div class="opponent-avatar">${p.emoji}</div>
       <div class="opponent-label">
         <span class="opp-name">${p.name}${p.isPartner?' 🤝':''}</span>
-        <div class="opp-meta"><span>${cardCount} Cards - ${oppPts} Points - ${oppCoins} Coins</span></div>
+        <div class="opp-meta">
+          <span class="opp-meta-main">${cardCount} Cards - ${oppPts} Points</span>
+          <span class="opp-meta-coins">${oppCoins} Coins</span>
+        </div>
       </div>
       <div class="opp-cards">${backs}</div>
       <div class="opp-traps" id="opp-traps-${pidx}">${trapHtml || '<span class="opp-trap-empty">No traps</span>'}</div>
@@ -10421,62 +11068,62 @@ const COMBO_TABLE = [
   ['Match-Win','200','Empty Hand or hit a Mythic Combo'],
   ['Single Card','0','No points for ending turn with just one card'],
   ['Law Pass','0','Can empty hand if ONLY 2 and 3 are left in your hand'],
-  ['Trap Cards (3,4,5,6,10)','5','Triggered by the Face Card being 1 less, 1 more, or same number as trap card; becomes Face Card; exact number grants your turn'],
+  ['Trap Cards (3,4,5,6,10)','5','Triggered by the Face Card being 1 less, 1 more, or the same number as the trap card; becomes the Face Card. If exact number is Face Card, it is your turn'],
   ['Normal Pair','5','Only for points; no power effect'],
   ['Normal 3-of-a-kind','25','Only for points; no power effect'],
   ['Normal 4-of-a-kind','55','Only for points; no power effect'],
-  ['Zero Cards','5/10/30/70','Bypass Law Draw whenever summoned, flush 2 if pair, +2 flush per a-kind; only connect to Mary Jane combos'],
-  ['Pair of 2s','8','Next draws 2 and is skipped'],
-  ['Three 2s','25','Next draws 3 and is skipped; flush 1 card'],
-  ['Four 2s','65','Next draws 4 and is skipped; flush 2 cards'],
-  ['Trap Fours','8/30/65','Pair 4s destroy any 2 enemy traps, Three 4s destroy any 4 enemy traps, Four 4s wipe all enemy traps. If a selected trap is a 4, it is not destroyed: it flips, becomes Face Card, and that trap owner steals the next turn'],
-  ['Sixes (pair/trips/quads)','11/39/96','Law Draw +1 per 6 played; stacks up to 4 extra Law Draw cards'],
+  ['Zero Cards','5/10/30/70','Bypass Law Draw anytime summoned, flush 2 cards if pair, +2 flush cards per a-kind, can only connect to Mary Jane combos'],
+  ['Pair of 2s','8','Next draws 2 and skipped'],
+  ['Three 2s','25','Next draws 3 and skipped, flush 1 card'],
+  ['Four 2s','65','Next draws 4 and skipped, flush 2 cards'],
+  ['Trap Fours','8/30/65','Pair 4s: destroy any 2 enemy trap cards. Three 4s: destroy any 4 enemy trap cards. Four 4s: wipe all enemy traps off the board'],
+  ['Sixes (pairs, triples, quads)','11/39/96','Law Draw +1 for every 6 played; stacks to 4 Law Draw cards if four 6s are played. Only applies if paired'],
   ['Pair of 7s','8','Skip next player'],
   ['Three 7s','30','Pick 1 card from discard (recent 10 behind face card), skip 2 players'],
   ['Four 7s','65','Skip all, you and teammate can each pick up to 2 cards from discard (solo: pick up to 3), play any combo'],
-  ['Pair of 8s','8','Change suit, play any card'],
-  ['Three 8s','30','Change suit, teammate plays any card, then you play any card (solo: play any 2 cards)'],
-  ['Four 8s','65','Change suit, play any combo, partner plays any 2 cards (solo: flush 1 card)'],
+  ['Pair of 8s','8','Change suit, extra play'],
+  ['Three 8s','30','Change suit, teammate flushes up to 2 cards, you get an extra play'],
+  ['Four 8s','65','Change suit, play any combo, teammate flushes up to 4 cards'],
   ['Pair of 9s','8','Reverse direction on turn end'],
   ['Three 9s','30','Gain an extra play, reverse direction on turn end'],
-  ['Four 9s','65','Play any combo, reverse to teammate on turn end (solo: play any combo, reverse and skip next 2 players)'],
+  ['Four 9s','65','Play any combo, reverse to teammate on turn end (solo: play any combo, reverse and skip the next 2 players)'],
   ['Pair of Aces','11','Discard draw, replace, or force 1 to draw (your choice)'],
   ['Three Aces (Trips)','37','2 Ace actions (discard draw/replace/force draw, again) + play again'],
   ['Four Aces (Quads)','75','3 Ace actions (discard draw/replace/force draw, any combo) + play any combo'],
-  ['Kings','5/10/35/70','Override Face Card, tax enemy match pot 1% OR 10 points, declare war if matched; pair+ doubles price per a-kind'],
-  ['Queens','5/10/35/70','Override Face Card (unless King), use 8\'s wild property, declare war if matched, if a pair play again, if 3-4Q\'s play any combo, teammate flush 2 if 4Q\'s'],
-  ['Jacks','5/10/35/70','Override Face Card (unless Queen/King), flush 1, declare war if matched; pair+ flushes +1 extra per a-kind'],
-  ['Spade Joker','13','Wildcard: swap card with anyone OR pull from discard, play any card (declare war against any joker)'],
-  ['Diamond Joker','13','Wildcard: everyone pays 1% Match Pot OR 10 points each to player/team, play any card (declare war against any joker)'],
-  ['Clover Joker','13','Wildcard: you and partner play any card (solo: play any 2 cards), declare war against any joker'],
-  ['Heart Joker','15','Wildcard: take up to 2 cards from any person, they draw 2 new cards, play any card (declare war against any joker)'],
-  ['Madame Joker (Overrides All — No Joker War)','25','Wildcard! You & teammate skip Law Draw this turn, all enemies take 1 extra Law Draw and pay 10 points + 100 coins. All Trap Cards flip Face-Up. Then declare what suit the next player must open with — same suit only, no override.'],
-  ['Double / Triple / Quad Joker','40/100/500','40 for Double, 100 for Triple, 500 for Quad; all played joker effects activate, play any combo'],
-  ['Full House','40','House Party: you have 2 cards to give away. Whoever gets 1 must draw 2'],
-  ['Triple Double','65','Two 3-of-a-kinds: you have 2 cards to give away (or 3 solo), teammate has 2. Each given card forces draw 2'],
-  ['Straight','25(+5)','All others draw 2, partner safe; +5 each extension. At 7+ straight all players draw 3'],
-  ['Flush','30(+5)','Discard(flush) 1 card, partner flushes 2 (solo: flush 1; at 7+ flush, flush 2). +5 each extension'],
-  ['Straight Flush','70(+10)','All others draw 2; you and teammate flush 2 from partner. At 7+ straight flush 3 and enemies draw 3'],
-  ['Face Card Straight/Flush','-5','Combo effects negated; 5 fewer points for straight/flush (straight flush -15, Royal Flush -300 included)'],
-  ['All-Even (Even Steven)','60','Player and partner flush 2 cards, you pick two from discard, teammate plays any 2 cards'],
-  ['Roots (J-Q-K-A-Joker any suits)','85','Pick two enemies; they draw 4. All other enemies draw 2'],
-  ['Cascade House (44499 or 44999)','100','Switch hands with an enemy player; they draw 4 immediately after switch'],
-  ['Royal Five (5-of-a-kind)','150','Banishes enemy 2,3,J,Q,K,A,Joker cards to discard back; 3-of-a-kind skill activates'],
+  ['Kings','5/10/35/70','Override Face Card, tax enemy match pot 1% OR 10 points, declare war if matched; if pair or higher, double price owed per a-kind'],
+  ['Queens','5/10/35/70','Override Face Card (unless King), use 8\'s wild property, declare war if matched; if pair, play again; if 3-4 Queens, play any combo; teammate flush 2 if 4 Queens'],
+  ['Jacks','5/10/35/70','Override Face Card (unless Queen or King), flush 1 card, declare war if matched; if pair or higher, flush +1 extra per a-kind'],
+  ['Spade Joker','15','Wildcard! Swap/discard draw/replace/force draw, play any combo (declare war against any joker)'],
+  ['Diamond Joker','15','Wildcard! Everyone pays 2% Match Pot to player/team OR pays player/team 10 points each, play any combo (declare war against any joker)'],
+  ['Clover Joker','15','Wildcard! You & partner play any combo. If solo, play any combo and gain a Dice Roll (declare war against any joker)'],
+  ['Heart Joker','15','Wildcard! 2 actions: banish 1-2 cards from any person (they draw same count) OR destroy 1-2 trap cards; play any combo (declare war against any joker)'],
+  ['Madame Joker (Overrides All-No Joker War)','25','Wildcard! You and teammate skip Law Draw this turn, all enemies take +1 Law Draw and pay 10 points + 100 coins. All trap cards flip face-up. Choose suit'],
+  ['Double/Triple/Quad Joker','40/100/500','40 points for Double Joker, 100 for Triple Joker, 500 for 4 Jokers; all played Joker effects are activated, play any combo'],
+  ['Full House','40','House Party: You have 2 cards to give away. Whoever gets 1 of your cards must draw 2'],
+  ['Triple Double','65','Two 3-of-a-kinds: You have 2 cards to give away (or 3 solo), your teammate has 2. Whoever gets 1 must draw 2'],
+  ['Straight','45(+5)','All others draw 2, partner safe, +5 for each card extension; all players draw 3 at 7+ Straight'],
+  ['Flush','55(+5)','Discard (flush) 1 card, partner flushes 2 cards (solo: flush 1). Flush 2 at 7+ Flush, +5 for each card extension'],
+  ['Straight Flush','75(+10)','All others draw 2; you and teammate flush 2. At 7+ straight flush, flush 3 and enemies draw 3'],
+  ['Face Card Straight/Flush','-5','Combo effects automatically negated. 5 fewer points for straight and flush (straight flush -15 and Royal Flush -300 included)'],
+  ['All-Even (Even Steven) (2-4-6-8-10)','80','Player and partner flush 2 cards, you pick two from discard, teammate plays any combo. Gain a Dice Roll if solo'],
+  ['Roots (J-Q-K-A-Joker any suits)','100','Pick two enemies; they draw 4. All other enemies draw 2'],
+  ['Cascade House (44499 or 44999)','120','Switch hands with an enemy player. They draw 4 immediately after switch'],
+  ['Royal Five (5-of-a-kind)','150','Banish enemy cards 2,3,J,Q,K,A and Joker to the back of the discard pile; 3-of-a-kind skill activates'],
   ['Joker House (3J, 2Joker)','200','Enemy players draw 2, discard 4 from your hand and partner, both Joker effects cascade in order, play any combo'],
-  ['Royal Flush','400','Flush 4 cards; can flush hand clean if possible'],
-  ['Royal Joker House (2J, 3Joker)','500','Enemy players draw 2, discard 4 from your hand and partner, all 3 Joker effects cascade in order, play any combo, skip 2 players'],
-  ["Dead Man's Hand (♠☘AA88JKR Either Suit)",'666','Auto-match win; enemies cursed with an extra 2 cards starting next match'],
-  ['Calamity Mary Jane (♥♠QQ420 Either Suit)','555','Auto-match win; enemies cursed with an extra card starting next match'],
-  ['Royal Roots (J-Q-K-A-Joker in suit)','777','Auto-match win; start next match with 3 of your 10 cards flushed by dealer'],
-  ['The Overpass','0','Can empty hand if your hand is ONLY 2-3-4-5-6-7-8-9-10'],
-  ['Joker Cascade (5 Jokers)','5000','Auto-match win; counts as 5 match wins'],
-  ['Royal Dead Man (☘♠88AAJKR Same Suit)','3000','Auto-match win; you start with 6 cards next match, enemies cursed with 4 extra cards'],
-  ['Bloody Mary Jane (♥♠QQ420 Same Suit)','2000','Auto-match win; you start with 6 cards next match, enemies cursed with 2 extra cards'],
-  ['Royal Six','3000','Auto-match win'],
-  ['Royal Seven','4000','Auto-match win'],
-  ['Royal Eight','10000','Auto-match win'],
-  ['Royal Jacksons (The Jacksons) (4J, 4Joker)','20000','Auto-match win'],
-  ['ROOT OUT!','100/-200','If called and won: +100 and match over. If failed: -200, combo effects canceled'],
+  ['Royal Flush','400','Flush 4 cards. Can flush hand clean if possible'],
+  ['Royal Joker House (2J, 3Joker)','500','Enemy players draw 2, discard 4 from your hand and partner, all three Joker effects cascade in order, play any combo, skip 2 players'],
+  ['Calamity Mary Jane (♥♠QQ420 Either Suit)','555','Auto-Match win. Enemies are cursed with +1 starting card next match'],
+  ["Dead Man's Hand (♠♣AA88JKR Either Suit)",'666','Auto-Match win. Enemies are cursed with +2 starting cards next match'],
+  ['Royal Roots (J-Q-K-A-Joker in suit)','777','Auto-Match win. Start next match with 3 of your 10 cards immediately flushed by dealer'],
+  ['The Overpass (2,3,4,5,6,7,8,9,10)','1000','Auto-Match win. Start next match with 2 extra Dice Rolls'],
+  ['Bloody Mary Jane (♥♠QQ420 Same Suit)','2000','Auto-Match win. You start with 6 cards next match; enemies are cursed with +2 starting cards'],
+  ['Royal Dead Man (♣♠88AAJKR Same Suit)','3000','Auto-Match win. You start with 6 cards next match; enemies are cursed with +4 starting cards'],
+  ['Royal Six (6-of-a-kind)','3000','Auto-Match win. Counts as 2 match wins; you (and teammate) start with 6 cards next match'],
+  ['Royal Seven (7-of-a-kind)','4000','Auto-Match win. Counts as 4 match wins'],
+  ['Joker Cascade (5 Jokers)','5000','Auto-Match win. Counts as 5 match wins'],
+  ['Royal Eight (8-of-a-kind)','10000','Auto-Match win. Counts as 10 match wins'],
+  ['Royal Jacksons (The Jacksons) (4J, 5Joker)','20000','Auto-Match win. Counts as 20 match wins'],
+  ['ROOT OUT!','100/-200','If called and won: +100 and match over. If failed: -200 penalty and all combo effects are canceled'],
   ['Royal War','10','Win a WAR (challenge, tie-breaker, or Dice Duel)'],
 ];
 
@@ -11780,8 +12427,13 @@ function _buildAddOnsHelp() {
     Valid trap cards include numeric trap ranks plus Joker trap variants (Madame Joker cannot be set as a trap).<br>
     A trap triggers when Face Card is <b>same rank</b> or <b>within ±1</b> of trap rank.<br>
     Triggered trap becomes the new Face Card. Exact-rank trigger grants immediate next turn priority.<br>
+    Near-match (±1) traps activate and cover the Face Card, but they <b>cannot</b> override exact-match traps or cut the line.<br>
     <b>Trap 4 Counter Rule:</b> if Trap Fours targets a face-down trap and that trap is a <b>4</b>, it is not destroyed; it flips into the Face Card and the trap owner immediately takes the next turn.<br>
-    Joker trap counters can override, punish, or void major actions depending on suit. <b>Madame Joker cannot be negated by Joker traps.</b>
+    <b>♠ Spade Joker Trap:</b> triggers when another Joker is played; voids that Joker effect, enemy draws 3, and turn ends.<br>
+    <b>♣ Clover Joker Trap:</b> triggers when a card is taken from discard; enemy discards 2 and pays a double Match Pot-style bet penalty.<br>
+    <b>♦ Diamond Joker Trap:</b> triggers when an enemy exact trap attempts steal-turn priority; overrides/discards that trap and steals 20 points.<br>
+    <b>♥ Heart Joker Trap:</b> triggers on major combos (Straight/Flush/etc.); halves combo points and trap owner flushes 2 cards.<br>
+    <b>Madame Joker cannot be negated by Joker traps.</b>
   `);
 }
 
