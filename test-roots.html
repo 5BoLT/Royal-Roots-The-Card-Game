@@ -1200,6 +1200,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 .ace-replace-hand{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:10px 0}
 .ace-cancel-btn{background:none;border:1px solid #555;color:#888;padding:8px 20px;border-radius:8px;font-family:Cinzel,serif;font-size:11px;margin-top:10px;transition:all .2s}
 .ace-cancel-btn:hover{border-color:var(--gold);color:var(--gold)}
+.effect-skip-btn{margin-top:12px;border-color:#7f8c8d;color:#bdc3c7}
 
 /* ══════════════════════════════════════════════════════════════════ */
 /*  WAR MODAL                                                         */
@@ -1831,6 +1832,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
           <div class="ace-replace-hand" id="aceReplaceHand"></div>
           <button class="ace-cancel-btn" onclick="cancelAceReplace()">← BACK</button>
         </div>
+        <button class="ace-action-btn effect-skip-btn" onclick="skipCurrentComboEffect()">⏭ SKIP EFFECT</button>
       </div>
     </div>
 
@@ -1841,6 +1843,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
         <div class="ace-modal-sub" id="jackModalSub">Tap a card to discard it</div>
         <div class="ace-replace-hand" id="jackFlushHand"></div>
         <div style="font-size:11px;color:var(--text-dim);margin-top:10px;font-style:italic" id="jackFlushRemaining"></div>
+        <button class="ace-action-btn effect-skip-btn" onclick="skipCurrentComboEffect()">⏭ SKIP EFFECT</button>
       </div>
     </div>
 
@@ -1850,6 +1853,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
         <div class="ace-modal-title" id="eightSuitTitle">🔄 8s — CHANGE SUIT</div>
         <div class="ace-modal-sub" id="eightSuitSub">Pick the new suit</div>
         <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:20px" id="eightSuitBody"></div>
+        <button class="ace-action-btn effect-skip-btn" onclick="skipCurrentComboEffect()">⏭ SKIP EFFECT</button>
       </div>
     </div>
 
@@ -1859,6 +1863,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
         <div class="ace-modal-title" id="kingTaxTitle">👑 KING — TAX THE COURT</div>
         <div class="ace-modal-sub" id="kingTaxSub">Choose who pays the tax</div>
         <div id="kingTaxBody" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px"></div>
+        <button class="ace-action-btn effect-skip-btn" onclick="skipCurrentComboEffect()">⏭ SKIP EFFECT</button>
       </div>
     </div>
 
@@ -1868,6 +1873,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
         <div class="ace-modal-title" id="queenSuitTitle">👸 QUEEN — CHOOSE SUIT</div>
         <div class="ace-modal-sub" id="queenSuitSub">Pick the new suit</div>
         <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:20px" id="queenSuitBody"></div>
+        <button class="ace-action-btn effect-skip-btn" onclick="skipCurrentComboEffect()">⏭ SKIP EFFECT</button>
       </div>
     </div>
 
@@ -1877,6 +1883,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
         <div class="ace-modal-title">🏠 HOUSE PARTY</div>
         <div class="ace-modal-sub" id="fullHouseSub">Pick a target opponent</div>
         <div id="fullHouseBody"></div>
+        <button class="ace-action-btn effect-skip-btn" onclick="skipCurrentComboEffect()">⏭ SKIP EFFECT</button>
       </div>
     </div>
 
@@ -1887,6 +1894,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
         <div class="ace-modal-sub" id="flushDiscardSub">Tap a card to discard it</div>
         <div class="ace-replace-hand" id="flushDiscardHand"></div>
         <div style="font-size:11px;color:var(--text-dim);margin-top:8px;font-style:italic" id="flushDiscardInfo"></div>
+        <button class="ace-action-btn effect-skip-btn" onclick="skipCurrentComboEffect()">⏭ SKIP EFFECT</button>
       </div>
     </div>
 
@@ -1897,6 +1905,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
         <div class="ace-modal-sub" id="jhDiscardSub">Tap cards to discard</div>
         <div class="ace-replace-hand" id="jhDiscardHand"></div>
         <div style="font-size:11px;color:var(--text-dim);margin-top:8px" id="jhDiscardInfo"></div>
+        <button class="ace-action-btn effect-skip-btn" onclick="skipCurrentComboEffect()">⏭ SKIP EFFECT</button>
       </div>
     </div>
 
@@ -1910,6 +1919,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
           <button class="ace-action-btn" style="border-color:var(--green);color:var(--green)" onclick="royalRootsDrawDiscard()">📤 Draw 1 from discard (no suit lock)</button>
           <button class="ace-action-btn" style="border-color:#555;color:#888" onclick="royalRootsSkip()">Skip — take points only</button>
         </div>
+        <button class="ace-action-btn effect-skip-btn" onclick="skipCurrentComboEffect()">⏭ SKIP EFFECT</button>
       </div>
     </div>
 
@@ -1919,6 +1929,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
         <div class="ace-modal-title" id="jokerModalTitle">🃏 JOKER EFFECT</div>
         <div class="ace-modal-sub" id="jokerModalSub"></div>
         <div id="jokerModalBody"></div>
+        <button class="ace-action-btn effect-skip-btn" onclick="skipCurrentComboEffect()">⏭ SKIP EFFECT</button>
       </div>
     </div>
 
@@ -1928,6 +1939,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
         <div class="ace-modal-title">🌱 ROOTS POWER</div>
         <div class="ace-modal-sub" id="rootsModalSub">Pick 2 enemies to target</div>
         <div id="rootsModalBody"></div>
+        <button class="ace-action-btn effect-skip-btn" onclick="skipCurrentComboEffect()">⏭ SKIP EFFECT</button>
       </div>
     </div>
 
@@ -1938,6 +1950,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
         <div class="ace-modal-sub" id="trapSapperSub">Select traps to destroy</div>
         <div id="trapSapperBody"></div>
         <button class="ace-action-btn" id="trapSapperConfirmBtn" onclick="trapSapperConfirm()" disabled>DESTROY SELECTED TRAPS</button>
+        <button class="ace-action-btn effect-skip-btn" onclick="skipCurrentComboEffect()">⏭ SKIP EFFECT</button>
       </div>
     </div>
 
@@ -1945,8 +1958,9 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
     <div class="ace-modal" id="cascadeModal" style="display:none">
       <div class="ace-modal-inner">
         <div class="ace-modal-title">🔄 CASCADE HOUSE</div>
-        <div class="ace-modal-sub">Pass all hands — which direction?</div>
+        <div class="ace-modal-sub">Switch hands with an enemy player</div>
         <div id="cascadeTargetBody" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px"></div>
+        <button class="ace-action-btn effect-skip-btn" onclick="skipCurrentComboEffect()">⏭ SKIP EFFECT</button>
       </div>
     </div>
 
@@ -1957,6 +1971,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
         <div class="ace-modal-sub" id="evenStevenSub">Flush 2 cards from your hand</div>
         <div class="ace-replace-hand" id="evenStevenHand"></div>
         <div style="font-size:11px;color:var(--text-dim);margin-top:10px;font-style:italic" id="evenStevenInfo"></div>
+        <button class="ace-action-btn effect-skip-btn" onclick="skipCurrentComboEffect()">⏭ SKIP EFFECT</button>
       </div>
     </div>
 
@@ -2808,7 +2823,7 @@ function tryStraight(cards) {
       return { valid:false, reason:'Aces in straights only work in A-2-3-4-5 or 10-J-Q-K-A' };
     }
     const W = jokers.length > 0 ? ' 🃏' : '';
-    let result = R(`Straight (5)${W}`, 40, 'COMMON', 'straight');
+    let result = R(`Straight (5)${W}`, 45, 'COMMON', 'straight');
     if (jokers.length > 0) result.pts += 10;
     return result;
   }
@@ -2834,10 +2849,10 @@ function tryStraight(cards) {
     const runMin = vals[0], runMax = vals[vals.length-1];
     const adjacent = fcVal === runMin - 1 || fcVal === runMax + 1;
     if (!adjacent) return { valid:false, reason:'4-card straight must connect to the face card' };
-    return { ...R('Straight (4) ⚠️', 40, 'COMMON', 'straight'), faceCardPenalty:true }; // -5 in core → 35
+    return { ...R('Straight (4) ⚠️', 45, 'COMMON', 'straight'), faceCardPenalty:true }; // -5 in core → 40
   }
 
-  const basePts = 40; // 40 base, +5 per card extension (6 card +5, 7 card +10, etc.)
+  const basePts = 45; // 45 base, +5 per card extension (6 card +5, 7 card +10, etc.)
   const ext = n > 5 ? (n - 5) * 5 : 0;
   const W = jokers.length > 0 ? ' 🃏' : '';
   const sevenPlus = n >= 7;
@@ -2863,10 +2878,10 @@ function tryFlush(cards) {
     if (jokers.length > 0) return { valid:false, reason:'Jokers cannot fill a 4-card flush' };
     const fc = G.faceCard;
     if (!fc || fc.suit !== suit) return { valid:false, reason:'4-card flush must connect to the face card suit' };
-    return { ...R('Flush (4) ⚠️', 50, 'COMMON', 'flush'), faceCardPenalty:true }; // -5 in core → 45
+    return { ...R('Flush (4) ⚠️', 55, 'COMMON', 'flush'), faceCardPenalty:true }; // -5 in core → 50
   }
 
-  const basePts = 50; // 50 base, +5 per card extension (6 card +5, 7 card +10, etc.)
+  const basePts = 55; // 55 base, +5 per card extension (6 card +5, 7 card +10, etc.)
   const ext = n > 5 ? (n - 5) * 5 : 0;
   const W = jokers.length > 0 ? ' 🃏' : '';
   const sevenPlus = n >= 7;
@@ -2892,7 +2907,7 @@ function tryStraightFlush(cards) {
       return { valid:false, reason:'Aces in straight flushes only work in A-2-3-4-5 or 10-J-Q-K-A' };
     }
     const W = jokers.length > 0 ? ' 🃏' : '';
-    let result = R(`Straight Flush (5)${W}`, 75, 'EPIC', 'straight_flush');
+    let result = R(`Straight Flush (5)${W}`, 80, 'EPIC', 'straight_flush');
     if (jokers.length > 0) result.pts += 10;
     return result;
   }
@@ -2912,7 +2927,7 @@ function tryStraightFlush(cards) {
   if (gaps > jokers.length) return { valid:false };
  
   const W = jokers.length > 0 ? ' 🃏' : '';
-  const basePts = 75; // 75 base, +10 per card extension (6 card +10, 7 card +20, etc.)
+  const basePts = 80; // 80 base, +10 per card extension (6 card +10, 7 card +20, etc.)
   const ext = n > 5 ? (n - 5) * 10 : 0;
   let result = R(`Straight Flush (${n})${W}`, basePts+ext, 'EPIC', 'straight_flush');
   if (jokers.length > 0) result.pts += 10; // Joker extension bonus
@@ -2953,7 +2968,7 @@ function tryTripleDouble(cards) {
     const a = vals[0], b = vals[1];
     if (a > 3 || b > 3) return { valid:false };
     const needed = (3 - a) + (3 - b);
-    if (needed === jokers) return R('Triple Double ✌️', 70, 'RARE', 'triple_double');
+    if (needed === jokers) return R('Triple Double ✌️', 75, 'RARE', 'triple_double');
     return { valid:false };
   }
 
@@ -2962,7 +2977,7 @@ function tryTripleDouble(cards) {
   const c = vals[0];
   if (c > 3) return { valid:false };
   const neededSingle = (3 - c) + 3;
-  if (neededSingle === jokers) return R('Triple Double ✌️', 70, 'RARE', 'triple_double');
+  if (neededSingle === jokers) return R('Triple Double ✌️', 75, 'RARE', 'triple_double');
   return { valid:false };
 }
 
@@ -3005,7 +3020,7 @@ function tryEvenSteven(cards) {
   const missing = [...evens].filter(r => !covered.has(r));
   if (missing.length > jokers.length) return { valid:false };
   const W = jokers.length > 0 ? ' 🃏' : '';
-  return R('Even Steven (2-4-6-8-10)'+W, 80, 'RARE', 'even_steven');
+  return R('Even Steven (2-4-6-8-10)'+W, 88, 'RARE', 'even_steven');
 }
  
 // ── CASCADE HOUSE: 44499 or 44999 ───────────────────────────────────
@@ -3025,7 +3040,7 @@ function tryCascadeHouse(cards) {
     const cnts  = entries.map(e=>e[1]).sort((a,b)=>a-b);
     if (!ranks.includes('4')||!ranks.includes('9')) return { valid:false };
     if (JSON.stringify(cnts)!=='[2,3]') return { valid:false };
-    return R('Cascade House (4s & 9s)', 120, 'RARE', 'cascade_house');
+    return R('Cascade House (4s & 9s)', 125, 'RARE', 'cascade_house');
   }
   // With jokers: nonJ must all be 4s or 9s, fill to make [2,3] pattern
   if (!nonJ.every(c=>c.rank==='4'||c.rank==='9')) return { valid:false };
@@ -3036,7 +3051,7 @@ function tryCascadeHouse(cards) {
   for (let j4=0;j4<=jN;j4++){
     const j9=jN-j4;
     const t4=c4+j4, t9=c9+j9;
-    if((t4===2&&t9===3)||(t4===3&&t9===2)) return R('Cascade House 🃏', 120, 'RARE', 'cascade_house');
+    if((t4===2&&t9===3)||(t4===3&&t9===2)) return R('Cascade House 🃏', 125, 'RARE', 'cascade_house');
   }
   return { valid:false };
 }
@@ -3049,7 +3064,7 @@ function tryRoots(cards) {
   const hasK   = cards.some(c=>c.rank==='K');
   const hasA   = cards.some(c=>c.rank==='A');
   const hasJKR = cards.some(c=>c.rank==='JKR');
-  if (hasJ&&hasQ&&hasK&&hasA&&hasJKR) return R('Roots (J-Q-K-A-Joker)', 100, 'EPIC', 'roots');
+  if (hasJ&&hasQ&&hasK&&hasA&&hasJKR) return R('Roots (J-Q-K-A-Joker)', 125, 'EPIC', 'roots');
   return { valid:false };
 }
  
@@ -3135,13 +3150,80 @@ function _comboActorWantsToSkip(pidx, effectLabel, aiSkipChance = 0.35, opts = {
   const silent = !!opts.silent;
   const actorName = (G && G.players && G.players[pidx]) ? G.players[pidx].name : ('P' + (pidx + 1));
   if (pidx === 0) {
-    const useEffect = window.confirm(`${effectLabel}\n\nOK = apply effect\nCancel = skip effect`);
-    if (!useEffect && !silent) addLog(`⏭ You skipped ${effectLabel}.`, false);
-    return !useEffect;
+    return false;
   }
   const skip = Math.random() < aiSkipChance;
   if (skip && !silent) addLog(`⏭ ${actorName} skips ${effectLabel}.`, false);
   return skip;
+}
+
+function skipCurrentComboEffect() {
+  const phase = G && G.phase ? G.phase : '';
+  switch (phase) {
+    case 'ace':
+      addLog('🌟 Ace effect skipped.', false);
+      G._acePlayCardAfter = false;
+      G._acePlayComboAfter = false;
+      closeAceModal();
+      return;
+    case 'jack_flush':
+      closeJackFlushModal(true);
+      return;
+    case 'flush_discard':
+      closeFlushModal(true);
+      return;
+    case 'even_steven':
+      skipEvenStevenEffect();
+      return;
+    case 'king_tax':
+      kingTaxSkip();
+      return;
+    case 'queen_suit':
+      skipQueenSuitEffect();
+      return;
+    case 'eight_suit':
+      skipEightSuitEffect();
+      return;
+    case 'madame_suit':
+      skipMadameSuitEffect();
+      return;
+    case 'full_house':
+      skipFullHouseEffect();
+      return;
+    case 'roots_pick':
+      skipRootsEffect();
+      return;
+    case 'cascade_pick':
+      skipCascadeEffect();
+      return;
+    case 'discard_pick':
+      discardPickSkip();
+      return;
+    case 'jh_discard':
+      jhDiscardSkip();
+      return;
+    case 'trap_sapper':
+      trapSapperSkip();
+      return;
+    case 'royal_roots_choice':
+      royalRootsSkip();
+      return;
+    case 'joker_effect':
+    case 'joker_free_play':
+      addLog('🃏 Joker effect skipped.', false);
+      closeJokerModal();
+      return;
+    default:
+      {
+        const jackModal = document.getElementById('jackModal');
+        if (jackModal && jackModal.style.display === 'flex') {
+        discardPickSkip();
+        return;
+        }
+      }
+      addLog('No active combo effect to skip.', false);
+      return;
+  }
 }
  
 // ========== EFFECTS ==========
@@ -3411,7 +3493,7 @@ function applyEffect(ev, cards, pidx) {
     return;
   }
   if (eff === 'cascade_house') {
-    addLog('🔄 Cascade House! Pass all hands left or right?', true);
+    addLog('🔄 Cascade House! Switch hands with an enemy player — they draw 4 immediately after!', true);
     if (pidx === 0) openCascadeModal();
     else aiCascadeEffect();
     return;
@@ -4144,7 +4226,7 @@ function openJackFlushModal(totalFlushes) {
     return;
   }
   const actualFlushes = Math.min(totalFlushes, flushable);
-  G.jackFlush = { flushesLeft: actualFlushes, totalFlushes: actualFlushes };
+  G.jackFlush = { flushesLeft: actualFlushes, totalFlushes: actualFlushes, skipped: false };
   G.phase = 'jack_flush';
   showJackFlushPicker();
 }
@@ -4194,8 +4276,9 @@ function jackFlushPick(handIdx) {
   }
 }
  
-function closeJackFlushModal() {
+function closeJackFlushModal(wasSkipped = false) {
   document.getElementById('jackModal').style.display = 'none';
+  const skipped = wasSkipped || !!(G.jackFlush && G.jackFlush.skipped);
   G.jackFlush = null;
   G.jackFlushBusy = false;
   // Safety: flushing from a human effect must always return control to human end-turn.
@@ -4207,7 +4290,7 @@ function closeJackFlushModal() {
   renderGame();
   updateBtns();
   fireTwoPairPending(0);
-  addLog('Jack flush done! Click END TURN to draw & pass.', false);
+  addLog(skipped ? 'Jack flush skipped. Click END TURN to draw & pass.' : 'Jack flush done! Click END TURN to draw & pass.', false);
   renderLog();
 }
 
@@ -5942,6 +6025,31 @@ function renderDiscardPicker() {
   });
 }
 
+function discardPickSkip() {
+  document.getElementById('jackModal').style.display = 'none';
+  const fromAce = !!(G.aceState && G._aceDiscardPickBusy);
+  G._discardPickCards = null;
+  G._discardPickSelected = [];
+  const done = G._discardPickDone;
+  G._discardPickDone = null;
+
+  if (fromAce) {
+    G._aceDiscardPickBusy = false;
+    G.phase = 'ace';
+    document.getElementById('aceModal').style.display = 'flex';
+    addLog('🌟 Ace discard draw skipped.', false);
+    aceConsumeAction();
+    renderLog();
+    return;
+  }
+
+  G.phase = 'play';
+  addLog('Discard pick skipped.', false);
+  renderGame();
+  renderLog();
+  if (done) done({ skipped: true });
+}
+
 function discardPickSelect(i) {
   if (!G._discardPickCards || i >= G._discardPickCards.length) return;
   const sel = G._discardPickSelected || [];
@@ -6004,12 +6112,23 @@ function renderEvenStevenHand() {
  
 function evenStevenFlush(idx) {
   const player = G.players[0];
-  if (player.hand.length <= 1) { evenStevenPickFromDiscard(); return; }
+  if (player.hand.length <= 0) { evenStevenPickFromDiscard(); return; }
   const flushed = player.hand.splice(idx,1)[0];
   if (flushed) { G.discard.push(flushed); addLog('Even Steven: Flushed '+flushed.rank+flushed.suit, false); }
   G._evenFlushes--;
-  if (G._evenFlushes > 0 && player.hand.length > 1) renderEvenStevenHand();
+  if (G._evenFlushes > 0 && player.hand.length > 0) renderEvenStevenHand();
   else evenStevenPickFromDiscard();
+}
+
+function skipEvenStevenEffect() {
+  document.getElementById('evenStevenModal').style.display = 'none';
+  G._evenFlushes = 0;
+  G.phase = 'play';
+  G.turnPhase = 'done';
+  renderGame();
+  updateBtns();
+  addLog('Even Steven effect skipped. Click END TURN to draw & pass.', false);
+  renderLog();
 }
  
 function evenStevenPickFromDiscard() {
@@ -6126,6 +6245,7 @@ function eightPickSuit(suit) {
     } else {
       // Solo: flush 1 card
       G._flushLeft = 1;
+      G._flushMinKeep = 0;
       G.phase = 'flush_discard';
       document.getElementById('flushDiscardTitle').textContent = 'FOUR 8s (SOLO) — FLUSH 1 CARD';
       renderFlushModal();
@@ -6446,8 +6566,9 @@ function flushDiscardPick(idx) {
   }
 }
  
-function closeFlushModal() {
+function closeFlushModal(wasSkipped = false) {
   document.getElementById('flushDiscardModal').style.display = 'none';
+  const skipped = !!wasSkipped;
   // Safety: flushing from a human effect must always return control to human end-turn.
   G.cur = 0;
   G.phase = 'play'; G.turnPhase = 'done'; G._flushLeft = 0; G._flushMinKeep = undefined;
@@ -6461,7 +6582,7 @@ function closeFlushModal() {
   }
   G.forceSingleEndDraw = true;
   renderGame(); updateBtns();
-  addLog('Flush done! Click END TURN to draw & pass.', false); renderLog();
+  addLog(skipped ? 'Flush effect skipped. Click END TURN to draw & pass.' : 'Flush done! Click END TURN to draw & pass.', false); renderLog();
 }
  
  
@@ -6516,6 +6637,101 @@ function openRoyalRootsModal() {
     `<button class="ace-action-btn" style="font-size:18px" onclick="royalRootsLockSuit('${s}')">${s} Lock ${NAMES[s]}</button>`
   ).join('');
   document.getElementById('royalRootsModal').style.display = 'flex';
+}
+
+function skipEightSuitEffect() {
+  const modal = document.getElementById('eightSuitModal');
+  if (modal) modal.style.display = 'none';
+  G.phase = 'play';
+  G.turnPhase = 'done';
+  renderGame();
+  updateBtns();
+  addLog('8s suit-change effect skipped. Click END TURN to draw & pass.', false);
+  renderLog();
+}
+
+function skipQueenSuitEffect() {
+  const modal = document.getElementById('queenSuitModal');
+  if (modal) modal.style.display = 'none';
+  G.phase = 'play';
+  G.turnPhase = 'done';
+  renderGame();
+  updateBtns();
+  fireTwoPairPending(0);
+  addLog('Queen suit-change effect skipped. Click END TURN to draw & pass.', false);
+  renderLog();
+}
+
+function skipMadameSuitEffect() {
+  const pidx = (G._madameSuitData && Number.isFinite(G._madameSuitData.pidx)) ? G._madameSuitData.pidx : 0;
+  const fallbackSuit = _pickMadameSuitForPlayer(pidx);
+  addLog('Madame suit choice skipped — auto-picking suit.', false);
+  madamePickSuit(fallbackSuit);
+}
+
+function skipFullHouseEffect() {
+  document.getElementById('fullHouseModal').style.display = 'none';
+  G._fhRounds = 0;
+  G._fhGiven = [];
+  G._fhCardIdx = null;
+  G.phase = 'play';
+  G.turnPhase = 'done';
+  if (G._fhAfterDone) {
+    const cb = G._fhAfterDone;
+    G._fhAfterDone = null;
+    cb();
+  }
+  renderGame();
+  updateBtns();
+  fireTwoPairPending(0);
+  addLog('House Party effect skipped. Click END TURN to draw & pass.', false);
+  renderLog();
+}
+
+function skipRootsEffect() {
+  document.getElementById('rootsModal').style.display = 'none';
+  G._rootsPicked = [];
+  G.phase = 'play';
+  G.turnPhase = 'done';
+  renderGame();
+  updateBtns();
+  addLog('Roots effect skipped. Click END TURN to draw & pass.', false);
+  renderLog();
+}
+
+function skipCascadeEffect() {
+  document.getElementById('cascadeModal').style.display = 'none';
+  G.phase = 'play';
+  G.turnPhase = 'done';
+  renderGame();
+  updateBtns();
+  addLog('Cascade effect skipped. Click END TURN to draw & pass.', false);
+  renderLog();
+}
+
+function jhDiscardSkip() {
+  document.getElementById('jhDiscardModal').style.display = 'none';
+  G.phase = 'play';
+  G._jhDiscardLeft = 0;
+  const done = G._jhDiscardDone;
+  G._jhDiscardDone = null;
+  renderGame();
+  renderLog();
+  addLog('Joker House discard skipped.', false);
+  if (done) done({ skipped: true });
+}
+
+function trapSapperSkip() {
+  const modal = document.getElementById('trapSapperModal');
+  if (modal) modal.style.display = 'none';
+  G._trapSapper = null;
+  G.phase = 'play';
+  G.turnPhase = 'done';
+  renderGame();
+  updateBtns();
+  fireTwoPairPending(0);
+  addLog('Trap Fours effect skipped. Click END TURN to draw & pass.', false);
+  renderLog();
 }
  
 function royalRootsLockSuit(suit) {
@@ -11068,7 +11284,7 @@ const COMBO_TABLE = [
   ['Match-Win','200','Empty Hand or hit a Mythic Combo'],
   ['Single Card','0','No points for ending turn with just one card'],
   ['Law Pass','0','Can empty hand if ONLY 2 and 3 are left in your hand'],
-  ['Trap Cards (3,4,5,6,10)','5','Triggered by the Face Card being 1 less, 1 more, or the same number as the trap card; becomes the Face Card. If exact number is Face Card, it is your turn'],
+  ['Trap Cards (3,4,5,6,10) (Steal Turn War Alert)','5','Triggers when the Face Card is -1, +1, or the exact same number as the trap card. That trap card becomes the new Face Card. If exact number match, steal the turn'],
   ['Normal Pair','5','Only for points; no power effect'],
   ['Normal 3-of-a-kind','25','Only for points; no power effect'],
   ['Normal 4-of-a-kind','55','Only for points; no power effect'],
@@ -11100,14 +11316,14 @@ const COMBO_TABLE = [
   ['Madame Joker (Overrides All-No Joker War)','25','Wildcard! You and teammate skip Law Draw this turn, all enemies take +1 Law Draw and pay 10 points + 100 coins. All trap cards flip face-up. Choose suit'],
   ['Double/Triple/Quad Joker','40/100/500','40 points for Double Joker, 100 for Triple Joker, 500 for 4 Jokers; all played Joker effects are activated, play any combo'],
   ['Full House','40','House Party: You have 2 cards to give away. Whoever gets 1 of your cards must draw 2'],
-  ['Triple Double','65','Two 3-of-a-kinds: You have 2 cards to give away (or 3 solo), your teammate has 2. Whoever gets 1 must draw 2'],
-  ['Straight','45(+5)','All others draw 2, partner safe, +5 for each card extension; all players draw 3 at 7+ Straight'],
-  ['Flush','55(+5)','Discard (flush) 1 card, partner flushes 2 cards (solo: flush 1). Flush 2 at 7+ Flush, +5 for each card extension'],
-  ['Straight Flush','75(+10)','All others draw 2; you and teammate flush 2. At 7+ straight flush, flush 3 and enemies draw 3'],
-  ['Face Card Straight/Flush','-5','Combo effects automatically negated. 5 fewer points for straight and flush (straight flush -15 and Royal Flush -300 included)'],
-  ['All-Even (Even Steven) (2-4-6-8-10)','80','Player and partner flush 2 cards, you pick two from discard, teammate plays any combo. Gain a Dice Roll if solo'],
-  ['Roots (J-Q-K-A-Joker any suits)','100','Pick two enemies; they draw 4. All other enemies draw 2'],
-  ['Cascade House (44499 or 44999)','120','Switch hands with an enemy player. They draw 4 immediately after switch'],
+  ['Triple Double','75','Two 3-of-a-kinds: You have 2 cards to give away (or 3 solo), your teammate has 2. Whoever they give 1 of their cards to must draw 2'],
+  ['Straight','45(+5)','All others draw 2, partner safe, +5 for each card extension, all players draw 3 at 7+ Straight (6 card +5, 7 card +10, etc.)'],
+  ['Flush','55(+5)','Discard (flush) 1 card, partner flushes 2 cards (solo you flush 1 card. Flush 2 cards at 7+ Flush), +5 for each card extension (6 card +5, 7 card +10, etc.)'],
+  ['Straight Flush','80(+10)','All others draw 2; you and teammate flush 2 from partner, flush 3 and enemy draw 3 at 7+ straight (6 card +10, 7 card +20, etc.)'],
+  ['Face Card Straight/Flush','-5','Combo effects automatically negated. 5 less points for straight and flush (straight flush -15 and Royal Flush -300 included)'],
+  ['All-Even (Even Steven) (2-4-6-8-10)','88','Player and partner flushes 2 cards, you pick two from discard, teammate plays any combo. Gain a Dice Roll if solo'],
+  ['Roots (J-Q-K-A-Joker any suits)','125','Pick two enemies, they must draw 4, all other enemies draw 2'],
+  ['Cascade House (44499 or 44999)','125','Switch hands with an enemy player. They must draw 4 immediately after switch'],
   ['Royal Five (5-of-a-kind)','150','Banish enemy cards 2,3,J,Q,K,A and Joker to the back of the discard pile; 3-of-a-kind skill activates'],
   ['Joker House (3J, 2Joker)','200','Enemy players draw 2, discard 4 from your hand and partner, both Joker effects cascade in order, play any combo'],
   ['Royal Flush','400','Flush 4 cards. Can flush hand clean if possible'],
