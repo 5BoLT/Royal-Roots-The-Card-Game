@@ -6343,7 +6343,7 @@ function queenPickSuit(suit) {
     G._aceComboFree = true;
     G.turnPhase = 'playing';
     renderGame(); updateBtns();
-    addLog('👸 Pair of Queens: play 1 card freely now!', false);
+    addLog('👸 Pair of Queens: play 1 card freely now (or use SKIP PLAY to end turn).', false);
     renderLog();
 
   } else if (n === 3 || n === 4) {
@@ -6376,6 +6376,7 @@ function queenPickSuit(suit) {
     // Single Queen in Two Pairs: fire second effect now
     fireTwoPairPending(0);
   }
+  G._queenCount = 0;
 }
 
 // =====================================================================
@@ -6690,6 +6691,11 @@ function skipEightSuitEffect() {
 function skipQueenSuitEffect() {
   const modal = document.getElementById('queenSuitModal');
   if (modal) modal.style.display = 'none';
+  G._queenCount = 0;
+  G.limitNext = 0;
+  G._aceComboFree = false;
+  G.queenBonus = 0;
+  G._queenSuit = null;
   G.phase = 'play';
   G.turnPhase = 'done';
   renderGame();
@@ -9994,6 +10000,15 @@ function endTurn() {
   if (_recoverStalePhaseLock()) return;
   const ASYNC = ['war_prompt','jack_flush','ace','joker_effect','joker_free_play','roots_pick','cascade_pick','even_steven','war','eight_suit','madame_suit','king_tax','queen_suit','full_house','flush_discard','jh_discard','discard_pick','trap_sapper','royal_roots_choice','root_out','dealing','royal_dice'];
   if (ASYNC.includes(G.phase)||G.cur!==0||G.war||G.jackFlush||G.aceState) return;
+
+  const skippingQueenReplay = (G.turnPhase !== 'done' && (G._queenCount || 0) === 2 && G.limitNext === 1 && !!G._aceComboFree);
+  if (skippingQueenReplay) {
+    G._queenCount = 0;
+    G.limitNext = 0;
+    G._aceComboFree = false;
+    G.queenBonus = 0;
+    G._queenSuit = null;
+  }
 
   if (G._zeroReplayOwner === 0 && G._zeroReplaySuit) {
     const canReplay = G.players[0].hand.some(c => c && c.suit === G._zeroReplaySuit);
