@@ -432,11 +432,36 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   letter-spacing:2px;text-transform:uppercase
 }
 .header-right{display:flex;align-items:center;gap:20px}
+.music-controls-wrap{position:relative;display:flex;align-items:center;gap:5px;margin-right:8px}
 .score-box{display:none}
 .score-box-label{font-size:10px;opacity:.6;text-transform:uppercase;letter-spacing:2px}
 .score-box-val{font-weight:700;font-size:20px}
 .exit-btn{border:1px solid rgba(240,192,64,.4);color:var(--gold);background:none;height:28px;padding:0 10px;border-radius:8px;font-size:9px;letter-spacing:1px;cursor:pointer;font-family:Cinzel,serif;white-space:nowrap}
 .exit-btn:hover{background:var(--gold);color:#000}
+.music-track-banner{
+  position:absolute;
+  left:50%;
+  top:calc(100% + 4px);
+  transform:translateX(-50%);
+  padding:2px 10px;
+  border-radius:10px;
+  background:rgba(18,6,30,.42);
+  border:1px solid rgba(196,131,255,.36);
+  color:#c483ff;
+  font-family:'Cinzel',serif;
+  font-size:10px;
+  letter-spacing:.9px;
+  line-height:1.2;
+  max-width:min(52vw,240px);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  pointer-events:none;
+  opacity:0;
+  box-shadow:0 0 10px rgba(137,86,228,.34);
+  transition:opacity .18s ease;
+}
+.music-track-banner.show{opacity:1}
 
 /* TABLE AREA */
 .table-area{
@@ -587,7 +612,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 /* User trap zone floats above the lower black area */
 #playerTrapBar{
   position:fixed!important;
-  left:42%;
+  left:50%;
   transform:translateX(-50%);
   bottom:clamp(118px,19vh,185px);
   display:none;
@@ -1469,17 +1494,23 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 }
 
 @media(max-width:600px){
-  .game-header{padding:8px 8px}
-  .header-left{gap:8px}
-  .header-right{gap:10px}
+  .game-header{padding:8px 6px}
+  .header-left{gap:6px;min-width:0;flex:1}
+  .header-right{gap:6px;margin-left:6px;flex-shrink:0}
+  .header-brand{font-size:11px;letter-spacing:1.2px;max-width:86px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .music-controls-wrap{gap:4px;margin-right:2px}
+  #musicBackBtn,#musicPlayBtn,#musicSkipBtn{width:24px!important;height:24px!important;font-size:11px!important;border-radius:7px!important}
+  #muteBtn{height:24px!important;padding:0 6px!important;font-size:12px!important;border-radius:7px!important}
+  .music-track-banner{font-size:9px;max-width:min(44vw,170px);top:calc(100% + 2px);padding:1px 8px}
+  .exit-btn{height:24px;padding:0 7px;font-size:8px;letter-spacing:.6px;border-radius:7px}
   #helpBtn{position:relative;right:6px}
   .player-footer{max-height:54vh}
-  #playerTrapBar{bottom:clamp(160px,24vh,245px)}
+  #playerTrapBar{bottom:clamp(208px,31vh,292px)}
   .player-trap-card{width:calc(36px * .93);height:calc(50px * .93);font-size:12px}
   .trap-fly-card{width:calc(36px * .93);height:calc(50px * .93)}
   .opponent-avatar{width:clamp(28px,7vw,44px);height:clamp(28px,7vw,44px);font-size:clamp(14px,4vw,22px);border-width:2px}
-  .opponent-label{padding:4px 8px;border-radius:16px;min-width:94px}
-  .opp-name{font-size:clamp(7px,2vw,9px);letter-spacing:1px}
+  .opponent-label{padding:3px 6px;border-radius:16px;min-width:84px;max-width:98px}
+  .opp-name{font-size:clamp(7px,2vw,9px);letter-spacing:1px;display:block;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .opp-meta{font-size:clamp(6px,1.5vw,8px);gap:1px}
   .opp-cards .card-back-mini{width:10px;height:14px;margin-left:-4px} /* tiny on small screens */
   .opponent-seat{gap:2px}
@@ -1728,7 +1759,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
         <span class="score-box-label">Your Score</span>
         <span class="score-box-val" id="headerScore">0</span>
       </div>
-      <div style="display:flex;align-items:center;gap:5px;margin-right:8px">
+      <div id="musicControlsWrap" class="music-controls-wrap">
         <button id="musicBackBtn" onclick="musicBack()" title="Previous track"
           style="background:rgba(240,192,64,.1);border:1px solid rgba(240,192,64,.3);color:rgba(240,192,64,.8);height:28px;width:28px;border-radius:8px;font-size:13px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;">⏮</button>
         <button id="musicPlayBtn" onclick="musicPlayPause()" title="Play/Pause"
@@ -1737,6 +1768,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
           style="background:rgba(240,192,64,.1);border:1px solid rgba(240,192,64,.3);color:rgba(240,192,64,.8);height:28px;width:28px;border-radius:8px;font-size:13px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;">⏭</button>
         <button id="muteBtn" onclick="toggleMute()" title="Mute"
           style="background:none;border:1px solid rgba(240,192,64,.4);color:var(--gold);height:28px;padding:0 8px;border-radius:8px;font-size:14px;cursor:pointer;transition:all .2s;">🔊</button>
+        <div id="musicTrackBanner" class="music-track-banner"></div>
       </div><button class="exit-btn" onclick="exitToHome()">EXIT</button>
     </div>
   </div>
@@ -1839,7 +1871,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
     <!-- JACK FLUSH -->
     <div class="ace-modal" id="jackModal" style="display:none">
       <div class="ace-modal-inner">
-        <div class="ace-modal-title">🃏 JACK FLUSH</div>
+        <div class="ace-modal-title">⚡ COMBO ACTIVATED!</div>
         <div class="ace-modal-sub" id="jackModalSub">Tap a card to discard it</div>
         <div class="ace-replace-hand" id="jackFlushHand"></div>
         <div style="font-size:11px;color:var(--text-dim);margin-top:10px;font-style:italic" id="jackFlushRemaining"></div>
@@ -2404,6 +2436,10 @@ function cardEl(card, classes='') {
 // ========== FACE CARD ANSWERING ==========
 // Can a card START a play (answer the face card)?
 function answersFC(card) {
+  const openingLock = _openingSuitLockApplies(G.cur);
+  if (openingLock) {
+    return !!card && card.suit === openingLock.suit;
+  }
   const fc = G.faceCard;
   if (!fc) return true;
   const fcRank = fc.rank;
@@ -5489,6 +5525,7 @@ function openJokerFreePlay(pidx, suit) {
           G.discard.push(card); G.faceCard = card;
           _playSfx('card_to_face', { restart: true, volume: 0.82 });
           addLog('🃏 Free Play: You played ' + card.rank + card.suit + '!', true);
+          G._lastPlayWasSingle = true;
           if (G.players[0].hand.length === 0) { closeJokerModal(true); checkWin(0); return; }
         }
         closeJokerModal();
@@ -8748,7 +8785,7 @@ function _doPlayCardsCore(pidx, cards, opts = {}) {
     }
   }
   G.pts[pidx] = (G.pts[pidx]||0) + pts;
-  G._lastPlayWasSingle = (ev.effect === 'single'); // single card cannot win the match (empty hand must be 2+ combo)
+  G._lastPlayWasSingle = (cards.length === 1); // single card cannot win the match (empty hand must be 2+ combo)
   const TIER_ICONS = { LEGENDARY:'👑', MYTHICAL:'🔥', EPIC:'⚡', RARE:'💎', COMMON:'' };
   const icon = TIER_ICONS[ev.tier] || '';
   let penaltyTag = '';
@@ -10323,10 +10360,16 @@ function renderOpponents() {
     const active = G.cur === pidx;
     const pPos = pos[i] || pos[0];
     const compactLayout = window.innerWidth <= 700;
-    const spreadX = compactLayout ? (50 + ((pPos.x - 50) * 1.08)) : pPos.x;
-    const liftY = compactLayout ? (pPos.y - 5) : pPos.y;
-    const seatX = Math.max(2, Math.min(98, spreadX));
-    const seatY = Math.max(4, Math.min(94, liftY));
+    const phoneLayout = window.innerWidth <= 600;
+    const spreadScale = phoneLayout ? 0.88 : 1.03;
+    const yShift = compactLayout ? (phoneLayout ? 2 : -3) : 0;
+    const spreadX = compactLayout ? (50 + ((pPos.x - 50) * spreadScale)) : pPos.x;
+    const liftY = pPos.y + yShift;
+    const xMin = phoneLayout ? 7 : 2;
+    const xMax = phoneLayout ? 93 : 98;
+    const yMin = phoneLayout ? 8 : 4;
+    const seatX = Math.max(xMin, Math.min(xMax, spreadX));
+    const seatY = Math.max(yMin, Math.min(94, liftY));
     // Show up to 8 card backs
     const maxBacks = Math.min(p.hand.length, 8);
     const backs = Array(maxBacks).fill('<div class="card-back-mini"></div>').join('');
@@ -11359,6 +11402,90 @@ function cardDraftValue(card) {
   return map[card.rank] || 0;
 }
 
+function _draftDrawFromRemainingPiles() {
+  if (!G.draft || !Array.isArray(G.draft.piles)) return null;
+  const avail = G.draft.piles
+    .map((p, idx) => ({ p, idx, rem: p.cards.length - p.used }))
+    .filter(x => x.rem > 0);
+  if (!avail.length) return null;
+  avail.sort((a, b) => b.rem - a.rem);
+  const topRem = avail[0].rem;
+  const top = avail.filter(x => x.rem === topRem);
+  const choice = top[Math.floor(Math.random() * top.length)];
+  return choice.p.cards[choice.p.used++];
+}
+
+function _draftHasNonTeammateTie(indices) {
+  if (!Array.isArray(indices) || indices.length < 2) return false;
+  for (let a = 0; a < indices.length; a++) {
+    for (let b = a + 1; b < indices.length; b++) {
+      if (!isTeammate(indices[a], indices[b])) return true;
+    }
+  }
+  return false;
+}
+
+function _draftResolveFirstWinnerWithRedraws() {
+  if (!G.draft) return null;
+
+  let rounds = 0;
+  const maxRounds = 40;
+  while (rounds < maxRounds) {
+    const totals = G.players.map((_, i) => ({
+      i,
+      total: (G.draft.playerPicks[i] || []).reduce((s, c) => s + cardDraftValue(c), 0)
+    }));
+    const sorted = [...totals].sort((a, b) => a.total - b.total || a.i - b.i);
+    const lowest = sorted[0].total;
+    const tiedLowest = sorted.filter(t => t.total === lowest).map(t => t.i);
+
+    if (tiedLowest.length === 1) {
+      return { winnerIdx: tiedLowest[0], totals: sorted };
+    }
+
+    if (!_draftHasNonTeammateTie(tiedLowest)) {
+      // Lowest tie is only among teammates. Pick deterministic seat order winner.
+      const winnerIdx = [...tiedLowest].sort((a, b) => a - b)[0];
+      return { winnerIdx, totals: sorted };
+    }
+
+    const tiedNames = tiedLowest.map(i => G.players[i].name).join(', ');
+    addLog(`🤝 Draft tie for lowest (${lowest} pts): ${tiedNames}. Redrawing from remaining cards...`, true);
+
+    const redraws = [];
+    for (const pidx of tiedLowest) {
+      const card = _draftDrawFromRemainingPiles();
+      if (!card) break;
+      if (!Array.isArray(G.draft.playerPicks[pidx])) G.draft.playerPicks[pidx] = [];
+      G.draft.playerPicks[pidx].push(card);
+      redraws.push({ pidx, card });
+    }
+
+    if (!redraws.length) {
+      // Safety fallback if draft piles are exhausted.
+      const winnerIdx = [...tiedLowest].sort((a, b) => a - b)[0];
+      addLog('⚠️ Draft tiebreak deck exhausted — resolving by seat order.', false);
+      const finalTotals = G.players.map((_, i) => ({
+        i,
+        total: (G.draft.playerPicks[i] || []).reduce((s, c) => s + cardDraftValue(c), 0)
+      })).sort((a, b) => a.total - b.total || a.i - b.i);
+      return { winnerIdx, totals: finalTotals };
+    }
+
+    redraws.forEach(({ pidx, card }) => {
+      addLog(`🎴 ${G.players[pidx].name} redraws ${card.rank}${card.suit} (+${cardDraftValue(card)}).`, false);
+    });
+
+    rounds++;
+  }
+
+  const fallbackTotals = G.players.map((_, i) => ({
+    i,
+    total: (G.draft.playerPicks[i] || []).reduce((s, c) => s + cardDraftValue(c), 0)
+  })).sort((a, b) => a.total - b.total || a.i - b.i);
+  return { winnerIdx: fallbackTotals[0].i, totals: fallbackTotals };
+}
+
 function startDraftPhase(skipShowScreen) {
   _playSfx('card_shuffle', { restart: true, volume: 0.86 });
   const pool = [];
@@ -11701,11 +11828,11 @@ function animateDeal(numPlayers, firstPlayerIdx, onDone) {
 
 function draftConfirm() {
   if (!G.draft) return;
-  const totals = G.players.map((_,i) => ({
-    i, total:(G.draft.playerPicks[i]||[]).reduce((s,c)=>s+cardDraftValue(c),0)
-  })).sort((a,b)=>a.total-b.total);
+  const resolved = _draftResolveFirstWinnerWithRedraws();
+  if (!resolved || !resolved.totals || resolved.totals.length === 0) return;
+  const totals = resolved.totals;
 
-  G.cur = totals[0].i;
+  G.cur = resolved.winnerIdx;
   G._lastFirstIdx = G.cur; // track for dealer rotation next match
   G.dealerIdx = totals[totals.length-1].i;
   // Reorder G.players so turn order starts from the winner
@@ -13190,11 +13317,15 @@ function _loadTrack() {
     _musicPaused = false;
     _fade(a, isMuted ? 0 : 0.65, 1200, null, 'ingame');
     _updatePlayBtn();
+    _showMusicTrackBanner(INGAME_TRACKS[ingameTrackIdx]);
   }).catch(() => {
     // Retry on next click (game is already running so user will tap soon)
     document.addEventListener('click', function _retryIngame() {
       document.removeEventListener('click', _retryIngame);
-      if (ingamePlaying) a.play().then(() => _fade(a, isMuted ? 0 : 0.65, 800, null, 'ingame')).catch(()=>{});
+      if (ingamePlaying) a.play().then(() => {
+        _fade(a, isMuted ? 0 : 0.65, 800, null, 'ingame');
+        _showMusicTrackBanner(INGAME_TRACKS[ingameTrackIdx]);
+      }).catch(()=>{});
     });
   });
 }
@@ -13212,6 +13343,30 @@ function toggleMute() {
 
 // Music control — play state matches ingamePlaying flag
 let _musicPaused = false; // separate from ingamePlaying; tracks manual pause
+let _musicTrackBannerTimer = null;
+
+function _trackDisplayNameFromUrl(url) {
+  if (!url) return '';
+  let clean = String(url).split('?')[0].split('#')[0];
+  clean = clean.slice(clean.lastIndexOf('/') + 1);
+  try { clean = decodeURIComponent(clean); } catch (_) {}
+  clean = clean.replace(/\.[a-z0-9]+$/i, '');
+  return clean.trim();
+}
+
+function _showMusicTrackBanner(url) {
+  const el = document.getElementById('musicTrackBanner');
+  if (!el) return;
+  const name = _trackDisplayNameFromUrl(url);
+  if (!name) return;
+  el.textContent = name;
+  el.classList.add('show');
+  if (_musicTrackBannerTimer) clearTimeout(_musicTrackBannerTimer);
+  _musicTrackBannerTimer = setTimeout(() => {
+    el.classList.remove('show');
+    _musicTrackBannerTimer = null;
+  }, 3000);
+}
 
 function _updatePlayBtn() {
   const btn = document.getElementById('musicPlayBtn');
