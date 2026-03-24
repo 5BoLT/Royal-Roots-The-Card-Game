@@ -1505,7 +1505,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   .exit-btn{height:24px;padding:0 7px;font-size:8px;letter-spacing:.6px;border-radius:7px}
   #helpBtn{position:relative;right:6px}
   .player-footer{max-height:54vh}
-  #playerTrapBar{bottom:clamp(208px,31vh,292px)}
+  #playerTrapBar{bottom:clamp(252px,36vh,354px)}
   .player-trap-card{width:calc(36px * .93);height:calc(50px * .93);font-size:12px}
   .trap-fly-card{width:calc(36px * .93);height:calc(50px * .93)}
   .opponent-avatar{width:clamp(28px,7vw,44px);height:clamp(28px,7vw,44px);font-size:clamp(14px,4vw,22px);border-width:2px}
@@ -1514,7 +1514,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   .opp-meta{font-size:clamp(6px,1.5vw,8px);gap:1px}
   .opp-cards .card-back-mini{width:10px;height:14px;margin-left:-4px} /* tiny on small screens */
   .opponent-seat{gap:2px}
-  .table-area{padding:8px 6px}
+  .table-area{padding:4px 6px 14px;transform:translateY(-16px)}
   .oval-table{aspect-ratio:1.6/1;border-width:6px;border-radius:clamp(50px,15vw,200px)}
   .board-label{font-size:8px;letter-spacing:1px}
   .draw-pile-btn span{font-size:clamp(14px,5vw,28px)}
@@ -2574,19 +2574,70 @@ function evalCombo(cards) {
   if (jCount === n && n === 4) return R('Quad Joker 🃏🃏🃏🃏', 500, 'MYTHICAL', 'quad_joker');
  
   // ── SAME-RANK COMBOS ─────────────────────────────────────────
-  // ── TWO PAIRS: 4 cards, exactly 2 different ranks, 2 of each ──
-  if (cards.length === 4 && jCount === 0 && nonJ.length === 4) {
-    const rankSet = [...new Set(njRanks)];
-    if (rankSet.length === 2) {
-      const [r1, r2] = rankSet;
-      const c1 = nonJ.filter(c=>c.rank===r1), c2 = nonJ.filter(c=>c.rank===r2);
-      if (c1.length === 2 && c2.length === 2) {
-        const ev1 = evalSameRank(r1, 2, false), ev2 = evalSameRank(r2, 2, false);
-        if (ev1.valid && ev2.valid) {
-          const totalPts = (ev1.pts||0) + (ev2.pts||0);
-          const effects = [];
-          return { valid:true, name:`Two Pairs (${r1}+${r2})`, pts:totalPts, tier:'RARE',
-            effects:[], effect:'two_pairs', _ev1:ev1, _ev2:ev2, _c1:c1, _c2:c2, hint:'Both pair effects apply!', extraTurns:0, actionCount:0 };
+  // ── TWO PAIRS (4 cards) ─────────────────────────────────────
+  // Supports:
+  //   - natural two pairs (A,A,B,B)
+  //   - one Joker completing a second pair (A,A,B,JKR)
+  if (cards.length === 4) {
+    const firstIdx = (arr) => {
+      let best = Infinity;
+      arr.forEach(card => {
+        const i = cards.indexOf(card);
+        if (i !== -1 && i < best) best = i;
+      });
+      return best;
+    };
+    const buildTwoPair = (p1Rank, p1Cards, p1Joker, p2Rank, p2Cards, p2Joker) => {
+      const e1 = evalSameRank(p1Rank, 2, !!p1Joker);
+      const e2 = evalSameRank(p2Rank, 2, !!p2Joker);
+      if (!e1.valid || !e2.valid) return null;
+      const pairA = { rank: p1Rank, cards: p1Cards, ev: e1, idx: firstIdx(p1Cards) };
+      const pairB = { rank: p2Rank, cards: p2Cards, ev: e2, idx: firstIdx(p2Cards) };
+      const ordered = [pairA, pairB].sort((a, b) => a.idx - b.idx);
+      const totalPts = (ordered[0].ev.pts || 0) + (ordered[1].ev.pts || 0);
+      return {
+        valid: true,
+        name: `Two Pairs (${ordered[0].rank}+${ordered[1].rank})`,
+        pts: totalPts,
+        tier: 'RARE',
+        effects: [],
+        effect: 'two_pairs',
+        _ev1: ordered[0].ev,
+        _ev2: ordered[1].ev,
+        _c1: ordered[0].cards,
+        _c2: ordered[1].cards,
+        hint: 'Both pair effects apply!',
+        extraTurns: 0,
+        actionCount: 0
+      };
+    };
+
+    if (jCount === 0 && nonJ.length === 4) {
+      const rankSet = [...new Set(njRanks)];
+      if (rankSet.length === 2) {
+        const [r1, r2] = rankSet;
+        const c1 = nonJ.filter(c => c.rank === r1);
+        const c2 = nonJ.filter(c => c.rank === r2);
+        if (c1.length === 2 && c2.length === 2) {
+          const naturalTwoPair = buildTwoPair(r1, c1, false, r2, c2, false);
+          if (naturalTwoPair) return naturalTwoPair;
+        }
+      }
+    }
+
+    if (jCount === 1 && nonJ.length === 3) {
+      const rankCounts = {};
+      nonJ.forEach(c => { rankCounts[c.rank] = (rankCounts[c.rank] || 0) + 1; });
+      const naturalPairRank = Object.keys(rankCounts).find(r => rankCounts[r] === 2);
+      const singleRank = Object.keys(rankCounts).find(r => rankCounts[r] === 1);
+      if (naturalPairRank && singleRank) {
+        const naturalPair = nonJ.filter(c => c.rank === naturalPairRank);
+        const singleCard = nonJ.find(c => c.rank === singleRank);
+        const jokerCard = jokers[0];
+        if (singleCard && jokerCard) {
+          const jokerPair = [singleCard, jokerCard];
+          const jokerTwoPair = buildTwoPair(singleRank, jokerPair, true, naturalPairRank, naturalPair, false);
+          if (jokerTwoPair) return jokerTwoPair;
         }
       }
     }
@@ -3302,8 +3353,19 @@ function applyEffect(ev, cards, pidx) {
 
     const choiceFlush = eff === 'zero_pair_diff' ? 2 : eff === 'zero_triple_diff' ? 4 : 6;
     if (pidx === 0) {
+      const flushable = Math.min(choiceFlush, G.players[0].hand.length);
+      if (flushable <= 0) {
+        G.phase = 'play';
+        G.turnPhase = 'done';
+        renderGame();
+        updateBtns();
+        addLog(`⭕ Zero Protocol: no cards left to flush. Law Draw bypassed this turn.`, true);
+        renderLog();
+        _queueJokersFromCards(cards, pidx);
+        return;
+      }
       G.phase = 'flush_discard';
-      G._flushLeft = Math.min(choiceFlush, G.players[0].hand.length);
+      G._flushLeft = flushable;
       G._flushMinKeep = 0;
       document.getElementById('flushDiscardTitle').textContent = `ZERO PROTOCOL — FLUSH ${choiceFlush}`;
       renderFlushModal();
@@ -6545,6 +6607,23 @@ function openFlushModal(selfFlushCount, hasPartner, isSevenPlus) {
   const label = selfFlushCount === 1 ? 'FLUSH 1 CARD' : 'FLUSH 2 CARDS';
   const extra = isSevenPlus ? ' (7+ CARD FLUSH)' : '';
   document.getElementById('flushDiscardTitle').textContent = label + extra;
+  if (G._flushLeft <= 0) {
+    if (G._flushHasPartner) {
+      const partnerIdx = G.players[0].partnerIdx;
+      if (partnerIdx !== null && partnerIdx !== undefined) {
+        const p = G.players[partnerIdx];
+        const partnerCount = G._flushPartnerCount !== undefined ? G._flushPartnerCount : 2;
+        const pFlush = Math.min(partnerCount, Math.max(0, p.hand.length));
+        if (pFlush > 0) {
+          p.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+          G.discard.push(...p.hand.splice(0, pFlush));
+          addLog('Partner ' + p.name + ' flushes ' + pFlush + ' card(s)!', false);
+        }
+      }
+    }
+    closeFlushModal();
+    return;
+  }
   renderFlushModal();
   document.getElementById('flushDiscardModal').style.display = 'flex';
 }
@@ -6555,6 +6634,23 @@ function openSFFlushModal(n) {
   // Straight Flush flushes should allow flushing down to empty hand when possible.
   G._flushMinKeep = 0;
   document.getElementById('flushDiscardTitle').textContent = 'STRAIGHT FLUSH — FLUSH ' + n;
+  if (G._flushLeft <= 0) {
+    if (G._flushHasPartner) {
+      const partnerIdx = G.players[0].partnerIdx;
+      if (partnerIdx !== null && partnerIdx !== undefined) {
+        const p = G.players[partnerIdx];
+        const partnerCount = G._flushPartnerCount !== undefined ? G._flushPartnerCount : 2;
+        const pFlush = Math.min(partnerCount, Math.max(0, p.hand.length));
+        if (pFlush > 0) {
+          p.hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
+          G.discard.push(...p.hand.splice(0, pFlush));
+          addLog('Partner ' + p.name + ' flushes ' + pFlush + ' card(s)!', false);
+        }
+      }
+    }
+    closeFlushModal();
+    return;
+  }
   renderFlushModal();
   document.getElementById('flushDiscardModal').style.display = 'flex';
 }
@@ -7793,6 +7889,9 @@ function _applyMadameJokerCore(pidx, onDone) {
   const SUIT_LABEL = {'♠':'Spades','♥':'Hearts','♦':'Diamonds','♣':'Clubs'};
   function _applyMadameWildcard(suit) {
     G._openingSuitLock = { playerIdx: targetIdx, suit };
+    if (G.faceCard && (G.faceCard.madame || G.faceCard.suit === '★')) {
+      G.faceCard = { ...G.faceCard, suit, madame: false };
+    }
     addLog(`👑🃏 Madame Wildcard: ${G.players[targetIdx].name} must open their turn with ${suit} ${SUIT_LABEL[suit]||suit}. Same suit only — no override.`, true);
     if (typeof onDone === 'function') onDone();
   }
@@ -8552,6 +8651,10 @@ function renderPlayerTrapBar() {
 function setSelectedTraps(faceUp=false) {
   if (G.phase !== 'play' || G.cur !== 0 || G.turnPhase === 'done') return;
   if (G.trapPlacedThisTurn) { addLog('You already set traps this turn.', false); return; }
+  if ((G.players[0].hand || []).length <= 2) {
+    addLog('Trap cards cannot be set with 2 or fewer cards in hand.', false);
+    return;
+  }
   const picks = G.sel.map(id => G.players[0].hand.find(c => c.id === id)).filter(Boolean);
   const zone = (G.traps && G.traps[0]) ? G.traps[0] : [];
   const trapSpace = Math.max(0, 5 - zone.length);
@@ -8631,6 +8734,7 @@ function setSelectedTraps(faceUp=false) {
 
 function aiSetTraps(pidx) {
   const hand = G.players[pidx].hand;
+  if (!hand || hand.length <= 2) return false;
   const elig = hand.filter(canSetTrapCard);
   if (elig.length === 0) return false;
   const zone = (G.traps && G.traps[pidx]) ? G.traps[pidx] : [];
@@ -9828,11 +9932,12 @@ function updateBtns() {
 
   if (tdb && tub) {
     const trapSel = G.sel.map(id => G.players[0].hand.find(c=>c.id===id)).filter(Boolean);
+    const handHasTrapAllowance = (G.players[0].hand || []).length > 2;
     const validTrapSel = trapSel.length > 0 && trapSel.length <= 2 && trapSel.every(canSetTrapCard);
     const currentTrapCount = (G.traps && G.traps[0]) ? G.traps[0].length : 0;
     const trapSpace = Math.max(0, 5 - currentTrapCount);
-    const canTrap = !G.trapPlacedThisTurn && validTrapSel && trapSel.length <= trapSpace && trapSpace > 0;
-    if (trapRow) trapRow.style.display = validTrapSel ? 'flex' : 'none';
+    const canTrap = handHasTrapAllowance && !G.trapPlacedThisTurn && validTrapSel && trapSel.length <= trapSpace && trapSpace > 0;
+    if (trapRow) trapRow.style.display = (validTrapSel && handHasTrapAllowance) ? 'flex' : 'none';
     tdb.disabled = !canTrap;
     tub.disabled = !canTrap;
   }
@@ -13316,15 +13421,52 @@ function _playIngame() {
   _stopHomeForGame(() => { if (ingamePlaying) _loadTrack(); });
 }
 
-function _loadTrack() {
+function _ingameTrackUrlAt(idx) {
+  if (!Array.isArray(INGAME_TRACKS) || INGAME_TRACKS.length === 0) return '';
+  const i = ((idx % INGAME_TRACKS.length) + INGAME_TRACKS.length) % INGAME_TRACKS.length;
+  const url = INGAME_TRACKS[i];
+  return (typeof url === 'string' ? url.trim() : '');
+}
+
+function _advanceIngameTrack(step = 1) {
+  if (!Array.isArray(INGAME_TRACKS) || INGAME_TRACKS.length === 0) return;
+  ingameTrackIdx = ((ingameTrackIdx + step) % INGAME_TRACKS.length + INGAME_TRACKS.length) % INGAME_TRACKS.length;
+}
+
+function _loadTrack(attempt = 0) {
   if (!ingamePlaying) return;
+  if (!Array.isArray(INGAME_TRACKS) || INGAME_TRACKS.length === 0) return;
   if (_ingFadeTimer) { clearInterval(_ingFadeTimer); _ingFadeTimer = null; }
-  const a = new Audio(INGAME_TRACKS[ingameTrackIdx]);
+  ingameTrackIdx = ((ingameTrackIdx % INGAME_TRACKS.length) + INGAME_TRACKS.length) % INGAME_TRACKS.length;
+  const trackUrl = _ingameTrackUrlAt(ingameTrackIdx);
+  if (!trackUrl) {
+    if (attempt >= INGAME_TRACKS.length - 1) return;
+    _advanceIngameTrack(1);
+    _loadTrack(attempt + 1);
+    return;
+  }
+
+  const a = new Audio(trackUrl);
   a.volume = 0;
+
+  let movedOn = false;
+  const moveToNextTrack = () => {
+    if (movedOn || !ingamePlaying) return;
+    movedOn = true;
+    if (attempt >= INGAME_TRACKS.length - 1) {
+      _musicPaused = true;
+      _updatePlayBtn();
+      return;
+    }
+    _advanceIngameTrack(1);
+    _loadTrack(attempt + 1);
+  };
+
+  a.addEventListener('error', moveToNextTrack, { once: true });
   a.addEventListener('ended', () => {
     if (!ingamePlaying) return;
-    ingameTrackIdx = (ingameTrackIdx + 1) % INGAME_TRACKS.length;
-    _loadTrack();
+    _advanceIngameTrack(1);
+    _loadTrack(0);
   });
   ingameAudio = a;
   a.play().then(() => {
@@ -13332,14 +13474,21 @@ function _loadTrack() {
     _musicPaused = false;
     _fade(a, isMuted ? 0 : 0.65, 1200, null, 'ingame');
     _updatePlayBtn();
-    _showMusicTrackBanner(INGAME_TRACKS[ingameTrackIdx]);
-  }).catch(() => {
+    _showMusicTrackBanner(trackUrl);
+  }).catch((err) => {
+    if (err && err.name === 'AbortError') {
+      return;
+    }
+    if (err && err.name !== 'NotAllowedError') {
+      moveToNextTrack();
+      return;
+    }
     // Retry on next click (game is already running so user will tap soon)
     document.addEventListener('click', function _retryIngame() {
       document.removeEventListener('click', _retryIngame);
       if (ingamePlaying) a.play().then(() => {
         _fade(a, isMuted ? 0 : 0.65, 800, null, 'ingame');
-        _showMusicTrackBanner(INGAME_TRACKS[ingameTrackIdx]);
+        _showMusicTrackBanner(trackUrl);
       }).catch(()=>{});
     });
   });
