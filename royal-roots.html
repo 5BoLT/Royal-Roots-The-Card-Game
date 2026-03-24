@@ -601,7 +601,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   100% {transform:translate(var(--tx,0px),var(--ty,0px)) scale(0.98);opacity:0}
 }
 .trap-fly-card{
-  position:fixed;pointer-events:none;z-index:180;
+  position:fixed;pointer-events:none;z-index:95;
   width:36px;height:50px;border-radius:6px;
   display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px;
   border:2px solid rgba(240,192,64,.75);
@@ -624,7 +624,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   background:transparent!important;
   border:none!important;
   flex-wrap:wrap;
-  z-index:120;
+  z-index:45;
   pointer-events:none;
 }
 
@@ -1507,10 +1507,10 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   #helpBtn{position:relative;right:6px}
   .player-footer{max-height:54vh}
   #playerTrapBar{
-    bottom:clamp(252px,36vh,354px);
-    left:40%;
+    bottom:clamp(228px,34vh,320px);
+    left:34%;
     transform:translateX(-50%);
-    width:min(58vw,280px);
+    width:min(54vw,260px);
     justify-content:flex-start;
   }
   .player-trap-card{width:calc(36px * .93);height:calc(50px * .93);font-size:12px}
@@ -2484,14 +2484,76 @@ function answersFC(card) {
 // ========== COMBO EVALUATION ENGINE ==========
 // Full Royal Roots™ points table implemented exactly.
 // Returns { valid, name, pts, tier, effect } or { valid:false, reason }
- 
+
+function _straightConnectsFaceInEitherDirection(cards, fc = G.faceCard) {
+  if (!fc || !cards || cards.length < 4) return false;
+  if (fc.rank === '0' || fc.rank === 'JKR') return false;
+
+  const jokers = cards.filter(c => c.rank === 'JKR');
+  const nonJ = cards.filter(c => c.rank !== 'JKR');
+  if (nonJ.length === 0 || jokers.length > 1) return false;
+
+  const hasAce = nonJ.some(c => c.rank === 'A');
+  if (hasAce) {
+    const targets = [
+      { ranks: ['A', '2', '3', '4', '5'], connectsFromFace: 6 },
+      { ranks: ['10', 'J', 'Q', 'K', 'A'], connectsFromFace: 9 }
+    ];
+    const nonJRanks = nonJ.map(c => c.rank);
+    for (const t of targets) {
+      const set = new Set(t.ranks);
+      if (!nonJRanks.every(r => set.has(r))) continue;
+      const missing = t.ranks.filter(r => !nonJRanks.includes(r)).length;
+      if (missing <= jokers.length && rv(fc.rank) === t.connectsFromFace) return true;
+    }
+    return false;
+  }
+
+  const numeric = nonJ.filter(c => !['J', 'Q', 'K', 'A'].includes(c.rank));
+  if (numeric.length !== nonJ.length || numeric.length === 0) return false;
+
+  const vals = numeric.map(c => rv(c.rank)).sort((a, b) => a - b);
+  const unique = [...new Set(vals)];
+  if (unique.length !== vals.length) return false;
+
+  const span = vals[vals.length - 1] - vals[0] + 1;
+  if (span > cards.length) return false;
+  const gaps = span - unique.length;
+  if (gaps > jokers.length) return false;
+
+  const fcVal = rv(fc.rank);
+  return fcVal === vals[0] - 1 || fcVal === vals[vals.length - 1] + 1;
+}
+
+function _canOpenSelectedCombo(cards, openingLock) {
+  if (!cards || cards.length === 0) {
+    return { ok: false, reason: 'Select at least one card' };
+  }
+
+  if (openingLock && !cards.some(c => c && c.suit === openingLock.suit)) {
+    return { ok: false, reason: `Opening card must be ${openingLock.suit} (Madame suit lock)` };
+  }
+
+  if (cards.some(c => c && answersFC(c))) {
+    return { ok: true };
+  }
+
+  const containsZero = cards.some(c => c && c.rank === '0');
+  if (!containsZero) {
+    const straightLike = tryStraight(cards).valid || tryStraightFlush(cards).valid;
+    if (straightLike && _straightConnectsFaceInEitherDirection(cards, G.faceCard)) {
+      return { ok: true };
+    }
+  }
+
+  return { ok: false, reason: 'Combo must connect to face card (suit/rank, or straight up/down)' };
+}
+
 function evalCombo(cards) {
   if (!cards || cards.length === 0) return { valid:false };
   const openingLock = _openingSuitLockApplies(G.cur);
-  if (openingLock && cards[0] && cards[0].suit !== openingLock.suit) {
-    return { valid:false, reason:`Opening card must be ${openingLock.suit} (Madame suit lock)` };
-  }
-  if (!answersFC(cards[0])) return { valid:false, reason:'First card must match face card suit or number' };
+  const openCheck = _canOpenSelectedCombo(cards, openingLock);
+  if (!openCheck.ok) return { valid:false, reason:openCheck.reason };
   const fc = G.faceCard;
  
   const n = cards.length;
@@ -8842,7 +8904,7 @@ function doPlayCards(pidx, cards, opts = {}) {
   if (validCards.length === 0) return false;
   const openingLock = _openingSuitLockApplies(pidx);
   if (openingLock) {
-    if (validCards[0].suit !== openingLock.suit) return false;
+    if (!validCards.some(c => c && c.suit === openingLock.suit)) return false;
     addLog(`🎯 Suit lock met: ${G.players[pidx].name} opens with ${openingLock.suit}.`, false);
     G._openingSuitLock = null;
   }
@@ -9820,7 +9882,7 @@ function updateComboInfo() {
     const colors = { LEGENDARY:'#ffd700', MYTHICAL:'#ff6b35', EPIC:'#a855f7', RARE:'#60a5fa', COMMON:'var(--gold-light)' };
     ci.style.color = colors[ev.tier] || 'var(--gold-light)';
   } else {
-    ci.textContent = ev.reason || 'First card must match face card suit or number';
+    ci.textContent = ev.reason || 'Combo must connect to face card (suit/rank, or straight up/down)';
     ci.className = 'combo-info invalid';
     ci.style.color = '#e74c3c';
   }
@@ -10598,7 +10660,18 @@ function detectSelectionType(sel) {
 
 function canExtendSelection(card, currentSel) {
   const freeComboBypass = !!(G._aceComboFree || G._nineFreeCombo || G._nineSoloFree || G._sevenFourFreeCombo || G._nine4SoloFree || G._royalDiceFreeCombo);
-  if (currentSel.length === 0) return freeComboBypass ? true : answersFC(card);
+  if (currentSel.length === 0) {
+    if (freeComboBypass) return true;
+    if (answersFC(card)) return true;
+    if (_openingSuitLockApplies(0)) return false;
+    if (!G.faceCard) return false;
+    if (card.rank === '0' || card.rank === 'JKR') return false;
+    if (['J','Q','K','A'].includes(card.rank)) return false;
+    if (['J','Q','K','A','JKR','0'].includes(G.faceCard.rank)) return false;
+    const cv = rv(card.rank);
+    const fv = rv(G.faceCard.rank);
+    return Math.abs(cv - fv) === 1;
+  }
 
   // If the seed is a single Joker, let the player branch into any non-zero line.
   // (0 remains gated behind Mary Jane prefix rules.)
