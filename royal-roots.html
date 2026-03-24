@@ -588,6 +588,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   box-shadow:0 0 10px rgba(93,173,226,.3);
   flex-shrink:0;
   cursor:pointer;
+  pointer-events:auto;
 }
 .player-trap-card.facedown{background:var(--card-back-bg);border-color:rgba(240,192,64,.55);color:transparent;box-shadow:0 1px 6px rgba(0,0,0,.5)}
 .player-trap-card.faceup{background:rgba(93,173,226,.32);border-color:#a7d2f1;color:#f1f8ff}
@@ -600,7 +601,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   100% {transform:translate(var(--tx,0px),var(--ty,0px)) scale(0.98);opacity:0}
 }
 .trap-fly-card{
-  position:fixed;pointer-events:none;z-index:520;
+  position:fixed;pointer-events:none;z-index:180;
   width:36px;height:50px;border-radius:6px;
   display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px;
   border:2px solid rgba(240,192,64,.75);
@@ -623,8 +624,8 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   background:transparent!important;
   border:none!important;
   flex-wrap:wrap;
-  z-index:140;
-  pointer-events:auto;
+  z-index:120;
+  pointer-events:none;
 }
 
 .trap-zone-head{font-size:9px;color:rgba(174,214,241,.95);letter-spacing:1px;line-height:1.25}
@@ -729,7 +730,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   background:rgba(0,0,0,.88);backdrop-filter:blur(8px);
   border-radius:clamp(8px,1.5vw,16px);
   border:1px solid rgba(240,192,64,.2);box-shadow:0 4px 20px rgba(0,0,0,.5);
-  display:flex;flex-direction:column;z-index:200;
+  display:flex;flex-direction:column;z-index:260;
   touch-action:none;pointer-events:auto;
   overflow:visible
 }
@@ -1505,7 +1506,13 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   .exit-btn{height:24px;padding:0 7px;font-size:8px;letter-spacing:.6px;border-radius:7px}
   #helpBtn{position:relative;right:6px}
   .player-footer{max-height:54vh}
-  #playerTrapBar{bottom:clamp(252px,36vh,354px)}
+  #playerTrapBar{
+    bottom:clamp(252px,36vh,354px);
+    left:40%;
+    transform:translateX(-50%);
+    width:min(58vw,280px);
+    justify-content:flex-start;
+  }
   .player-trap-card{width:calc(36px * .93);height:calc(50px * .93);font-size:12px}
   .trap-fly-card{width:calc(36px * .93);height:calc(50px * .93)}
   .opponent-avatar{width:clamp(28px,7vw,44px);height:clamp(28px,7vw,44px);font-size:clamp(14px,4vw,22px);border-width:2px}
@@ -9272,6 +9279,7 @@ function aiTurn(pidx) {
   G._aiBusy = pidx;
   _markAiProgress();
   G.limitNext = 0;
+  G._lastPlayWasSingle = false;
   G.queenBonus = 0; // clear any bonus from previous queen play
   if (G.lockedSuitTurns > 0) {
     G.lockedSuitTurns--;
@@ -9672,6 +9680,7 @@ function startHumanTurn() {
   }
 
   G.limitNext = 0; // clear any Three 8s card-limit
+  G._lastPlayWasSingle = false;
   if (G.lockedSuitTurns > 0) {
     G.lockedSuitTurns--;
     if (G.lockedSuitTurns === 0) { G.lockedSuit = null; addLog('Suit lock expired.', false); }
