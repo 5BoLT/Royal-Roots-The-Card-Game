@@ -615,7 +615,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   position:fixed!important;
   left:50%;
   transform:translateX(-50%);
-  bottom:clamp(118px,19vh,185px);
+  bottom:0;
   display:none;
   align-items:center;
   justify-content:center;
@@ -624,7 +624,8 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   background:transparent!important;
   border:none!important;
   flex-wrap:wrap;
-  z-index:45;
+  max-width:min(92vw,820px);
+  z-index:70;
   pointer-events:none;
 }
 
@@ -1507,11 +1508,8 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   #helpBtn{position:relative;right:6px}
   .player-footer{max-height:54vh}
   #playerTrapBar{
-    bottom:clamp(228px,34vh,320px);
-    left:34%;
-    transform:translateX(-50%);
     width:min(54vw,260px);
-    justify-content:flex-start;
+    justify-content:center;
   }
   .player-trap-card{width:calc(36px * .93);height:calc(50px * .93);font-size:12px}
   .trap-fly-card{width:calc(36px * .93);height:calc(50px * .93)}
@@ -2265,6 +2263,7 @@ function initGame(mode, numPlayers) {
     log: [],
     extraTurn: false,
     extraTurns: 0,
+    _extraTurnOwner: null,
     freshDiscardCount: 0,
     freshDiscard: [],
     matchPot: 0,
@@ -2457,21 +2456,26 @@ function answersFC(card) {
     if (card.madame || card.suit === '★') return true;
     return card.suit === fc.suit;
   }
- 
-  // HIERARCHY: Joker > King = Queen > Jack > numbers
-  // Kings & Queens override Jokers (royal jurisdiction)
-  if (card.rank === 'K') return true;               // Kings override everything
-  if (card.rank === 'Q') {
-    // Queens cannot hard-override Kings unless they naturally answer by suit/rank.
-    if (fcRank === 'K') return naturalMatch;
-    return true;                                    // Queens override all other ranks
+
+  // Hierarchy cards on hierarchy face card:
+  // - Only King <-> Joker can cross-override without matching suit.
+  // - Queen/Jack cannot hard-override hierarchy cards; they must be same suit.
+  const HIER = new Set(['K','Q','J','JKR']);
+  const faceIsHierarchy = HIER.has(fcRank);
+  const cardIsHierarchy = HIER.has(card.rank);
+  if (faceIsHierarchy && cardIsHierarchy) {
+    const kingJokerCross =
+      (fcRank === 'K' && card.rank === 'JKR' && !card.madame && card.suit !== '★') ||
+      (fcRank === 'JKR' && card.rank === 'K');
+    if (kingJokerCross) return true;
+    return card.suit === fc.suit;
   }
-  if (card.rank === 'JKR') return true;             // Jokers override everything except K/Q handled above
-  if (card.rank === 'J') {
-    // Jacks cannot override K/Q/JKR unless they naturally answer by suit/rank.
-    if (fcRank === 'K' || fcRank === 'Q' || fcRank === 'JKR') return naturalMatch;
-    return true; // Jacks override numbers only
-  }
+
+  // Non-hierarchy face cards keep existing override behavior.
+  if (card.rank === 'K') return true;
+  if (card.rank === 'Q') return true;
+  if (card.rank === 'JKR') return true;
+  if (card.rank === 'J') return true;
   if (card.rank === '8') {
     // 8s cannot override suit — must match suit OR same number
     return card.suit === fc.suit || card.rank === fc.rank;
@@ -3510,13 +3514,13 @@ function applyEffect(ev, cards, pidx) {
         G.discard.push(...partner.hand.splice(0, pDismiss));
         addLog(`Partner dismisses ${pDismiss} cards!`, false);
       }
-      openJHDiscard(4, () => queueJokerEffects(rjhJokers, pidx, () => { G.extraTurn = true; resumeAfterEffects(pidx); }));
+      openJHDiscard(4, () => queueJokerEffects(rjhJokers, pidx, () => { G.extraTurn = true; G._extraTurnOwner = pidx; resumeAfterEffects(pidx); }));
     } else {
       const hand = G.players[pidx].hand;
       hand.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
       G.discard.push(...hand.splice(0, Math.min(4, hand.length)));
       addLog(`${G.players[pidx].name} dismisses 4 cards!`, false);
-      queueJokerEffects(rjhJokers, pidx, () => { G.extraTurn = true; });
+      queueJokerEffects(rjhJokers, pidx, () => { G.extraTurn = true; G._extraTurnOwner = pidx; });
     }
     return;
   }
@@ -3533,7 +3537,7 @@ function applyEffect(ev, cards, pidx) {
         G.discard.push(...partner.hand.splice(0, pDismiss));
         addLog(`Partner dismisses ${pDismiss} cards!`, false);
       }
-      openJHDiscard(4, () => queueJokerEffects(jhJokers, pidx, () => { G.extraTurn = true; resumeAfterEffects(pidx); }));
+      openJHDiscard(4, () => queueJokerEffects(jhJokers, pidx, () => { G.extraTurn = true; G._extraTurnOwner = pidx; resumeAfterEffects(pidx); }));
     } else {
       // AI: discard 4 lowest
       const hand = G.players[pidx].hand;
@@ -3546,7 +3550,7 @@ function applyEffect(ev, cards, pidx) {
         ph.sort((a,b)=>(RANK_VAL[a.rank]||0)-(RANK_VAL[b.rank]||0));
         G.discard.push(...ph.splice(0, Math.min(4, ph.length)));
       }
-      queueJokerEffects(jhJokers, pidx, () => { G.extraTurn = true; });
+      queueJokerEffects(jhJokers, pidx, () => { G.extraTurn = true; G._extraTurnOwner = pidx; });
     }
     return;
   }
@@ -4014,6 +4018,7 @@ function applyEffect(ev, cards, pidx) {
         }
         G._aiFreeComboFor = pidx;
         G.extraTurn = true; // AI plays any combo on extra turn
+        G._extraTurnOwner = pidx;
       }
     }
     _queueJokersFromCards(cards, pidx);
@@ -4034,6 +4039,7 @@ function applyEffect(ev, cards, pidx) {
       if (n === 2) {
         // Pair 8s: change suit, play any single card
         G.extraTurn = true;
+        G._extraTurnOwner = pidx;
         addLog('🔄 Pair of 8s! Suit → ' + newSuit + ' — play any card!', true);
       } else if (n === 3) {
         // Three 8s: teammate plays any card, THEN player plays any card
@@ -4051,15 +4057,18 @@ function applyEffect(ev, cards, pidx) {
           }
           // AI then also plays a card
           G.extraTurn = true;
+          G._extraTurnOwner = pidx;
         } else {
           // Solo: play any 2 cards
           G.extraTurn = true;
+          G._extraTurnOwner = pidx;
           G._eightSoloFreeCount = 2;
           addLog('🔄 Three 8s! Suit → ' + newSuit + ' — play any 2 cards (solo)!', true);
         }
       } else if (n === 4) {
         // Four 8s: play any combo, partner plays any 2 cards (solo: flush 1)
         G.extraTurn = true;
+        G._extraTurnOwner = pidx;
         addLog('🔄 FOUR 8s! Suit → ' + newSuit + ' — play any combo, partner plays 2 cards!', true);
         const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
         const partnerIdx = G.players[pidx].partnerIdx;
@@ -4130,6 +4139,7 @@ function applyEffect(ev, cards, pidx) {
         } else {
           G._aiFreeComboFor = pidx;
           G.extraTurn = true;
+          G._extraTurnOwner = pidx;
         }
       } else {
         G._nineSoloSkipAfterReverse = 2;
@@ -4145,6 +4155,7 @@ function applyEffect(ev, cards, pidx) {
         } else {
           G._aiFreeComboFor = pidx;
           G.extraTurn = true;
+          G._extraTurnOwner = pidx;
         }
       }
     }
@@ -4222,6 +4233,7 @@ function applyEffect(ev, cards, pidx) {
         }
         G._aiFreeComboFor = pidx;
         G.extraTurn = true;
+        G._extraTurnOwner = pidx;
         addLog(`👸 ${n}x Queens! Suit → ${newSuit} — play any combo.`, true);
       }
     }
@@ -5622,9 +5634,14 @@ function openJokerEffectModal(suit, pidx, onDone) {
     title.textContent = '♣ CLOVER JOKER';
     const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
     sub.textContent = isTeam
-      ? 'You and your partner each gain a free any-combo turn.'
-      : 'Solo: gain a free any-combo turn and +1 Royal Dice roll.';
-    body.innerHTML = '<button class="ace-action-btn" onclick="cloverConfirmComboBonus()">✅ APPLY CLOVER BONUS</button>';
+      ? 'Applying Clover bonus for your team...'
+      : 'Applying Clover bonus...';
+    body.innerHTML = '<div style="font-size:11px;color:var(--text-dim);font-family:Cinzel,serif">No confirmation needed. You can still skip from the universal skip button.</div>';
+    setTimeout(() => {
+      if (G.phase !== 'joker_effect') return;
+      _applyCloverBonus(pidx);
+      closeJokerModal();
+    }, 80);
   } else if (suit === '♥') {
     title.textContent = '♥ HEART JOKER';
     sub.textContent = '2 actions: banish 1-2 cards (target draws same) OR destroy 1-2 traps';
@@ -5636,7 +5653,7 @@ function openJokerEffectModal(suit, pidx, onDone) {
  
 function openJokerFreePlay(pidx, suit) {
   // After any joker effect: player gets to play any 1 card freely
-  if (pidx !== 0) { G.extraTurn = true; return; } // AI gets extra turn
+  if (pidx !== 0) { G.extraTurn = true; G._extraTurnOwner = pidx; return; } // AI gets extra turn
   G._jokerFreePlaySuit = suit;
   G.phase = 'joker_free_play';
   // Reuse joker modal for free play
@@ -5675,6 +5692,19 @@ function closeJokerModal(skipDone) {
   const done = G._jokerDone;
   G._jokerDone = null;
   if (!skipDone && done) done();
+}
+
+function _applyCloverBonus(pidx) {
+  const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
+  const partnerIdx = G.players[pidx] ? G.players[pidx].partnerIdx : null;
+  const hasPartner = isTeam && partnerIdx !== null && partnerIdx !== undefined && partnerIdx !== pidx;
+  if (hasPartner) {
+    _queueJokerComboFor(partnerIdx, 1);
+    addLog(`♣ Clover Joker: ${G.players[partnerIdx].name} gets a free any-combo turn on their next turn.`, true);
+  } else {
+    _grantRoyalDiceRolls(pidx, 1, '♣ Clover Joker');
+    addLog(`♣ Clover Joker: ${G.players[pidx].name} gains +1 Royal Dice roll.`, true);
+  }
 }
  
 function spadeSwapPick(targetIdx) {
@@ -5813,16 +5843,7 @@ function diamondBet(pidx = 0, opts) {
 }
 
 function cloverConfirmComboBonus() {
-  const isTeam = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
-  const partnerIdx = G.players[0] ? G.players[0].partnerIdx : null;
-  const hasPartner = isTeam && partnerIdx !== null && partnerIdx !== undefined && partnerIdx !== 0;
-  if (hasPartner) {
-    _queueJokerComboFor(partnerIdx, 1);
-    addLog(`♣ Clover Joker: ${G.players[partnerIdx].name} gets a free any-combo turn on their next turn.`, true);
-  } else {
-    _grantRoyalDiceRolls(0, 1, '♣ Clover Joker');
-    addLog('♣ Clover Joker (solo): +1 Royal Dice roll gained.', true);
-  }
+  _applyCloverBonus(0);
   closeJokerModal();
 }
 
@@ -7295,7 +7316,9 @@ function _resolveAiRoyalDice(pidx, d1, d2, total, isDoubles) {
 
   if (total === 7) {
     addLog(`🎲 DOUBLE DOWN! ${actorName} gains an extra move this turn.`, true);
+    if (G._extraTurnOwner !== null && G._extraTurnOwner !== pidx) _clearExtraTurnState();
     G.extraTurns = Math.max(Number(G.extraTurns || 0), 1);
+    G._extraTurnOwner = pidx;
     G.turnPhase = 'playing';
     G.sel = [];
     renderGame(); renderLog(); updateBtns();
@@ -7918,6 +7941,21 @@ function _applyMadameJokerCore(pidx, onDone) {
   const partnerIdx = G.players[pidx] ? G.players[pidx].partnerIdx : null;
   const hasPartner = isTeam && partnerIdx !== null && partnerIdx !== undefined && partnerIdx !== pidx;
 
+  const handSnapshots = G.players.map(pl => (pl && Array.isArray(pl.hand)) ? pl.hand.slice() : []);
+  const _snapshotSig = (hand) => (hand || []).map(c => c && c.id ? c.id : '').join('|');
+  const _restoreHandsIfUnexpectedMutation = () => {
+    let restored = false;
+    for (let i = 0; i < G.players.length; i++) {
+      const cur = (G.players[i] && Array.isArray(G.players[i].hand)) ? G.players[i].hand : [];
+      const snap = handSnapshots[i] || [];
+      if (_snapshotSig(cur) !== _snapshotSig(snap)) {
+        G.players[i].hand = snap.slice();
+        restored = true;
+      }
+    }
+    if (restored) addLog('🛡️ Madame Joker guard: restored unintended hand changes.', false);
+  };
+
   _markLawDrawSkipFor(pidx, 1);
   if (hasPartner) _markLawDrawSkipFor(partnerIdx, 1);
 
@@ -7957,6 +7995,7 @@ function _applyMadameJokerCore(pidx, onDone) {
   const targetIdx = nxt(pidx);
   const SUIT_LABEL = {'♠':'Spades','♥':'Hearts','♦':'Diamonds','♣':'Clubs'};
   function _applyMadameWildcard(suit) {
+    _restoreHandsIfUnexpectedMutation();
     G._openingSuitLock = { playerIdx: targetIdx, suit };
     if (G.faceCard && (G.faceCard.madame || G.faceCard.suit === '★')) {
       G.faceCard = { ...G.faceCard, suit, madame: false };
@@ -8075,13 +8114,7 @@ function triggerJokerEffect(suit, pidx, onDone) {
       openAIDiamondChoiceModal(pidx, onDone);
       return;
     } else if (suit === '♣') {
-      if (hasPartner) {
-        _queueJokerComboFor(partnerIdx, 1);
-        addLog(`♣ Clover Joker: ${G.players[partnerIdx].name} gains a free any-combo turn.`, true);
-      } else {
-        _grantRoyalDiceRolls(pidx, 1, '♣ Clover Joker');
-        addLog(`♣ Clover Joker: ${G.players[pidx].name} gains +1 Royal Dice roll.`, true);
-      }
+      _applyCloverBonus(pidx);
     } else if (suit === '♥') {
       for (let action = 0; action < 2; action++) {
         const enemyTrapTargets = [];
@@ -8135,6 +8168,12 @@ function triggerJokerEffect(suit, pidx, onDone) {
     setTimeout(() => { if (typeof onDone === 'function') onDone(); }, 400);
     return;
   }
+  if (suit === '♣') {
+    _applyCloverBonus(0);
+    renderGame(); renderLog();
+    setTimeout(() => { if (typeof onDone === 'function') onDone(); }, 250);
+    return;
+  }
   // Human — open interactive modal
   openJokerEffectModal(suit, pidx, onDone);
 }
@@ -8165,6 +8204,7 @@ function resumeAfterJokerStack(pidx, label = 'Joker stack') {
   } else if (pidx !== 0) {
     G._aiFreeComboFor = pidx;
     G.extraTurn = true;
+    G._extraTurnOwner = pidx;
   }
 }
 
@@ -8190,6 +8230,11 @@ function resolvePendingWarAsPass(defenderIdx) {
     // Passive effect (2s, 7s, 9s) — fire it now
     addLog(`${G.players[defenderIdx].name} passes. ${G.players[pw.attackerIdx].name}'s effect fires!`, false);
     applyEffect({ effect: pw.triggerEffect, valid: true, pts: pw.triggerPts }, pw.triggerCards, pw.attackerIdx);
+    if (pw.triggerEffect === 'power_9_2' && G._turnEndReverseFor === pw.attackerIdx) {
+      G._turnEndReverseFor = null;
+      G.dir *= -1;
+      addLog('🔃 Pair of 9s resolves on war pass — direction reverses now.', true);
+    }
   }
   return true;
 }
@@ -8312,6 +8357,32 @@ function _grantJokerComboTurn(pidx, label = 'Joker') {
   }
   G._aiFreeComboFor = pidx;
   G.extraTurn = true;
+  G._extraTurnOwner = pidx;
+}
+
+function _clearExtraTurnState() {
+  G.extraTurn = false;
+  G.extraTurns = 0;
+  G._extraTurnOwner = null;
+}
+
+function _normalizeExtraTurnState(ownerPidx = null) {
+  const hasReplay = !!(G.extraTurn || (G.extraTurns > 0));
+  if (!hasReplay) {
+    if (G._extraTurnOwner !== null) G._extraTurnOwner = null;
+    return false;
+  }
+  const owner = Number.isInteger(G._extraTurnOwner) ? G._extraTurnOwner : null;
+  const playerCount = (G.players && G.players.length) ? G.players.length : 0;
+  if (owner === null || owner < 0 || owner >= playerCount) {
+    _clearExtraTurnState();
+    return false;
+  }
+  if (ownerPidx !== null && owner !== ownerPidx) {
+    _clearExtraTurnState();
+    return false;
+  }
+  return true;
 }
 
 function _ensureLawDrawMaps() {
@@ -8360,6 +8431,13 @@ function _openingSuitLockApplies(pidx) {
   if (!lock) return null;
   if (lock.playerIdx !== pidx) return null;
   return lock;
+}
+
+function _canCardOpenForPlayer(pidx, card) {
+  if (!card) return false;
+  const openingLock = _openingSuitLockApplies(pidx);
+  if (openingLock) return card.suit === openingLock.suit;
+  return answersFC(card);
 }
 
 function canSetTrapCard(card) {
@@ -8673,6 +8751,22 @@ function renderTrapZoneBar() {
   renderPlayerTrapBar();
 }
 
+function _positionPlayerTrapBar() {
+  const el = document.getElementById('playerTrapBar');
+  if (!el || el.style.display === 'none') return;
+  const footer = document.querySelector('.player-footer');
+  const hand = document.getElementById('playerHand');
+  if (!footer) return;
+  const footerRect = footer.getBoundingClientRect();
+  const handRect = hand ? hand.getBoundingClientRect() : null;
+  const lift = Math.max(8, Math.round(window.innerHeight * 0.012));
+  const bottomPx = Math.max(0, Math.round((window.innerHeight - footerRect.top) + lift));
+  const centerX = handRect ? Math.round(handRect.left + (handRect.width / 2)) : Math.round(window.innerWidth / 2);
+  el.style.bottom = `${bottomPx}px`;
+  el.style.left = `${centerX}px`;
+  el.style.transform = 'translateX(-50%)';
+}
+
 function renderPlayerTrapBar() {
   const el = document.getElementById('playerTrapBar');
   if (!el || !G.players || !G.players.length) return;
@@ -8715,6 +8809,7 @@ function renderPlayerTrapBar() {
       armHide();
     });
   });
+  _positionPlayerTrapBar();
 }
 
 function setSelectedTraps(faceUp=false) {
@@ -8752,6 +8847,7 @@ function setSelectedTraps(faceUp=false) {
   G.turnPhase = 'done';
   G.extraTurn = false;
   G.extraTurns = 0;
+  G._extraTurnOwner = null;
   G._aceComboFree = false;
   G._nineFreeCombo = false;
   G._nineSoloFree = false;
@@ -9177,6 +9273,7 @@ function nextMatch() {
   // Antes handled in startBettingPhase
   G.extraTurn = false;
   G.extraTurns = 0;
+  G._extraTurnOwner = null;
   G.rootOutUsed = false;
   G.rootOutPenalty = false;
   G.royalRollsUsed = G.players ? G.players.map(() => 0) : []; // per-player, per-match roll counters
@@ -9352,6 +9449,7 @@ function aiTurn(pidx) {
     try {
     // Ignore stale AI timers after phase/turn changes (prevents turn theft/freezes).
     if (!['play'].includes(G.phase) || G.war || pidx !== G.cur) return;
+    _normalizeExtraTurnState(pidx);
 
     // In team modes, if this player already emptied their hand, auto-skip their turn
     const isTeamMode = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
@@ -9451,7 +9549,7 @@ function aiTurn(pidx) {
         player.hand.push(drawn);
         addLog(`${player.name} draws.`);
         aiDrawAnim(pidx, 1, null);
-        if (hasAiFreeCombo || answersFC(drawn)) {
+        if (hasAiFreeCombo || _canCardOpenForPlayer(pidx, drawn)) {
           didPlay = doPlayCards(pidx, [drawn], { skipAnimation:true, visualAnimation:true, ignoreFaceRule: hasAiFreeCombo }) || didPlay;
         } else {
           addLog(`${player.name} can't play.`);
@@ -9496,6 +9594,18 @@ function aiTurn(pidx) {
     // pendingWar set by THIS AI: the next player will handle it on their own turn.
     // Human defender → startHumanTurn shows war prompt.
     // AI defender → their aiTurn will play naturally; doPlayCards handles counter detection.
+
+    // Extra replay means go again this turn — no Law Draw yet.
+    if (_normalizeExtraTurnState(pidx)) {
+      if (G.extraTurns > 0) G.extraTurns--;
+      else G.extraTurn = false;
+      if (!G.extraTurn && !(G.extraTurns > 0)) G._extraTurnOwner = null;
+      addLog(`⚡ ${player.name} takes an extra turn!`, true);
+      renderGame();
+      renderLog();
+      setTimeout(()=>aiTurn(pidx), 600);
+      return;
+    }
  
     // Mandatory end-of-turn draw (+ extra from 6s if AI played them)
     const aiSixBonus = (G._extraLawDraws || 0);
@@ -9563,14 +9673,6 @@ function aiTurn(pidx) {
       } else {
         startHumanTurn();
       }
-      return;
-    }
- 
-    if (G.extraTurns > 0 || G.extraTurn) {
-      if (G.extraTurns > 0) G.extraTurns--;
-      else G.extraTurn = false;
-      renderGame();
-      setTimeout(()=>aiTurn(pidx),600);
       return;
     }
  
@@ -9728,6 +9830,7 @@ function startHumanTurn() {
   if (G.aceState && (!aceModal || aceModal.style.display !== 'flex')) {
     G.aceState = null;
   }
+  _normalizeExtraTurnState(0);
 
   // In team modes, if human already emptied their hand, auto-skip
   const isTeamMode2 = G.mode === 'duos' || G.mode === 'synergy' || G.mode === 'roulette';
@@ -9793,9 +9896,22 @@ function startHumanTurn() {
       return;
     } else {
       // Human can't counter — auto-resolve silently (effect fires, may advSkip)
+      const pwBefore = { ...G.pendingWar };
       resolvePendingWarAsPass(0);
       // Effects fired during auto-pass may have changed your hand (draw/give/take).
       renderGame(); updateBtns(); updateComboInfo();
+      if (pwBefore && pwBefore.triggerEffect === 'power_9_2') {
+        const nextCur = advanceTurnIdx(pwBefore.attackerIdx);
+        if (nextCur !== 0) {
+          G.cur = nextCur;
+          G.turnPhase = 'playing'; G.freeDrewId = null;
+          renderGame(); renderLog();
+          addLog(`${G.players[G.cur].name}'s turn...`);
+          renderLog();
+          setTimeout(() => aiTurn(G.cur), 600);
+          return;
+        }
+      }
       // Check if human was skipped by the effect (e.g. pair of 2s from previous AI)
       if (_skipCount > 0) {
         const nextCur = advanceTurnIdx(0);
@@ -10016,7 +10132,7 @@ function updateBtns() {
   // Play button
   if (G.sel.length === 0) { pb.disabled=true; return; }
   const cards = G.sel.map(id=>G.players[0].hand.find(c=>c.id===id)).filter(Boolean);
-  if (!freeComboBypass && cards.length > 0 && cards.every(canSetTrapCard) && !answersFC(cards[0])) {
+  if (!freeComboBypass && cards.length > 0 && cards.every(canSetTrapCard) && !_canCardOpenForPlayer(0, cards[0])) {
     pb.disabled = true;
     return;
   }
@@ -10037,7 +10153,8 @@ function freeDraw() {
   const drawn = G.deck.pop();
   G.players[0].hand.push(drawn);
   G.freeDrewId = drawn.id;
-  addLog(`You draw a card — ${drawn.rank}${drawn.suit}. ${answersFC(drawn)?'It can be played!':'(Can\'t play it this turn)'}`, answersFC(drawn));
+  const canOpenDrawn = _canCardOpenForPlayer(0, drawn);
+  addLog(`You draw a card — ${drawn.rank}${drawn.suit}. ${canOpenDrawn?'It can be played!':'(Can\'t play it this turn)'}`, canOpenDrawn);
   if (checkSpecialHandWin(0, 'free_draw')) {
     renderGame();
     renderLog();
@@ -10076,7 +10193,7 @@ function playSelected() {
   }
   const cards = G.sel.map(id=>G.players[0].hand.find(c=>c.id===id)).filter(Boolean);
   const freeComboBypass = !!(G._aceComboFree || G._nineFreeCombo || G._nineSoloFree || G._sevenFourFreeCombo || G._nine4SoloFree || G._royalDiceFreeCombo);
-  if (!freeComboBypass && cards.length > 0 && cards.every(canSetTrapCard) && !answersFC(cards[0])) {
+  if (!freeComboBypass && cards.length > 0 && cards.every(canSetTrapCard) && !_canCardOpenForPlayer(0, cards[0])) {
     addLog('Trap cards cannot override the Face Card opener.', false);
     return;
   }
@@ -10208,6 +10325,35 @@ function endTurn() {
     G._twoPairPending = null;
   }
 
+  // Extra replay means go again this turn — no Law Draw yet.
+  // This must happen before end-of-turn law draw/trap/reverse processing.
+  if (G._royalDiceExtraMoves && G._royalDiceExtraMoves > 0) {
+    G._royalDiceExtraMoves--;
+    if (G._royalDiceExtraMoves > 0) {
+      addLog(`🎲 Double Down: ${G._royalDiceExtraMoves} move(s) remaining!`, false);
+      G.turnPhase = 'playing';
+      G.sel = [];
+      renderGame();
+      updateBtns();
+      renderLog();
+      startHumanTurn();
+      return;
+    }
+    addLog('🎲 Double Down: Extra move used. Ending turn.', false);
+    G._royalDiceExtraMoves = 0;
+  }
+
+  if (_normalizeExtraTurnState(0)) {
+    if (G.extraTurns > 0) G.extraTurns--;
+    else G.extraTurn = false;
+    if (!G.extraTurn && !(G.extraTurns > 0)) G._extraTurnOwner = null;
+    addLog('⚡ Extra turn!', true);
+    renderGame();
+    renderLog();
+    startHumanTurn();
+    return;
+  }
+
   // THE LAW DRAW: 1 mandatory card + any extra from 6s (up to 4 extra)
   const sixBonus = (G._extraLawDraws || 0);
   const lawBonus = _consumeLawDrawBonusFor(0);
@@ -10290,33 +10436,6 @@ function endTurn() {
     } else {
       startHumanTurn();
     }
-    return;
-  }
- 
-  // Royal Dice Double Down extra move (solo): give extra play
-  if (G._royalDiceExtraMoves && G._royalDiceExtraMoves > 0) {
-    G._royalDiceExtraMoves--;
-    if (G._royalDiceExtraMoves > 0) {
-      addLog(`🎲 Double Down: ${G._royalDiceExtraMoves} move(s) remaining!`, false);
-    } else {
-      addLog('🎲 Double Down: Extra move used. Ending turn.', false);
-      G._royalDiceExtraMoves = 0;
-      // fall through to normal turn advance
-    }
-    if (G._royalDiceExtraMoves > 0) {
-      G.turnPhase = 'playing'; G.sel = [];
-      renderGame(); updateBtns(); renderLog();
-      startHumanTurn();
-      return;
-    }
-  }
-
-  if (G.extraTurns > 0 || G.extraTurn) {
-    if (G.extraTurns > 0) G.extraTurns--;
-    else G.extraTurn = false;
-    addLog('⚡ Extra turn!', true);
-    renderGame(); renderLog();
-    startHumanTurn();
     return;
   }
  
@@ -10662,8 +10781,11 @@ function canExtendSelection(card, currentSel) {
   const freeComboBypass = !!(G._aceComboFree || G._nineFreeCombo || G._nineSoloFree || G._sevenFourFreeCombo || G._nine4SoloFree || G._royalDiceFreeCombo);
   if (currentSel.length === 0) {
     if (freeComboBypass) return true;
+    const openingLock = _openingSuitLockApplies(0);
+    if (openingLock) return !!card && card.suit === openingLock.suit;
     if (answersFC(card)) return true;
-    if (_openingSuitLockApplies(0)) return false;
+    const handCount = (G.players && G.players[0] && Array.isArray(G.players[0].hand)) ? G.players[0].hand.length : 0;
+    if (handCount < 4) return false;
     if (!G.faceCard) return false;
     if (card.rank === '0' || card.rank === 'JKR') return false;
     if (['J','Q','K','A'].includes(card.rank)) return false;
