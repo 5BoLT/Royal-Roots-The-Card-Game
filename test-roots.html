@@ -24,8 +24,7 @@
   /* Regal card back: royal purple + gold RR/crown (draw pile & face-down traps) */
   --regal-purple:#2d1b4e;
   --card-back-bg:
-    url("https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Card_Back.png") center/cover no-repeat,
-    url("https://raw.githubusercontent.com/SBoLT/Royal-Roots-The-Card-Game/main/RR_Card_Back.png") center/cover no-repeat,
+    url("RR_Card_Back.png") center/cover no-repeat,
     url("Images/RR_Card_Back.png") center/cover no-repeat,
     var(--regal-purple);
 }
@@ -553,11 +552,15 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 .opp-meta{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:9px;color:rgba(240,192,64,.7);font-family:monospace;line-height:1.12}
 .opp-meta-main,.opp-meta-coins{white-space:nowrap}
 .opp-cards{display:flex;margin-top:4px;opacity:.75}
+.card-back-mini{
+  background:var(--card-back-bg);
+  border:1px solid rgba(240,192,64,.45);
+  border-radius:3px;
+  box-shadow:1px 1px 3px rgba(0,0,0,.5)
+}
 .opp-cards .card-back-mini{
   width:22px;height:30px;
-  background:var(--card-back-bg);
-  border:1px solid rgba(240,192,64,.45);border-radius:3px;margin-left:-8px;
-  box-shadow:1px 1px 3px rgba(0,0,0,.5)
+  margin-left:-8px;
 }
 .opp-cards .card-back-mini:first-child{margin-left:0}
 .opp-traps{display:flex;align-items:center;justify-content:center;gap:5px;min-height:34px;margin-top:4px;max-width:220px;flex-wrap:wrap}
@@ -2298,6 +2301,9 @@ function initGame(mode, numPlayers) {
     bloodyMaryCurseDraws: undefined,
     bloodyMaryWinner: undefined,
     royalSixWinner: undefined,
+    matchesPlayed: 0,
+    _playoffActive: false,
+    _playoffEligible: null,
   };
 
   _markAiProgress();
@@ -2553,6 +2559,19 @@ function _canOpenSelectedCombo(cards, openingLock) {
   return { ok: false, reason: 'Combo must connect to face card (suit/rank, or straight up/down)' };
 }
 
+function _fallbackFaceRankSetEval(cards, pidx = (G ? G.cur : 0)) {
+  if (!Array.isArray(cards) || cards.length === 0 || !G || !G.faceCard) return null;
+  if (cards.some(c => !c || c.rank === 'JKR' || c.rank === '0')) return null;
+  const firstRank = cards[0].rank;
+  if (!firstRank) return null;
+  if (!cards.every(c => c.rank === firstRank)) return null;
+  if (String(firstRank) !== String(G.faceCard.rank)) return null;
+  const openingLock = _openingSuitLockApplies(pidx);
+  if (openingLock && !cards.some(c => c.suit === openingLock.suit)) return null;
+  const fb = evalComboIgnoreFC(cards);
+  return fb && fb.valid ? fb : null;
+}
+
 function evalCombo(cards) {
   if (!cards || cards.length === 0) return { valid:false };
   const openingLock = _openingSuitLockApplies(G.cur);
@@ -2793,16 +2812,13 @@ function evalZeroProtocol(cards) {
   const n = cards.length;
   if (n === 1) return R('Zero Ghost ⭕', 5, 'COMMON', 'zero_single');
   if (n === 2) {
-    const sameSuit = cards[0].suit === cards[1].suit;
-    return sameSuit
-      ? R('Zero Flush (Suit Purge) ⭕⭕', 10, 'RARE', 'zero_pair_suit')
-      : R('Zero Pair (Choice Flush 2) ⭕⭕', 10, 'COMMON', 'zero_pair_diff');
+    return R('Zero Pair (Choice Flush 1) ⭕⭕', 10, 'COMMON', 'zero_pair');
   }
   if (n === 3) {
-    return R('Zero Triple (Choice Flush 4) ⭕⭕⭕', 30, 'RARE', 'zero_triple_diff');
+    return R('Zero Triple (Choice Flush 3) ⭕⭕⭕', 30, 'RARE', 'zero_triple');
   }
   if (n === 4) {
-    return R('Zero Quad (Choice Flush 6) ⭕⭕⭕⭕', 70, 'EPIC', 'zero_quad_diff');
+    return R('Zero Quad (Choice Flush 5) ⭕⭕⭕⭕', 70, 'EPIC', 'zero_quad');
   }
   return { valid:false, reason:'Zero combos support up to 4 cards' };
 }
@@ -3414,17 +3430,7 @@ function applyEffect(ev, cards, pidx) {
       return;
     }
 
-    if (eff === 'zero_pair_suit') {
-      const suit = cards[0].suit;
-      const hand = G.players[pidx].hand;
-      const flushed = hand.filter(c => c.suit === suit);
-      G.players[pidx].hand = hand.filter(c => c.suit !== suit);
-      if (flushed.length > 0) G.discard.push(...flushed);
-      addLog(`⭕⭕ Zero Suit Purge! ${G.players[pidx].name} flushes ${flushed.length} ${suit} card(s).`, true);
-      return;
-    }
-
-    const choiceFlush = eff === 'zero_pair_diff' ? 2 : eff === 'zero_triple_diff' ? 4 : 6;
+    const choiceFlush = eff === 'zero_pair' ? 1 : eff === 'zero_triple' ? 3 : 5;
     if (pidx === 0) {
       const flushable = Math.min(choiceFlush, G.players[0].hand.length);
       if (flushable <= 0) {
@@ -4266,10 +4272,14 @@ function applyEffect(ev, cards, pidx) {
  
   // ── ACES ──
   if (eff.startsWith('ace_')) {
-    const actions = n===2?1:n===3?2:3;
+    const aceCountFromEffect = Number.parseInt(String(eff).split('_')[1], 10);
+    const aceCount = Number.isFinite(aceCountFromEffect)
+      ? Math.max(2, Math.min(4, aceCountFromEffect))
+      : Math.max(2, Math.min(4, n));
+    const actions = aceCount === 2 ? 1 : aceCount === 3 ? 2 : 3;
     // Three Aces = play any CARD after; Four Aces = play any COMBO after
-    if (n === 3) G._acePlayCardAfter = true;
-    if (n === 4) G._acePlayComboAfter = true;
+    G._acePlayCardAfter = (aceCount === 3);
+    G._acePlayComboAfter = (aceCount === 4);
     if (pidx === 0) {
       openAceModal(actions);
     } else {
@@ -4290,14 +4300,14 @@ function applyEffect(ev, cards, pidx) {
         addLog(`🌟 ${G.players[pidx].name} skips ${skippedActions} Ace action(s).`, false);
       }
       // AI extra plays
-      if (n === 3) {
+      if (aceCount === 3) {
         // Play best single card
         const play = findBestPlay(G.players[pidx].hand);
         if (play) {
           const single = [play[0]];
           doPlayCards(pidx, single, { skipAnimation:true, visualAnimation:true });
         }
-      } else if (n === 4) {
+      } else if (aceCount === 4) {
         // Play best combo
         const play = findBestPlay(G.players[pidx].hand);
         if (play) doPlayCards(pidx, play, { skipAnimation:true, visualAnimation:true });
@@ -4657,7 +4667,8 @@ function trapSapperConfirm() {
 // { actionsLeft, totalActions, pidx }
  
 function openAceModal(totalActions) {
-  G.aceState = { actionsLeft: totalActions, totalActions, pidx: 0 };
+  const normalized = Math.max(1, Math.min(3, Number(totalActions) || 1));
+  G.aceState = { actionsLeft: normalized, totalActions: normalized, pidx: 0 };
   G._aceDiscardPickBusy = false;
   G.phase = 'ace'; // pause normal flow
   showAceChoice();
@@ -5962,7 +5973,8 @@ function heartConfirmTake() {
   addLog('♥ Heart Joker: Banished '+banished.length+' card(s) from '+them.name+' — they draw '+banished.length+' replacement(s).', true);
   st.targetIdx = null;
   st.picks = [];
-  heartConsumeAction();
+  const actionCost = banished.length >= 2 ? (st.actionsLeft || 2) : 1;
+  heartConsumeAction(actionCost);
 }
 
 function heartShowTrapTargets() {
@@ -6033,10 +6045,11 @@ function heartSkipAction() {
   heartConsumeAction();
 }
 
-function heartConsumeAction() {
+function heartConsumeAction(cost = 1) {
   const st = G._heartState;
   if (!st) return;
-  st.actionsLeft = Math.max(0, (st.actionsLeft || 0) - 1);
+  const spend = Math.max(1, Number(cost) || 1);
+  st.actionsLeft = Math.max(0, (st.actionsLeft || 0) - spend);
   if (st.actionsLeft <= 0) {
     heartFinishActions();
     return;
@@ -7896,10 +7909,42 @@ function getCombinations(arr, k) {
 // Queue joker effects from a non-joker combo ("extensions").
 // Any joker included in a non-joker combo should still fire its suit effect.
 // Pure Joker combos (Double/Triple/Joker House) are handled via their own branches.
+function _ensureDeferredJokerEffectsQueue() {
+  if (!Array.isArray(G._deferredJokerEffects)) G._deferredJokerEffects = [];
+}
+
+function _drainDeferredJokerEffects() {
+  _ensureDeferredJokerEffectsQueue();
+  if (G._deferredJokersBusy) return;
+  if (G.phase !== 'play') return;
+  if (G._deferredJokerEffects.length === 0) return;
+
+  const next = G._deferredJokerEffects.shift();
+  if (!next || !Array.isArray(next.jokers) || next.jokers.length === 0) return;
+  const pidx = Number.isFinite(next.pidx) ? next.pidx : G.cur;
+
+  G._deferredJokersBusy = true;
+  queueJokerEffects(next.jokers, pidx, () => {
+    _grantJokerComboTurn(pidx, 'Joker effect');
+    G._deferredJokersBusy = false;
+    if (G.phase === 'play') _drainDeferredJokerEffects();
+  });
+}
+
 function _queueJokersFromCards(cards, pidx) {
   if (!cards) return;
   const jokers = cards.filter(c => c.rank === 'JKR');
   if (jokers.length === 0) return;
+
+  if (G.phase !== 'play') {
+    _ensureDeferredJokerEffectsQueue();
+    G._deferredJokerEffects.push({
+      pidx,
+      jokers: jokers.map(j => ({ rank: 'JKR', suit: j.suit, madame: !!j.madame }))
+    });
+    return;
+  }
+
   queueJokerEffects(jokers, pidx, () => {
     _grantJokerComboTurn(pidx, 'Joker effect');
   });
@@ -8161,6 +8206,7 @@ function triggerJokerEffect(suit, pidx, onDone) {
           G.discard.push(...banished);
           forceDraw(target, banished.length);
           addLog(`♥ Heart Joker: ${G.players[pidx].name} banishes ${banished.length} card(s) from ${G.players[target].name}.`, true);
+          if (banished.length >= 2) break;
         }
       }
     }
@@ -8991,9 +9037,17 @@ function animateCardsToFaceCard(cards, onDone) {
 function doPlayCards(pidx, cards, opts = {}) {
   const skipAnimation = !!opts.skipAnimation;
   const visualAnimation = !!opts.visualAnimation;
-  const ignoreFaceRule = !!opts.ignoreFaceRule;
+  let ignoreFaceRule = !!opts.ignoreFaceRule;
   // Validate first without side effects
-  const ev = ignoreFaceRule ? evalComboIgnoreFC(cards) : evalCombo(cards);
+  let ev = ignoreFaceRule ? evalComboIgnoreFC(cards) : evalCombo(cards);
+  if (!ev.valid && !ignoreFaceRule) {
+    const fb = _fallbackFaceRankSetEval(cards, pidx);
+    if (fb && fb.valid) {
+      ev = fb;
+      ignoreFaceRule = true;
+      addLog(`🛠 Face-rank bridge fallback applied for ${fb.name}.`, false);
+    }
+  }
   if (!ev.valid) return false;
   // Guard: filter out any undefined/null cards
   const validCards = cards.filter(Boolean);
@@ -9190,6 +9244,22 @@ function checkWin(pidx) {
   return true;
 }
 
+function _applyPlayoffEligibilityForMatch() {
+  if (!G._playoffActive || !Array.isArray(G._playoffEligible) || G._playoffEligible.length === 0) return;
+  const allowed = new Set(G._playoffEligible);
+  G.players.forEach((p, i) => {
+    const inPlayoff = allowed.has(i);
+    p.eliminated = !inPlayoff;
+    if (!inPlayoff) {
+      if (Array.isArray(p.hand) && p.hand.length > 0) {
+        G.discard.push(...p.hand.splice(0, p.hand.length));
+      }
+      if (Array.isArray(G.traps[i])) G.traps[i] = [];
+    }
+  });
+  if (!allowed.has(G.cur)) G.cur = G._playoffEligible[0];
+}
+
 function endMatch(winnerIdx) {
   G.phase = 'ended';
   G._trapSapper = null;
@@ -9199,22 +9269,100 @@ function endMatch(winnerIdx) {
   const winGain = Math.max(1, Number(G.jokerCascadeWin || 0));
   G.wins[winnerIdx] = (G.wins[winnerIdx]||0) + winGain;
   G.jokerCascadeWin = 0;
+  G.matchesPlayed = _playedMatchesCount() + 1;
   G.pts[winnerIdx] = (G.pts[winnerIdx]||0) + 200; // Match-Win: +200 pts (empty hand or mythic combo)
   _playSfx('match_win', { restart: true, volume: 0.94 });
   awardBettingPots(winnerIdx, { potSfxDelayMs: MATCH_WIN_TO_POT_DELAY_MS }); // pay out Match Pot + Point Pot
  
   const humanWon = winnerIdx === 0;
+  const pointOnly = _isPointLordOnlyGame();
+  const categoryFinalMode = _usesCategoryFinalGame();
+  const pointTarget = _pointLordTargetForGame();
   const winsNeeded = G.matchesTo || 3;
   const winnerWins = G.wins[winnerIdx];
-  const totalMatches = G.wins.reduce((a,b)=>a+b, 0);
- 
-  addLog(`🏆 ${w.name} wins match ${totalMatches}! (${winnerWins}/${winsNeeded})${winGain > 1 ? ` [${winGain} wins awarded]` : ''}`, true);
+  const winnerPts = G.pts[winnerIdx] || 0;
+  const totalMatches = _playedMatchesCount();
+
+  if (pointOnly) {
+    addLog(`🏆 ${w.name} wins match ${totalMatches}! (${winnerPts}/${pointTarget} pts)`, true);
+  } else if (categoryFinalMode) {
+    addLog(`🏆 ${w.name} wins match ${totalMatches}/${winsNeeded}! (+${winGain} match win${winGain>1?'s':''})`, true);
+  } else {
+    addLog(`🏆 ${w.name} wins match ${totalMatches}! (${winnerWins}/${winsNeeded})${winGain > 1 ? ` [${winGain} wins awarded]` : ''}`, true);
+  }
  
   // Build scoreboard line
-  const scoreStr = G.players.map((p,i) => `${p.name}: ${G.wins[i]||0}W / ${G.pts[i]||0}pts`).join('  |  ');
+  const scoreStr = G.players
+    .map((p,i) => `${p.name}: ${G.wins[i]||0}W / ${G.pts[i]||0}pts${(G.styles&&G.styles.money&&G.chips)?` / ${G.chips[i]||0}💰`:''}`)
+    .join('  |  ');
+
+  if (G._playoffActive) {
+    const eligible = new Set(Array.isArray(G._playoffEligible) ? G._playoffEligible : []);
+    if (eligible.size === 0 || eligible.has(winnerIdx)) {
+      endGame(winnerIdx, { reason: 'playoff' });
+      return;
+    }
+    const partnerIdx = G.players[winnerIdx] ? G.players[winnerIdx].partnerIdx : null;
+    if (partnerIdx !== null && partnerIdx !== undefined && eligible.has(partnerIdx)) {
+      endGame(partnerIdx, { reason: 'playoff' });
+      return;
+    }
+    addLog(`⚖️ Playoff note: ${w.name} was not playoff-eligible. Replaying playoff match.`, true);
+    renderGame();
+    showBanner(
+      '⚖️ PLAYOFF CONTINUES',
+      `${scoreStr}\n\nOnly ${_namesForPlayers(G._playoffEligible)} are playoff-eligible.`,
+      'NEXT PLAYOFF MATCH ▶',
+      () => nextMatch()
+    );
+    return;
+  }
+
+  if (categoryFinalMode) {
+    if (totalMatches >= winsNeeded) {
+      const board = _buildCategoryLeaders();
+      const leaderboardBanner = _buildFinalLeaderboardText(board);
+
+      if (board.contenders.length === 1 && board.topCount >= 2) {
+        endGame(board.contenders[0], { reason: 'category', leaderboard: leaderboardBanner, categoryBoard: board });
+        return;
+      }
+
+      let contenders = [...board.contenders];
+      contenders.sort((a,b) =>
+        ((board.categoryCounts[b]||0) - (board.categoryCounts[a]||0)) ||
+        ((G.wins[b]||0) - (G.wins[a]||0)) ||
+        ((G.pts[b]||0) - (G.pts[a]||0)) ||
+        ((G.chips?.[b]||0) - (G.chips?.[a]||0))
+      );
+      if (contenders.length > 3) contenders = contenders.slice(0, 3);
+      G._playoffActive = true;
+      G._playoffEligible = contenders;
+      const contendersStr = _namesForPlayers(contenders);
+      addLog(`⚖️ Category tie — playoff match for: ${contendersStr}.`, true);
+
+      renderGame();
+      showBanner(
+        '⚖️ CATEGORY TIEBREAKER',
+        `${leaderboardBanner}\n\n⚖️ Playoff Match: ${contendersStr}`,
+        'PLAYOFF MATCH ▶',
+        () => nextMatch()
+      );
+      return;
+    }
+
+    renderGame();
+    showBanner(
+      humanWon ? '🏆 MATCH WON!' : `💀 ${w.name} wins the match`,
+      `${scoreStr}\n\nMatch ${totalMatches}/${winsNeeded} complete. Keep going!`,
+      'NEXT MATCH ▶',
+      () => nextMatch()
+    );
+    return;
+  }
  
-  // Check if someone reached the match target → game over
-  if (winnerWins >= winsNeeded) {
+  // Check game-over condition
+  if ((pointOnly && winnerPts >= pointTarget) || (!pointOnly && winnerWins >= winsNeeded)) {
     endGame(winnerIdx);
     return;
   }
@@ -9223,29 +9371,51 @@ function endMatch(winnerIdx) {
   renderGame();
   showBanner(
     humanWon ? '🏆 MATCH WON!' : `💀 ${w.name} wins the match`,
-    `${scoreStr}\n\nFirst to ${winsNeeded} match wins. Keep going!`,
+    pointOnly
+      ? `${scoreStr}\n\nFirst to ${pointTarget} points wins. Keep going!`
+      : `${scoreStr}\n\nFirst to ${winsNeeded} match wins. Keep going!`,
     'NEXT MATCH ▶',
     () => nextMatch()
   );
 }
  
-function endGame(winnerIdx) {
+function endGame(winnerIdx, opts = {}) {
   G.phase = 'ended';
   G._trapSapper = null;
   const trapSapperModal = document.getElementById('trapSapperModal');
   if (trapSapperModal) trapSapperModal.style.display = 'none';
   const w = G.players[winnerIdx];
   const humanWon = winnerIdx === 0;
-  const scoreStr = G.players.map((p,i) => `${p.name}: ${G.wins[i]||0} wins / ${G.pts[i]||0}pts`).join('\n');
+  const board = opts.categoryBoard || (_usesCategoryFinalGame() ? _buildCategoryLeaders() : null);
+  const scoreStr = board
+    ? _buildFinalLeaderboardText(board)
+    : G.players
+        .map((p,i) => `${p.name}: ${G.wins[i]||0} wins / ${G.pts[i]||0}pts${(G.styles&&G.styles.money&&G.chips)?` / ${G.chips[i]||0}💰`:''}`)
+        .join('\n');
+  const detail = (opts.leaderboard && opts.leaderboard !== scoreStr)
+    ? `\n\n${opts.leaderboard}`
+    : `\n\n${humanWon ? 'The crown is yours!' : 'Better luck next game!'}`;
   showBanner(
     humanWon ? '👑 GAME OVER — YOU WIN!' : `💀 GAME OVER — ${w.name} WINS!`,
-    `${scoreStr}\n\n${humanWon ? 'The crown is yours!' : 'Better luck next game!'}`,
+    `${scoreStr}${detail}`,
     '▶ PLAY AGAIN',
     () => showScreen('mode-select'),
     '⌂ MAIN MENU',
     () => exitToHome()
   );
-  addLog(`👑 ${w.name} WINS THE GAME! ${G.wins[winnerIdx]} matches won!`, true);
+  if (opts.reason === 'playoff') {
+    addLog(`👑 ${w.name} WINS THE GAME via playoff match!`, true);
+    _playFinalLeaderboardSfx();
+  } else if (opts.reason === 'category') {
+    addLog(`👑 ${w.name} WINS THE GAME by leading 2-of-3 categories!`, true);
+    _playFinalLeaderboardSfx();
+  } else if (_isPointLordOnlyGame()) {
+    addLog(`👑 ${w.name} WINS THE GAME! Reached ${G.pts[winnerIdx]||0} points!`, true);
+  } else {
+    addLog(`👑 ${w.name} WINS THE GAME! ${G.wins[winnerIdx]} matches won!`, true);
+  }
+  G._playoffActive = false;
+  G._playoffEligible = null;
   renderGame();
 }
  
@@ -9268,8 +9438,7 @@ function endGameRoyalDeadMan(winnerIdx) {
 }
  
 function nextMatch() {
-  // Reset per-match state, keep wins and cumulative pts, re-deal
-  G.pts = G.players.map(() => 0);  // pts reset per match (total wins carry)
+  // Reset per-match state, keep wins and cumulative points, re-deal
   // Antes handled in startBettingPhase
   G.extraTurn = false;
   G.extraTurns = 0;
@@ -9293,8 +9462,10 @@ function nextMatch() {
   G.sel = [];
   G.turnPhase = 'playing';
   G.phase = 'dealing'; // locked during deal animation; startBettingPhase sets 'play'
-  G.matchPot = 0;
-  G.pointPot = 0;
+  if (!_isHybridMoneyRulesGame()) {
+    G.matchPot = 0;
+    G.pointPot = 0;
+  }
   G.betFolds = null;
   G.bet = null;
   G.freshDiscardCount = 0;
@@ -9331,6 +9502,9 @@ function nextMatch() {
   G._aiBusy = null;
   G._jokerComboQueuedFor = {};
   G._heartState = null;
+  if (!G._playoffActive) {
+    G.players.forEach(p => { p.eliminated = false; });
+  }
   _markAiProgress();
   buildAndDeal();
 
@@ -9418,12 +9592,16 @@ function nextMatch() {
   // G._lastFirstIdx tracks who went first in the previous match
   const prevFirst = G._lastFirstIdx !== undefined ? G._lastFirstIdx : G.cur;
   G.cur = nxt(prevFirst); // clockwise next player
+  _applyPlayoffEligibilityForMatch();
   G._lastFirstIdx = G.cur;
   addLog(`👑 ${G.players[G.cur].name} goes first this match (clockwise from last dealer)!`, true);
+  if (G._playoffActive && Array.isArray(G._playoffEligible)) {
+    addLog(`⚖️ Playoff active: only ${_namesForPlayers(G._playoffEligible)} are active this match.`, true);
+  }
 
   showScreen('game');
   renderGame();
-  addLog(`--- MATCH ${G.wins.reduce((a,b)=>a+b,0)+1} — DEALING... ---`, true);
+  addLog(`--- ${G._playoffActive ? 'PLAYOFF MATCH' : `MATCH ${_playedMatchesCount()+1}`} — DEALING... ---`, true);
   renderLog();
   animateDeal(G.numPlayers, G.cur, () => {
     renderGame();
@@ -9933,6 +10111,14 @@ function startHumanTurn() {
   } else {
     addLog("Your turn! Play a card or draw first.", false);
   }
+  if (G._zeroReplayOwner === 0 && G._zeroReplaySuit) {
+    const hasReplaySuit = (G.players[0].hand || []).some(c => c && c.suit === G._zeroReplaySuit);
+    if (!hasReplaySuit) {
+      addLog(`⭕ Zero Replay auto-cleared (no ${G._zeroReplaySuit} cards in hand).`, false);
+      G._zeroReplayOwner = null;
+      G._zeroReplaySuit = null;
+    }
+  }
   const openingLock = _openingSuitLockApplies(0);
   if (openingLock) {
     addLog(`🎯 Madame Suit Lock: your opening card this turn must be ${openingLock.suit}.`, true);
@@ -9988,7 +10174,11 @@ function updateComboInfo() {
     return;
   }
   const cards = G.sel.map(id=>G.players[0].hand.find(c=>c.id===id)).filter(Boolean);
-  const ev = freeComboBypass ? evalComboIgnoreFC(cards) : evalCombo(cards);
+  let ev = freeComboBypass ? evalComboIgnoreFC(cards) : evalCombo(cards);
+  if (!ev.valid && !freeComboBypass) {
+    const fb = _fallbackFaceRankSetEval(cards, 0);
+    if (fb && fb.valid) ev = fb;
+  }
   const TIER_ICONS = { LEGENDARY:'👑', MYTHICAL:'🔥', EPIC:'⚡', RARE:'💎', COMMON:'🎯' };
   if (ev.valid) {
     const icon = TIER_ICONS[ev.tier] || '';
@@ -10136,7 +10326,11 @@ function updateBtns() {
     pb.disabled = true;
     return;
   }
-  const ev = freeComboBypass ? evalComboIgnoreFC(cards) : evalCombo(cards);
+  let ev = freeComboBypass ? evalComboIgnoreFC(cards) : evalCombo(cards);
+  if (!ev.valid && !freeComboBypass) {
+    const fb = _fallbackFaceRankSetEval(cards, 0);
+    if (fb && fb.valid) ev = fb;
+  }
   let valid = !!ev.valid;
   if (valid && G._zeroReplayOwner === 0 && G._zeroReplaySuit) {
     valid = cards.every(c => c.suit === G._zeroReplaySuit);
@@ -10165,6 +10359,7 @@ function freeDraw() {
 }
  
 function playSelected() {
+  if (_recoverStalePhaseLock()) return;
   const phase = G.phase;
   // Allow play during war_prompt ONLY if the card is a valid war counter
   if (phase === 'war_prompt') {
@@ -10192,6 +10387,14 @@ function playSelected() {
     return;
   }
   const cards = G.sel.map(id=>G.players[0].hand.find(c=>c.id===id)).filter(Boolean);
+  if (!cards || cards.length === 0) {
+    G.sel = [];
+    addLog('No valid selected cards to play. Re-select your combo.', false);
+    renderGame();
+    updateBtns();
+    updateComboInfo();
+    return;
+  }
   const freeComboBypass = !!(G._aceComboFree || G._nineFreeCombo || G._nineSoloFree || G._sevenFourFreeCombo || G._nine4SoloFree || G._royalDiceFreeCombo);
   if (!freeComboBypass && cards.length > 0 && cards.every(canSetTrapCard) && !_canCardOpenForPlayer(0, cards[0])) {
     addLog('Trap cards cannot override the Face Card opener.', false);
@@ -10228,7 +10431,17 @@ function playSelected() {
     }
   } else {
     ev = evalCombo(cards);
-    if (!ev.valid) return;
+    if (!ev.valid) {
+      const fb = _fallbackFaceRankSetEval(cards, 0);
+      if (fb && fb.valid) {
+        ev = fb;
+      } else {
+        addLog(ev.reason || 'Selected cards are not a valid combo right now.', false);
+        renderLog();
+        updateComboInfo();
+        return;
+      }
+    }
   }
 
   // Clear free-play flags before playing
@@ -10242,7 +10455,19 @@ function playSelected() {
     if (G._nineSoloFreeCount <= 0) { G._nineSoloFree = false; G._nineSoloFreeCount = 0; }
   }
 
-  doPlayCards(0, cards, { ignoreFaceRule: freeComboBypass, skipAnimation: true, visualAnimation: true });
+  const forceFaceBridge = !freeComboBypass && !!_fallbackFaceRankSetEval(cards, 0) && !evalCombo(cards).valid;
+  const didPlay = doPlayCards(0, cards, {
+    ignoreFaceRule: freeComboBypass || forceFaceBridge,
+    skipAnimation: true,
+    visualAnimation: true
+  });
+  if (!didPlay) {
+    addLog('Play was blocked by a state check. Re-select and try again.', false);
+    renderGame();
+    updateBtns();
+    updateComboInfo();
+    return;
+  }
   G.sel = [];
 
   if (replayWasActive) {
@@ -10596,11 +10821,14 @@ function renderGame() {
   // War prompt visibility
   const wp = document.getElementById('warPrompt');
   if (wp) wp.classList.toggle('visible', G.phase === 'war_prompt');
+  _drainDeferredJokerEffects();
 }
  
 function renderScores() {
   const winsNeeded = G.matchesTo || 3;
-  const matchTotal = G.wins ? G.wins.reduce((a,b)=>a+b,0) : 0;
+  const matchTotal = _usesCategoryFinalGame()
+    ? _playedMatchesCount()
+    : (G.wins ? G.wins.reduce((a,b)=>a+b,0) : 0);
   // Header score box (human pts)
   const hs = document.getElementById('headerScore');
   if (hs) hs.textContent = G.pts[0]||0;
@@ -10612,7 +10840,11 @@ function renderScores() {
   if (ln && G.players) {
     const nextIdx = (G.cur + (G.dir||1) + G.numPlayers) % G.numPlayers;
     const potStr = (G.styles&&G.styles.money&&G.pot) ? ` · 💰${G.pot}` : '';
-    ln.textContent = `⏩ MATCH ${matchTotal+1}/${winsNeeded} · Next: ${G.players[nextIdx]?.name||''}${potStr}`;
+    if (_isPointLordOnlyGame()) {
+      ln.textContent = `⏩ POINT RACE to ${_pointLordTargetForGame()} · Next: ${G.players[nextIdx]?.name||''}${potStr}`;
+    } else {
+      ln.textContent = `⏩ MATCH ${matchTotal+1}/${winsNeeded} · Next: ${G.players[nextIdx]?.name||''}${potStr}`;
+    }
   }
   // Draw count
   const dc = document.getElementById('drawCount');
@@ -11313,6 +11545,7 @@ const SETUP = {
   chips: null,       // starting chips per player (null if no Money Master)
   minBet: null,
   matchesTo: 3,
+  pointsToWin: null,
 };
  
 // Mode label lookup for summaries
@@ -11324,6 +11557,103 @@ const MODE_LABELS = {
   roulette: 'ROYAL ROOTS ROULETTE',
 };
 const STYLE_LABELS = { flush: 'HAND FLUSHER', money: 'MONEY MASTER', points: 'POINT LORD' };
+
+function _pointLordTargetFromSetting(base) {
+  const n = Math.max(1, Number(base || 3));
+  return n * 100;
+}
+
+function _isPointLordOnlySetup() {
+  return !SETUP.ancestors && SETUP.styles.has('points') && !SETUP.styles.has('flush') && !SETUP.styles.has('money');
+}
+
+function _isHybridMoneyRulesSetup() {
+  return !!(SETUP && (SETUP.ancestors || (SETUP.styles && SETUP.styles.has('money') && (SETUP.styles.has('flush') || SETUP.styles.has('points')))));
+}
+
+function _isPointLordOnlyGame() {
+  return !!(G && G.styles && G.styles.points && !G.styles.flush && !G.styles.money && !G.styles.ancestors);
+}
+
+function _isHybridMoneyRulesGame() {
+  return !!(G && G.styles && G.styles.money && (G.styles.flush || G.styles.points || G.styles.ancestors));
+}
+
+function _usesCategoryFinalGame() {
+  return _isHybridMoneyRulesGame();
+}
+
+function _playedMatchesCount() {
+  if (!G) return 0;
+  return Math.max(0, Number(G.matchesPlayed || 0));
+}
+
+function _indicesWithTopValue(vals) {
+  if (!Array.isArray(vals) || vals.length === 0) return [];
+  const top = vals.reduce((m, v) => Math.max(m, Number(v || 0)), -Infinity);
+  const out = [];
+  vals.forEach((v, i) => {
+    if (Number(v || 0) === top) out.push(i);
+  });
+  return out;
+}
+
+function _buildCategoryLeaders() {
+  const winsLeaders = _indicesWithTopValue(G.wins || []);
+  const pointsLeaders = _indicesWithTopValue(G.pts || []);
+  const coinLeaders = _indicesWithTopValue((G.styles && G.styles.money && G.chips) ? G.chips : (G.players || []).map(() => 0));
+  const categoryCounts = {};
+  [winsLeaders, pointsLeaders, coinLeaders].forEach(group => {
+    group.forEach(i => {
+      categoryCounts[i] = (categoryCounts[i] || 0) + 1;
+    });
+  });
+  const topCount = Object.values(categoryCounts).reduce((m, v) => Math.max(m, v), 0);
+  const contenders = Object.keys(categoryCounts)
+    .filter(k => categoryCounts[k] === topCount)
+    .map(k => Number(k));
+  return {
+    winsLeaders,
+    pointsLeaders,
+    coinLeaders,
+    categoryCounts,
+    topCount,
+    contenders,
+  };
+}
+
+function _namesForPlayers(indices) {
+  if (!Array.isArray(indices) || indices.length === 0) return 'None';
+  return indices.map(i => (G.players[i] ? G.players[i].name : `P${i+1}`)).join(', ');
+}
+
+function _buildFinalLeaderboardText(board) {
+  const b = board || _buildCategoryLeaders();
+  const scoreRows = (G.players || []).map((p, i) => {
+    const w = G.wins && Number.isFinite(G.wins[i]) ? G.wins[i] : 0;
+    const pts = G.pts && Number.isFinite(G.pts[i]) ? G.pts[i] : 0;
+    const coins = (G.styles && G.styles.money && G.chips && Number.isFinite(G.chips[i])) ? G.chips[i] : 0;
+    return `${p.name}: ${w}W / ${pts}pts / ${coins}💰`;
+  }).join('\n');
+
+  const categoryRows =
+    `🏅 Wins Leader(s): ${_namesForPlayers(b.winsLeaders)}\n` +
+    `⭐ Points Leader(s): ${_namesForPlayers(b.pointsLeaders)}\n` +
+    `💰 Coins Leader(s): ${_namesForPlayers(b.coinLeaders)}`;
+
+  return `${scoreRows}\n\n${categoryRows}`;
+}
+
+function _playFinalLeaderboardSfx() {
+  setTimeout(() => _playSfx('match_win', { restart: true, volume: 0.92 }), 120);
+  setTimeout(() => _playSfx('pay_tax_points', { restart: true, volume: 0.86 }), 520);
+  setTimeout(() => _playSfx('pay_tax_coins', { restart: true, volume: 0.9 }), 900);
+}
+
+function _pointLordTargetForGame() {
+  if (G && Number.isFinite(G.pointsToWin) && G.pointsToWin > 0) return Math.floor(G.pointsToWin);
+  return _pointLordTargetFromSetting(G && G.matchesTo ? G.matchesTo : 3);
+}
  
 // ── STEP 1: Mode selection ──────────────────────────────────
 function showSoloSizeSelect() {
@@ -11559,12 +11889,60 @@ function goToMatchPick() {
 function _refreshMatchPickScreen() {
   const el = document.getElementById('matchPickSummary');
   if (!el) return;
+  const pointOnly = _isPointLordOnlySetup();
+  const hybridMoneySetup = _isHybridMoneyRulesSetup();
   const styleStr = SETUP.ancestors ? 'ANCESTORS RULE (all 3)' :
     [...SETUP.styles].map(s=>STYLE_LABELS[s]).join(' + ');
   const chipsStr = SETUP.chips ? ' · ' + SETUP.chips + ' chips / ' + SETUP.minBet + ' min bet' : '';
+  const targetStr = pointOnly
+    ? ' · First to ' + (SETUP.pointsToWin || _pointLordTargetFromSetting(SETUP.matchesTo)) + ' points'
+    : (hybridMoneySetup ? ' · Play ' + (SETUP.matchesTo || 3) + ' total matches' : '');
   el.innerHTML =
     '<span style="color:var(--gold)">' + MODE_LABELS[SETUP.mode] + '</span><br>' +
-    styleStr + chipsStr;
+    styleStr + chipsStr + targetStr;
+
+  const matchPick = document.getElementById('match-pick');
+  const titleEl = matchPick ? matchPick.querySelector('.setup-title') : null;
+  const subEl = matchPick ? matchPick.querySelector('.setup-sub') : null;
+  const btns = matchPick ? [...matchPick.querySelectorAll('.match-btn')] : [];
+  const customInput = document.getElementById('customMatchInput');
+
+  if (pointOnly) {
+    if (titleEl) titleEl.textContent = 'POINT TARGET';
+    if (subEl) subEl.textContent = 'STEP 4 OF 4 — FIRST TO REACH THIS POINT TOTAL WINS';
+    const pointPresets = [300, 500, 700, 1000];
+    const labels = ['Quick', 'Standard', 'Extended', 'Championship'];
+    btns.forEach((b, i) => {
+      if (!pointPresets[i]) return;
+      b.innerHTML = pointPresets[i] + '<small>' + labels[i] + '</small>';
+    });
+    if (customInput) {
+      customInput.placeholder = 'Custom points target...';
+      customInput.min = '50';
+      customInput.max = '99999';
+      customInput.step = '50';
+    }
+  } else {
+    if (titleEl) titleEl.textContent = 'MATCH COUNT';
+    if (subEl) {
+      subEl.textContent = hybridMoneySetup
+        ? 'STEP 4 OF 4 — TOTAL MATCHES TO PLAY'
+        : 'STEP 4 OF 4 — FIRST TO REACH THIS WINS';
+    }
+    const matchPresets = [3, 5, 7, 10];
+    const labels = ['Quick', 'Standard', 'Extended', 'Championship'];
+    btns.forEach((b, i) => {
+      if (!matchPresets[i]) return;
+      b.innerHTML = matchPresets[i] + '<small>' + labels[i] + '</small>';
+    });
+    if (customInput) {
+      customInput.placeholder = 'Custom...';
+      customInput.min = '1';
+      customInput.max = '99';
+      customInput.step = '1';
+    }
+    SETUP.pointsToWin = null;
+  }
 }
  
 function goBackFromMatchPick() {
@@ -11581,6 +11959,9 @@ function _applySetupToGame() {
   var numPlayers = SETUP.numPlayers || 2;
   initGame(mode, numPlayers);
   G.matchesTo = SETUP.matchesTo || 3;
+  G.pointsToWin = _isPointLordOnlySetup()
+    ? (SETUP.pointsToWin || _pointLordTargetFromSetting(SETUP.matchesTo || 3))
+    : null;
   G.wins = G.players.map(function() { return 0; });
   G.styles = {
     flush: SETUP.ancestors || SETUP.styles.has('flush'),
@@ -11606,6 +11987,8 @@ function _applySetupToGame() {
 
 function confirmMatches(n) {
   SETUP.matchesTo = n;
+  if (_isPointLordOnlySetup()) SETUP.pointsToWin = _pointLordTargetFromSetting(n);
+  else SETUP.pointsToWin = null;
   if (inSetupOverlayFlow) {
     _applySetupToGame();
     detachOverlayScreen('match-pick');
@@ -11619,7 +12002,13 @@ function confirmMatches(n) {
 function confirmCustomMatches() {
   var val = parseInt(document.getElementById('customMatchInput').value);
   if (!val || val < 1) return;
-  SETUP.matchesTo = Math.min(val, 99);
+  if (_isPointLordOnlySetup()) {
+    SETUP.pointsToWin = Math.max(50, Math.min(val, 99999));
+    SETUP.matchesTo = Math.max(1, Math.ceil(SETUP.pointsToWin / 100));
+  } else {
+    SETUP.matchesTo = Math.min(val, 99);
+    SETUP.pointsToWin = null;
+  }
   if (inSetupOverlayFlow) {
     _applySetupToGame();
     detachOverlayScreen('match-pick');
@@ -11637,7 +12026,11 @@ function startGame() {
   showScreen('game');
   G.phase = 'play';
   renderGame();
-  const matchLog = `⚔️ ${MODE_LABELS[mode]} · ${G.styleLabel} · First to ${G.matchesTo} match${G.matchesTo>1?'es':''}`;
+  const matchLog = _isPointLordOnlyGame()
+    ? `⚔️ ${MODE_LABELS[mode]} · ${G.styleLabel} · First to ${_pointLordTargetForGame()} points`
+    : _usesCategoryFinalGame()
+      ? `⚔️ ${MODE_LABELS[mode]} · ${G.styleLabel} · ${G.matchesTo} scheduled matches (2-of-3 leaderboard wins)`
+      : `⚔️ ${MODE_LABELS[mode]} · ${G.styleLabel} · First to ${G.matchesTo} match${G.matchesTo>1?'es':''}`;
   addLog(matchLog, true);
   addLog('Match 1 — Draw to decide who goes first!', true);
   renderLog();
@@ -11655,7 +12048,7 @@ const COMBO_TABLE = [
   ['Normal Pair','5','Only for points; no power effect'],
   ['Normal 3-of-a-kind','25','Only for points; no power effect'],
   ['Normal 4-of-a-kind','55','Only for points; no power effect'],
-  ['Zero Cards','5/10/30/70','Bypass Law Draw anytime summoned, flush 2 cards if pair, +2 flush cards per a-kind, can only connect to Mary Jane combos'],
+  ['Zero Cards','5/10/30/70','Bypass Law Draw anytime summoned, flush 1 card if pair, +2 flush cards per a-kind, can only connect to Mary Jane combos'],
   ['Pair of 2s','8','Next draws 2 and skipped'],
   ['Three 2s','25','Next draws 3 and skipped, flush 1 card'],
   ['Four 2s','65','Next draws 4 and skipped, flush 2 cards'],
@@ -12179,7 +12572,11 @@ function draftConfirm() {
   showScreen('game');
   G.phase = 'dealing';
   renderGame();
-  const matchLog = `⚔️ ${MODE_LABELS[G.mode]} · ${G.styleLabel} · First to ${G.matchesTo} match${G.matchesTo>1?'es':''}`;
+  const matchLog = _isPointLordOnlyGame()
+    ? `⚔️ ${MODE_LABELS[G.mode]} · ${G.styleLabel} · First to ${_pointLordTargetForGame()} points`
+    : _usesCategoryFinalGame()
+      ? `⚔️ ${MODE_LABELS[G.mode]} · ${G.styleLabel} · ${G.matchesTo} scheduled matches (2-of-3 leaderboard wins)`
+      : `⚔️ ${MODE_LABELS[G.mode]} · ${G.styleLabel} · First to ${G.matchesTo} match${G.matchesTo>1?'es':''}`;
   addLog(matchLog, true);
   addLog(`👑 ${G.players[G.cur].name} goes first — dealing cards clockwise...`, true);
   renderLog();
@@ -12498,11 +12895,14 @@ function startBettingPhase() {
   const startChips = SETUP.chips || 1000;
   const ante = Math.max(1, Math.ceil(startChips * 0.05));
   const betStarter = _resolveBettingStarter();
+  const carryMatchPot = _isHybridMoneyRulesGame() ? Math.max(0, Number(G.matchPot || 0)) : 0;
+  const carryPointPot = _isHybridMoneyRulesGame() ? Math.max(0, Number(G.pointPot || 0)) : 0;
+  const bettingOrder = G.players.map((_,i)=>i).filter(i => !(G.players[i] && G.players[i].eliminated));
   G.bet = {
-    matchPot: 0,
-    pointPot: 0,
+    matchPot: carryMatchPot,
+    pointPot: carryPointPot,
     currentBet: ante,
-    bettingOrder: G.players.map((_,i)=>i).filter(i => !(G.players[i] && G.players[i].eliminated)),
+    bettingOrder,
     betIdx: 0,
     folds: new Set(),
     allIns: new Set(),
@@ -12512,14 +12912,25 @@ function startBettingPhase() {
     ante,
   };
 
+  if (G.bet.bettingOrder.length === 0) {
+    G.bet = null;
+    G.phase = 'play';
+    if (G.cur === 0) startHumanTurn();
+    else {
+      renderGame(); renderLog();
+      setTimeout(() => aiTurn(G.cur), 600);
+    }
+    return;
+  }
+
   // Collect antes from all players (ante goes to pot, not counted as a bet action)
-  G.players.forEach((_,i) => {
+  G.players.forEach((_,i) => { G.bet.bets[i] = 0; });
+  G.bet.bettingOrder.forEach((i, orderIdx) => {
     const pay = Math.min(ante, G.chips[i]);
     G.chips[i] -= pay;
     G.bet.matchPot += pay;
-    G.bet.bets[i] = 0; // antes paid separately — betting round starts fresh at 0
     if (G.chips[i] === 0) G.bet.allIns.add(i);
-    setTimeout(() => _playCoinSelectSfx(), i * 60);
+    setTimeout(() => _playCoinSelectSfx(), orderIdx * 60);
   });
   // currentBet is now 0 at open — players call/raise from zero
   G.bet.currentBet = 0;
@@ -12530,7 +12941,8 @@ function startBettingPhase() {
     G.bet.bettingOrder = [...G.bet.bettingOrder.slice(firstIdx), ...G.bet.bettingOrder.slice(0, firstIdx)];
   }
 
-  addLog(`💰 Antes paid (${ante} chips each). Match Pot: ${G.bet.matchPot}. ${G.players[betStarter].name} opens betting (lowest draw count).`, true);
+  const carryNote = carryMatchPot > 0 ? ` Carryover pot: ${carryMatchPot}💰.` : '';
+  addLog(`💰 Antes paid (${ante} chips each). Match Pot: ${G.bet.matchPot}.${carryNote} ${G.players[betStarter].name} opens betting (lowest draw count).`, true);
   renderBettingUI();
   advanceBetting();
 }
@@ -12850,21 +13262,33 @@ function endBettingPhase() {
 
   // Check if only 1 player left (others folded)
   const activePlayers = G.players.filter((_,i) => !G.bet.folds.has(i));
-  if (activePlayers.length === 1) {
+  if (activePlayers.length === 1 && !_isHybridMoneyRulesGame()) {
     const winnerIdx = G.players.findIndex((_,i) => !G.bet.folds.has(i));
     addLog(`💰 All others folded! ${G.players[winnerIdx].name} wins this match by fold-out.`, true);
     G.bet = null;
     endMatch(winnerIdx);
     return;
+  } else if (activePlayers.length === 1 && _isHybridMoneyRulesGame()) {
+    const onlyIdx = G.players.findIndex((_,i) => !G.bet.folds.has(i));
+    addLog(`💰 Betting note: only ${G.players[onlyIdx].name} stayed in the pot. Match still plays; folded players cannot claim this money pot.`, true);
   }
 
-  // Check if any player is broke — eliminate them
-  G.players.forEach((_,i) => {
-    if (G.chips[i] <= 0 && !G.bet.allIns.has(i)) {
-      addLog(`💀 ${G.players[i].name} is out of chips — ELIMINATED from Money Master!`, true);
-      G.players[i].eliminated = true;
+  if (_isHybridMoneyRulesGame()) {
+    const broke = G.players
+      .map((_, i) => i)
+      .filter(i => (G.chips[i] || 0) <= 0);
+    if (broke.length > 0) {
+      addLog(`💀 Broke this round: ${_namesForPlayers(broke)}. They still play but cannot claim money pots while at 0 chips.`, true);
     }
-  });
+  } else {
+    // Pure Money Master behavior: broke players are eliminated from Money Master turns.
+    G.players.forEach((_,i) => {
+      if (G.chips[i] <= 0 && !G.bet.allIns.has(i)) {
+        addLog(`💀 ${G.players[i].name} is out of chips — ELIMINATED from Money Master!`, true);
+        G.players[i].eliminated = true;
+      }
+    });
+  }
 
   addLog(`💰 Betting closed. Match Pot: ${G.matchPot}💰. Let the match begin!`, true);
   renderLog();
@@ -12884,21 +13308,43 @@ function endBettingPhase() {
 function awardBettingPots(matchWinnerIdx, opts = {}) {
   if (!G.styles || !G.styles.money) return;
   const potSfxDelayMs = Number.isFinite(opts.potSfxDelayMs) ? opts.potSfxDelayMs : 0;
+  const foldedSet = G.betFolds && typeof G.betFolds.has === 'function' ? G.betFolds : new Set();
+  const eligibleMoney = _isHybridMoneyRulesGame()
+    ? G.players
+        .map((_, i) => i)
+        .filter(i => !foldedSet.has(i) && (G.chips[i] || 0) > 0 && !(G.players[i] && G.players[i].eliminated))
+    : G.players
+        .map((_, i) => i)
+        .filter(i => !(G.players[i] && G.players[i].eliminated));
   let paidAnyPot = false;
   if (G.matchPot > 0) {
-    G.chips[matchWinnerIdx] = (G.chips[matchWinnerIdx]||0) + G.matchPot;
-    addLog(`🏆 ${G.players[matchWinnerIdx].name} wins the Match Pot: ${G.matchPot}💰!`, true);
-    paidAnyPot = true;
-    G.matchPot = 0;
+    if (eligibleMoney.includes(matchWinnerIdx)) {
+      G.chips[matchWinnerIdx] = (G.chips[matchWinnerIdx]||0) + G.matchPot;
+      addLog(`🏆 ${G.players[matchWinnerIdx].name} wins the Match Pot: ${G.matchPot}💰!`, true);
+      paidAnyPot = true;
+      G.matchPot = 0;
+    } else {
+      addLog(`💰 Match Pot carries over (${G.matchPot}💰): ${G.players[matchWinnerIdx].name} was not money-pot eligible this round.`, true);
+    }
   }
   if (G.pointPot > 0) {
-    // Point pot goes to whoever has the most pts
-    let topPts = -1, topIdx = 0;
-    G.players.forEach((_,i) => { if ((G.pts[i]||0) > topPts) { topPts = G.pts[i]; topIdx = i; } });
-    G.chips[topIdx] = (G.chips[topIdx]||0) + G.pointPot;
-    addLog(`⭐ ${G.players[topIdx].name} wins the Point Pot: ${G.pointPot}💰 (${topPts}pts)!`, true);
-    paidAnyPot = true;
-    G.pointPot = 0;
+    // Point pot goes to highest-points among money-pot-eligible players
+    if (eligibleMoney.length > 0) {
+      let topPts = -1;
+      let topIdx = eligibleMoney[0];
+      eligibleMoney.forEach(i => {
+        if ((G.pts[i]||0) > topPts) {
+          topPts = G.pts[i] || 0;
+          topIdx = i;
+        }
+      });
+      G.chips[topIdx] = (G.chips[topIdx]||0) + G.pointPot;
+      addLog(`⭐ ${G.players[topIdx].name} wins the Point Pot: ${G.pointPot}💰 (${topPts}pts)!`, true);
+      paidAnyPot = true;
+      G.pointPot = 0;
+    } else {
+      addLog(`⭐ Point Pot carries over (${G.pointPot}💰): no eligible money-pot players this round.`, true);
+    }
   }
   if (paidAnyPot) {
     if (potSfxDelayMs > 0) {
@@ -12929,14 +13375,16 @@ function showRules() {
       Win by playing all your cards — your last play must be a <b>2-card combo or higher</b> (a single card cannot end the match).<br>
       You cannot end a turn holding exactly 1 card — you must always have at least 2 cards or zero.<br><br>
       <b>Most match wins at the end of the game = Hand Flusher victory.</b><br><br>
-      <i>In team modes:</i> Both teammates must empty their hands to win the match. Partners sub in when a teammate empties out.
+      <i>In team modes:</i> Both teammates must empty their hands to win the match. Partners sub in when a teammate empties out.<br><br>
+      <b>Hybrid with Money Master:</b> if Money is combined with Hand Flusher (or via Ancestors), all scheduled matches are played fully, then final winner is decided by category leaders.
     `},
     { h:'⭐ POINT LORD', body:`
       <b>Goal:</b> Rack the most points through combos across all matches.<br><br>
       Points are earned every time you play a valid combo. Higher-tier combos earn more — pairs, flushes, straights, face cards, jokers, and special plays all reward different amounts.<br><br>
-      Points reset each match but <b>accumulate toward your total</b> across the game.<br>
-      <b>Most total points at the end of the game = Point Lord victory.</b><br><br>
-      <i>Tiebreaker:</i> If chip totals are tied at game end, points decide the winner.
+      Points <b>carry over every match</b> and keep stacking until game end.<br>
+      <b>Point Lord-only:</b> first to the selected point target wins.<br>
+      <b>Mixed styles:</b> no point limit — play all scheduled matches, then points count toward leaderboard categories.<br><br>
+      <i>Tiebreaker:</i> In hybrid category finals, tied leaders go to a single playoff match.
     `},
     { h:'💰 MONEY MASTER', body:`
       <b>Goal:</b> Control the chips — raise, call, or fold and miss out.<br><br>
@@ -12945,8 +13393,10 @@ function showRules() {
       <b>Match Pot:</b> won by the player who empties their hand first (Hand Flusher winner).<br>
       <b>Point Pot:</b> won by whoever has the most points when the match ends.<br><br>
       Raise only before the first card is played. All-In does NOT reveal your hand.<br>
-      Run out of chips? Eliminated from Money Master — you still play, but your points are frozen.<br><br>
-      <b>Most chips at the end of the game = Money Master victory.</b>
+      If <b>Ancestors Rule</b> is selected, or Money Master is combined with Point Lord or Hand Flusher, players who fold or lose all chips still play the round but cannot win money pots that round.<br>
+      If an ineligible player wins the hand, the money pot stays loaded and carries into the next match, then betting opens again.<br><br>
+      In these hybrid finals, there is no point cap: all selected matches are played out fully. Then leaders are compared by <b>Match Wins / Points / Coins</b>; lead 2-of-3 categories to win the game.<br>
+      If category leaders tie, only those 2 or 3 tied players enter one playoff match, and that match winner wins the game.
     `},
     { h:'👑 WHO GOES FIRST?', body:`
       Each player draws 2 cards from any pile. Add the values (J=11, Q=12, K=13, A=14, Joker=15).<br>
@@ -13082,8 +13532,8 @@ function _buildAddOnsHelp() {
   sec('⭕','ZERO CARDS (THE DRAW-BUSTER)',`
     Zero Protocol always applies a <b>Law Draw bypass</b> when a zero combo is played.<br>
     <b>Single Zero:</b> immediate replay in the same suit.<br>
-    <b>Pair Same Suit:</b> suit purge (flush same-suit cards).<br>
-    <b>Mixed Zero sets:</b> choice flush scaling by a-kind.
+    <b>Pair Zero:</b> choice flush 1 card.<br>
+    <b>3/4 Zero:</b> choice flush 3/5 cards (+2 per a-kind).
   `) +
   sec('⚔️','ROYAL WAR WINNER COMBO (MOMENTUM SHIFT)',`
     War winner receives <b>Victor\'s Right</b>: immediate bonus play.<br>
@@ -13217,8 +13667,10 @@ function _buildGameModesHelp() {
     🃏 <b>Hand Flusher</b> — most match wins (emptying hand first).<br>
     ⭐ <b>Point Lord</b> — most total points earned through combos across all matches.<br>
     💰 <b>Money Master</b> — most chips remaining at game end. Betting round opens before each match.<br><br>
-    <b>Ancestors Rule</b> — all three active simultaneously. Dominate 2 of 3 to claim the throne.<br>
-    <i>Tie?</i> Sudden Death match decides it.
+    <b>Ancestors Rule</b> — all three active simultaneously. Dominate 2 of 3 to claim the throne.<br><br>
+    <b>Hybrid Money Rule:</b> In Ancestors, or Money+Point/Flush, folded or broke players still play but cannot claim money pots for that round. Pots carry over if an ineligible player would win them.<br>
+    <b>Hybrid Finals:</b> no point cap; play all scheduled matches, then compare leaders in Wins / Points / Coins. Lead 2-of-3 to win.<br>
+    <i>Tie?</i> Only tied leaders play one playoff match for the game.
   `);
 }
 
