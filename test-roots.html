@@ -734,7 +734,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   background:rgba(0,0,0,.88);backdrop-filter:blur(8px);
   border-radius:clamp(8px,1.5vw,16px);
   border:1px solid rgba(240,192,64,.2);box-shadow:0 4px 20px rgba(0,0,0,.5);
-  display:flex;flex-direction:column;z-index:260;
+  display:flex;flex-direction:column;z-index:150;
   touch-action:none;pointer-events:auto;
   overflow:visible
 }
@@ -968,10 +968,9 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 /* PLAYER FOOTER */
 .player-footer{
   background:rgba(0,0,0,.97);border-top:2px solid rgba(240,192,64,.4);
-  padding:4px 0 4px;z-index:50;flex-shrink:0;
+  padding:4px 0 4px;flex-shrink:0;
   max-height:44vh;overflow:visible;
-  display:flex;flex-direction:column;
-  isolation:isolate
+  display:flex;flex-direction:column
 }
 .player-footer-inner{
   display:flex;align-items:flex-end;gap:8px;
@@ -983,7 +982,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   gap:4px;align-items:center;
   max-height:calc(40vh - 80px);overflow-y:auto;overflow-x:visible;
   padding:20px 2px 4px 2px;
-  position:relative;z-index:60
+  position:relative;z-index:1
 }
 .controls-zone{display:flex;flex-direction:column;gap:4px;width:clamp(130px,38vw,220px);flex-shrink:0;overflow:hidden;min-width:0}
 .combo-status{font-size:9px;color:rgba(240,192,64,.6);text-align:center;text-transform:uppercase;letter-spacing:2px;margin-bottom:2px;min-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1826,25 +1825,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
       </div>
     </div>
 
-    <!-- ACTION LOG (draggable, resizable, minimizable) -->
     <div id="dealAnimOverlay"></div>
-    <div class="action-log" id="actionLog">
-      <div class="log-header" id="logDragHandle" style="cursor:grab;user-select:none;touch-action:none;-webkit-user-select:none">
-        <div class="log-title">📜 Action Log</div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <div class="log-live">Live</div>
-          <button onclick="toggleLogMinimize()" id="logMinBtn" title="Minimize"
-            style="background:none;border:none;color:rgba(240,192,64,.6);font-size:14px;cursor:pointer;padding:0 3px;line-height:1;font-family:monospace"
-          >—</button>
-        </div>
-      </div>
-      <div class="log-body" id="gameLog"></div>
-      <div class="log-footer">
-        <div class="log-next" id="logNext">⏩ Waiting...</div>
-      </div>
-      <!-- resize handle (crop/resize corner — visible and tappable on mobile) -->
-      <div id="logResizeHandle" title="Resize log">◢</div>
-    </div>
 
     <!-- PHASE BANNER -->
     <div class="phase-banner" id="phaseBanner">
@@ -2092,7 +2073,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 
   <!-- PLAYER FOOTER -->
   <div class="player-footer">
-    <div id="playerInfoBar" style="display:flex;justify-content:space-between;align-items:center;padding:2px 12px;font-family:Cinzel,serif;font-size:10px;color:rgba(240,192,64,.8);letter-spacing:1px;border-bottom:1px solid rgba(240,192,64,.12);flex-shrink:0;line-height:1.8;position:relative;z-index:10"><span id="playerPtsBar">⭐ 0 pts</span><span id="playerChipsBar"></span></div><div id="trapZoneBar" style="padding:2px 12px;font-family:Cinzel,serif;font-size:9px;color:rgba(174,214,241,.9);letter-spacing:1px;border-bottom:1px solid rgba(133,193,233,.1);line-height:1.35"></div><div class="player-footer-inner">
+    <div id="playerInfoBar" style="display:flex;justify-content:space-between;align-items:center;padding:2px 12px;font-family:Cinzel,serif;font-size:10px;color:rgba(240,192,64,.8);letter-spacing:1px;border-bottom:1px solid rgba(240,192,64,.12);flex-shrink:0;line-height:1.8"><span id="playerPtsBar">⭐ 0 pts</span><span id="playerChipsBar"></span></div><div id="trapZoneBar" style="padding:2px 12px;font-family:Cinzel,serif;font-size:9px;color:rgba(174,214,241,.9);letter-spacing:1px;border-bottom:1px solid rgba(133,193,233,.1);line-height:1.35"></div><div class="player-footer-inner">
       <div class="player-hand-zone" id="playerHand"></div>
       <div class="controls-zone">
         <div class="combo-status" id="turnStatus">YOUR TURN ▶</div>
@@ -2110,6 +2091,25 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- ACTION LOG — rendered last so it always paints above the player footer -->
+  <div class="action-log" id="actionLog">
+    <div class="log-header" id="logDragHandle" style="cursor:grab;user-select:none;touch-action:none;-webkit-user-select:none">
+      <div class="log-title">📜 Action Log</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="log-live">Live</div>
+        <button onclick="toggleLogMinimize()" id="logMinBtn" title="Minimize"
+          style="background:none;border:none;color:rgba(240,192,64,.6);font-size:14px;cursor:pointer;padding:0 3px;line-height:1;font-family:monospace"
+        >—</button>
+      </div>
+    </div>
+    <div class="log-body" id="gameLog"></div>
+    <div class="log-footer">
+      <div class="log-next" id="logNext">⏩ Waiting...</div>
+    </div>
+    <!-- resize handle -->
+    <div id="logResizeHandle" title="Resize log">◢</div>
   </div>
 
 </div><!-- /game screen -->
