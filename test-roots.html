@@ -24,8 +24,8 @@
   /* Regal card back: royal purple + gold RR/crown (draw pile & face-down traps) */
   --regal-purple:#2d1b4e;
   --card-back-bg:
-    url("RR_Card_Back.png") center/cover no-repeat,
-    url("Images/RR_Card_Back.png") center/cover no-repeat,
+    url("https://raw.githubusercontent.com/5BoLT/Royal-Roots-The-Card-Game/main/RR_Card_Back.png") center/cover no-repeat,
+    url("https://raw.githubusercontent.com/SBoLT/Royal-Roots-The-Card-Game/main/RR_Card_Back.png") center/cover no-repeat,
     var(--regal-purple);
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Cinzel',serif;overflow:hidden}
@@ -734,7 +734,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   background:rgba(0,0,0,.88);backdrop-filter:blur(8px);
   border-radius:clamp(8px,1.5vw,16px);
   border:1px solid rgba(240,192,64,.2);box-shadow:0 4px 20px rgba(0,0,0,.5);
-  display:flex;flex-direction:column;z-index:150;
+  display:flex;flex-direction:column;z-index:260;
   touch-action:none;pointer-events:auto;
   overflow:visible
 }
@@ -968,9 +968,10 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 /* PLAYER FOOTER */
 .player-footer{
   background:rgba(0,0,0,.97);border-top:2px solid rgba(240,192,64,.4);
-  padding:4px 0 4px;flex-shrink:0;
+  padding:4px 0 4px;z-index:50;flex-shrink:0;
   max-height:44vh;overflow:visible;
-  display:flex;flex-direction:column
+  display:flex;flex-direction:column;
+  isolation:isolate
 }
 .player-footer-inner{
   display:flex;align-items:flex-end;gap:8px;
@@ -982,7 +983,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   gap:4px;align-items:center;
   max-height:calc(40vh - 80px);overflow-y:auto;overflow-x:visible;
   padding:20px 2px 4px 2px;
-  position:relative;z-index:1
+  position:relative;z-index:60
 }
 .controls-zone{display:flex;flex-direction:column;gap:4px;width:clamp(130px,38vw,220px);flex-shrink:0;overflow:hidden;min-width:0}
 .combo-status{font-size:9px;color:rgba(240,192,64,.6);text-align:center;text-transform:uppercase;letter-spacing:2px;margin-bottom:2px;min-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1312,7 +1313,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
   border:1px solid #555;display:flex;flex-direction:column;align-items:center;
   justify-content:center;font-size:10px;font-weight:700;line-height:1.2;color:#ccc
 }
-.draft-mini-card.back{background:var(--bg3);border-color:rgba(240,192,64,.3);color:rgba(240,192,64,.4);font-size:16px}
+.draft-mini-card.back{background:var(--card-back-bg);border-color:rgba(240,192,64,.45);color:transparent;font-size:0}
 .draft-mini-card.revealed{animation:flipIn .3s ease}
 @keyframes flipIn{from{transform:rotateY(90deg);opacity:0}to{transform:rotateY(0);opacity:1}}
 .draft-player-total{font-size:13px;color:var(--gold-light);font-weight:700;min-width:48px;text-align:right;font-family:monospace}
@@ -1825,7 +1826,25 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
       </div>
     </div>
 
+    <!-- ACTION LOG (draggable, resizable, minimizable) -->
     <div id="dealAnimOverlay"></div>
+    <div class="action-log" id="actionLog">
+      <div class="log-header" id="logDragHandle" style="cursor:grab;user-select:none;touch-action:none;-webkit-user-select:none">
+        <div class="log-title">📜 Action Log</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="log-live">Live</div>
+          <button onclick="toggleLogMinimize()" id="logMinBtn" title="Minimize"
+            style="background:none;border:none;color:rgba(240,192,64,.6);font-size:14px;cursor:pointer;padding:0 3px;line-height:1;font-family:monospace"
+          >—</button>
+        </div>
+      </div>
+      <div class="log-body" id="gameLog"></div>
+      <div class="log-footer">
+        <div class="log-next" id="logNext">⏩ Waiting...</div>
+      </div>
+      <!-- resize handle (crop/resize corner — visible and tappable on mobile) -->
+      <div id="logResizeHandle" title="Resize log">◢</div>
+    </div>
 
     <!-- PHASE BANNER -->
     <div class="phase-banner" id="phaseBanner">
@@ -2073,7 +2092,7 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
 
   <!-- PLAYER FOOTER -->
   <div class="player-footer">
-    <div id="playerInfoBar" style="display:flex;justify-content:space-between;align-items:center;padding:2px 12px;font-family:Cinzel,serif;font-size:10px;color:rgba(240,192,64,.8);letter-spacing:1px;border-bottom:1px solid rgba(240,192,64,.12);flex-shrink:0;line-height:1.8"><span id="playerPtsBar">⭐ 0 pts</span><span id="playerChipsBar"></span></div><div id="trapZoneBar" style="padding:2px 12px;font-family:Cinzel,serif;font-size:9px;color:rgba(174,214,241,.9);letter-spacing:1px;border-bottom:1px solid rgba(133,193,233,.1);line-height:1.35"></div><div class="player-footer-inner">
+    <div id="playerInfoBar" style="display:flex;justify-content:space-between;align-items:center;padding:2px 12px;font-family:Cinzel,serif;font-size:10px;color:rgba(240,192,64,.8);letter-spacing:1px;border-bottom:1px solid rgba(240,192,64,.12);flex-shrink:0;line-height:1.8;position:relative;z-index:10"><span id="playerPtsBar">⭐ 0 pts</span><span id="playerChipsBar"></span></div><div id="trapZoneBar" style="padding:2px 12px;font-family:Cinzel,serif;font-size:9px;color:rgba(174,214,241,.9);letter-spacing:1px;border-bottom:1px solid rgba(133,193,233,.1);line-height:1.35"></div><div class="player-footer-inner">
       <div class="player-hand-zone" id="playerHand"></div>
       <div class="controls-zone">
         <div class="combo-status" id="turnStatus">YOUR TURN ▶</div>
@@ -2091,25 +2110,6 @@ body.setup-overlay-open #home .home-footer{filter:blur(6px) brightness(.72);opac
         </div>
       </div>
     </div>
-  </div>
-
-  <!-- ACTION LOG — rendered last so it always paints above the player footer -->
-  <div class="action-log" id="actionLog">
-    <div class="log-header" id="logDragHandle" style="cursor:grab;user-select:none;touch-action:none;-webkit-user-select:none">
-      <div class="log-title">📜 Action Log</div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <div class="log-live">Live</div>
-        <button onclick="toggleLogMinimize()" id="logMinBtn" title="Minimize"
-          style="background:none;border:none;color:rgba(240,192,64,.6);font-size:14px;cursor:pointer;padding:0 3px;line-height:1;font-family:monospace"
-        >—</button>
-      </div>
-    </div>
-    <div class="log-body" id="gameLog"></div>
-    <div class="log-footer">
-      <div class="log-next" id="logNext">⏩ Waiting...</div>
-    </div>
-    <!-- resize handle -->
-    <div id="logResizeHandle" title="Resize log">◢</div>
   </div>
 
 </div><!-- /game screen -->
@@ -2572,6 +2572,44 @@ function _fallbackFaceRankSetEval(cards, pidx = (G ? G.cur : 0)) {
   return fb && fb.valid ? fb : null;
 }
 
+function _jokerSignatureOverextended(cards) {
+  if (!Array.isArray(cards) || cards.length <= 5) return null;
+  const all = cards.filter(Boolean);
+  if (all.length !== cards.length) return null;
+
+  const jokers = all.filter(c => c.rank === 'JKR');
+  const jCount = jokers.length;
+  if (jCount <= 1) return null;
+
+  const countRank = (r) => all.filter(c => c.rank === r).length;
+  const onlyRanks = (...allowed) => all.every(c => allowed.includes(c.rank));
+  const black = new Set(['♠','♣']);
+
+  const hasJQKA = ['J','Q','K','A'].every(r => countRank(r) >= 1);
+  if (onlyRanks('J','Q','K','A','JKR') && hasJQKA && jCount > 1) return 'Roots/Royal Roots';
+
+  const jackCount = countRank('J');
+  if (onlyRanks('J','JKR') && jackCount === 3 && jCount > 2) return 'Joker House';
+  if (onlyRanks('J','JKR') && jackCount === 2 && jCount > 3) return 'Royal Joker House';
+
+  const blackAces = all.filter(c => c.rank === 'A' && black.has(c.suit)).length;
+  const blackEights = all.filter(c => c.rank === '8' && black.has(c.suit)).length;
+  const blackJokers = jokers.filter(c => black.has(c.suit)).length;
+  if (onlyRanks('A','8','JKR') && blackAces >= 2 && blackEights >= 2 && blackJokers >= 1 && jCount > 1) {
+    return 'Dead Man signature';
+  }
+
+  const hasRoyalDeadManCore = ['♠','♣'].some(suit => {
+    const suitAces = all.filter(c => c.rank === 'A' && c.suit === suit).length;
+    const suitEights = all.filter(c => c.rank === '8' && c.suit === suit).length;
+    const suitJokers = jokers.filter(c => c.suit === suit).length;
+    return suitAces >= 2 && suitEights >= 2 && suitJokers >= 1;
+  });
+  if (onlyRanks('A','8','JKR') && hasRoyalDeadManCore && jCount > 1) return 'Royal Dead Man';
+
+  return null;
+}
+
 function evalCombo(cards) {
   if (!cards || cards.length === 0) return { valid:false };
   const openingLock = _openingSuitLockApplies(G.cur);
@@ -2585,6 +2623,11 @@ function evalCombo(cards) {
   const njRanks = nonJ.map(c => c.rank);
   const njSuits = nonJ.map(c => c.suit);
   const jCount  = jokers.length;
+
+  const overextended = _jokerSignatureOverextended(cards);
+  if (overextended) {
+    return { valid:false, reason:`${overextended} must be exact signature cards (no extra Jokers)` };
+  }
 
   // Zero cards can either be pure Zero Protocol OR Mary Jane (QQ42 + 0).
   if (cards.some(c => c.rank === '0')) {
@@ -2627,7 +2670,7 @@ function evalCombo(cards) {
     const suitedJokers = cards.filter(c => c && c.rank === 'JKR' && !(c.madame || c.suit === '★'));
     const suitSet = new Set(suitedJokers.map(c => c.suit));
     if (hasMadame && suitedJokers.length === 4 && SUITS.every(s => suitSet.has(s))) {
-      return R('Joker Cascade (5x) 👑🃏🃏🃏🃏🃏', 5000, 'LEGENDARY', 'joker_cascade');
+      return R('Joker Cascade (5x) 👑🃏🃏🃏🃏🃏', 3000, 'LEGENDARY', 'joker_cascade');
     }
   }
  
@@ -2639,9 +2682,9 @@ function evalCombo(cards) {
   if (jCount === 2 && nonJ.filter(c=>c.rank==='J').length === 3 && n === 5)
     return R('Joker House 🃏🃏', 200, 'MYTHICAL', 'joker_house');
 
-  // Royal Jacksons: 4 Jacks + 4 Jokers
-  if (n === 8 && jCount === 4 && nonJ.length === 4 && nonJ.every(c => c.rank === 'J')) {
-    return R('Royal Jacksons (4J + 4Joker) 👑🃏', 20000, 'LEGENDARY', 'royal_jacksons');
+  // Royal Jacksons: 4 Jacks + 5 Jokers
+  if (n === 9 && jCount === 5 && nonJ.length === 4 && nonJ.every(c => c.rank === 'J')) {
+    return R('Royal Jacksons (4J + 5Joker) 👑🃏', 5000, 'LEGENDARY', 'royal_jacksons');
   }
  
   // Royal Roots: J-Q-K-A-Joker all same suit
@@ -2856,7 +2899,7 @@ function tryMaryJane(cards) {
 
   const lockSuit = queens[0].suit;
   if (!others.every(c => c.suit === lockSuit)) return { valid:false };
-  return R(`Bloody Mary Jane (${lockSuit}${lockSuit}QQ420)`, 2000, 'LEGENDARY', 'bloody_mary_jane');
+  return R(`Bloody Mary Jane (${lockSuit}${lockSuit}QQ420)`, 999, 'LEGENDARY', 'bloody_mary_jane');
 }
 
 function isOverpassHand(hand) {
@@ -2887,10 +2930,10 @@ function checkSpecialHandWin(pidx, source = '') {
   const sourceLabel = sourceLabelMap[source] || source || 'turn check';
 
   if (isOverpassHand(hand)) {
-    G.pts[pidx] = (G.pts[pidx] || 0) + 1000;
-    addLog(`🚀 OVERPASS! ${player.name} reveals 2-10 via ${sourceLabel} and wins instantly (+1000pts + match).`, true);
+    G.pts[pidx] = (G.pts[pidx] || 0) + 500;
+    addLog(`🚀 OVERPASS! ${player.name} reveals 2-10 via ${sourceLabel} and wins instantly (+500pts + match).`, true);
     if (COMBO_EFFECT_DESC && COMBO_EFFECT_DESC.overpass) addLog(`   → ${COMBO_EFFECT_DESC.overpass}`, false);
-    if (pidx === 0) floatPts('+1000 OVERPASS!', 'LEGENDARY');
+    if (pidx === 0) floatPts('+500 OVERPASS!', 'LEGENDARY');
     endMatch(pidx);
     return true;
   }
@@ -2918,10 +2961,11 @@ function evalSameRank(r, n, hasJoker) {
   const label = n===2?`Pair of ${nm}`:n===3?`Three ${nm}`:n===4?`Four ${nm}`:`${n}x ${nm}`;
 
   if (n >= 5) {
+    if (hasJoker) return { valid:false, reason:'Royal 5/6/7/8 must be natural (no Joker extension)' };
     if (n === 5) return R(`Royal Five (${nm})`, 150, 'MYTHICAL', 'royal_five');
-    if (n === 6) return R(`Royal Six (${nm})`, 3000, 'LEGENDARY', 'royal_six');
-    if (n === 7) return R(`Royal Seven (${nm})`, 4000, 'LEGENDARY', 'royal_seven');
-    if (n === 8) return R(`Royal Eight (${nm})`, 10000, 'LEGENDARY', 'royal_eight');
+    if (n === 6) return R(`Royal Six (${nm})`, 1000, 'LEGENDARY', 'royal_six');
+    if (n === 7) return R(`Royal Seven (${nm})`, 2000, 'LEGENDARY', 'royal_seven');
+    if (n === 8) return R(`Royal Eight (${nm})`, 4000, 'LEGENDARY', 'royal_eight');
     return { valid:false, reason:'Max same-rank combo size is 8' };
   }
 
@@ -3111,11 +3155,12 @@ function tryStraightFlush(cards) {
   return result;
 }
  
-// ── ROYAL FLUSH: A-K-Q-J-10 same suit (jokers wild) ─────────────────
+// ── ROYAL FLUSH: A-K-Q-J-10 same suit (natural only) ────────────────
 function tryRoyalFlush(cards) {
   if (cards.length !== 5) return { valid:false };
   const jokers = cards.filter(c => c.rank==='JKR');
   const nonJ   = cards.filter(c => c.rank!=='JKR');
+  if (jokers.length > 0) return { valid:false, reason:'Royal Flush must be natural (no Joker extension)' };
   if (nonJ.length === 0) return { valid:false };
   const suit = nonJ[0].suit;
   if (!nonJ.every(c => c.suit===suit)) return { valid:false };
@@ -3168,41 +3213,42 @@ function tryFullHouse(cards) {
   const W = jokers.length > 0 ? ' 🃏' : '';
  
   // Exact: [2,3]
-  if (jokers.length===0 && JSON.stringify(vals)==='[2,3]') return R('Full House'+W, 55, 'RARE', 'full_house');
+  if (jokers.length===0 && JSON.stringify(vals)==='[2,3]') return R('Full House'+W, 60, 'RARE', 'full_house');
   // 1 joker: [2,2]→[2,3] or [1,3]→[2,3] or [4]→FH (4+1 one rank, Joker makes pair)
   if (jokers.length===1) {
-    if (vals.length===2 && vals[0]===2 && vals[1]===2) return R('Full House'+W, 55, 'RARE', 'full_house');
-    if (vals.length===2 && ((vals[0]===1&&vals[1]===3)||(vals[0]===3&&vals[1]===1))) return R('Full House'+W, 55, 'RARE', 'full_house');
-    if (vals.length===1 && vals[0]===4) return R('Full House'+W, 55, 'RARE', 'full_house');
+    if (vals.length===2 && vals[0]===2 && vals[1]===2) return R('Full House'+W, 60, 'RARE', 'full_house');
+    if (vals.length===2 && ((vals[0]===1&&vals[1]===3)||(vals[0]===3&&vals[1]===1))) return R('Full House'+W, 60, 'RARE', 'full_house');
+    if (vals.length===1 && vals[0]===4) return R('Full House'+W, 60, 'RARE', 'full_house');
   }
   // 2 jokers: [1,2]→[3,2] or [3]→[3,2] or [2,1]
   if (jokers.length===2) {
-    if (vals.length===2) return R('Full House'+W, 55, 'RARE', 'full_house');
-    if (vals.length===1 && vals[0]===3) return R('Full House'+W, 55, 'RARE', 'full_house');
+    if (vals.length===2) return R('Full House'+W, 60, 'RARE', 'full_house');
+    if (vals.length===1 && vals[0]===3) return R('Full House'+W, 60, 'RARE', 'full_house');
   }
   // 3 jokers: any 2 non-jokers of different ranks → FH
-  if (jokers.length===3 && nonJ.length===2 && vals.length===2) return R('Full House'+W, 55, 'RARE', 'full_house');
+  if (jokers.length===3 && nonJ.length===2 && vals.length===2) return R('Full House'+W, 60, 'RARE', 'full_house');
   return { valid:false };
 }
  
-// ── EVEN STEVEN: 2-4-6-8-10 (any suits, jokers fill) ────────────────
+// ── EVEN STEVEN: 2-4-6-8-10 (natural only) ───────────────────────────
 function tryEvenSteven(cards) {
   if (cards.length !== 5) return { valid:false };
   const jokers = cards.filter(c => c.rank==='JKR');
   const nonJ   = cards.filter(c => c.rank!=='JKR');
+  if (jokers.length > 0) return { valid:false, reason:'Even Steven must be natural (no Joker extension)' };
   const evens  = new Set(['2','4','6','8','10']);
   if (!nonJ.every(c => evens.has(c.rank))) return { valid:false };
   const covered = new Set(nonJ.map(c => c.rank));
   const missing = [...evens].filter(r => !covered.has(r));
   if (missing.length > jokers.length) return { valid:false };
-  const W = jokers.length > 0 ? ' 🃏' : '';
-  return R('Even Steven (2-4-6-8-10)'+W, 88, 'RARE', 'even_steven');
+  return R('Even Steven (2-4-6-8-10)', 100, 'RARE', 'even_steven');
 }
- 
-// ── CASCADE HOUSE: 44499 or 44999 ───────────────────────────────────
+
+// ── CASCADE HOUSE: 44499 or 44999 (natural only) ────────────────────
 function tryCascadeHouse(cards) {
   if (cards.length !== 5) return { valid:false };
   const jokers = cards.filter(c => c.rank==='JKR');
+  if (jokers.length > 0) return { valid:false, reason:'Cascade House must be natural (no Joker extension)' };
   const nonJ   = cards.filter(c => c.rank!=='JKR');
   const counts = {};
   nonJ.forEach(c => { counts[c.rank]=(counts[c.rank]||0)+1; });
@@ -3217,17 +3263,6 @@ function tryCascadeHouse(cards) {
     if (!ranks.includes('4')||!ranks.includes('9')) return { valid:false };
     if (JSON.stringify(cnts)!=='[2,3]') return { valid:false };
     return R('Cascade House (4s & 9s)', 125, 'RARE', 'cascade_house');
-  }
-  // With jokers: nonJ must all be 4s or 9s, fill to make [2,3] pattern
-  if (!nonJ.every(c=>c.rank==='4'||c.rank==='9')) return { valid:false };
-  const c4 = nonJ.filter(c=>c.rank==='4').length;
-  const c9 = nonJ.filter(c=>c.rank==='9').length;
-  const jN  = jokers.length;
-  // Must total 5 with 4s and 9s, need one group of 2 and one of 3
-  for (let j4=0;j4<=jN;j4++){
-    const j9=jN-j4;
-    const t4=c4+j4, t9=c9+j9;
-    if((t4===2&&t9===3)||(t4===3&&t9===2)) return R('Cascade House 🃏', 125, 'RARE', 'cascade_house');
   }
   return { valid:false };
 }
@@ -3264,11 +3299,11 @@ function tryRoyalRoots(cards) {
 function tryDeadMansHand(cards) {
   if (cards.length !== 5) return { valid:false };
   const blacks = ['♠','♣'];
+  if (!cards.every(c => ['JKR','8','A'].includes(c.rank))) return { valid:false };
   const jokers  = cards.filter(c=>c.rank==='JKR'&&blacks.includes(c.suit));
   const eights  = cards.filter(c=>c.rank==='8'&&blacks.includes(c.suit));
   const aces    = cards.filter(c=>c.rank==='A'&&blacks.includes(c.suit));
-  if (jokers.length>=1 && eights.length>=1 && aces.length>=1 &&
-      jokers.length+eights.length+aces.length===5) {
+  if (jokers.length===1 && eights.length===2 && aces.length===2) {
     return R('Dead Man\'s Hand 💀', 666, 'LEGENDARY', 'dead_mans_hand');
   }
   return { valid:false };
@@ -3291,7 +3326,7 @@ function tryRoyalDeadMan(cards) {
   if (total8===2 && totalA===2 &&
       cards.filter(c=>c.rank==='8').every(c=>c.suit===suit) &&
       cards.filter(c=>c.rank==='A').every(c=>c.suit===suit)) {
-    return R('ROYAL DEAD MAN 💀👑', 3000, 'LEGENDARY', 'royal_dead_man');
+    return R('ROYAL DEAD MAN 💀👑', 999, 'LEGENDARY', 'royal_dead_man');
   }
   return { valid:false };
 }
@@ -3301,25 +3336,25 @@ function getComboPoints(cards) { return evalCombo(cards).pts || 0; }
 // Combo effect descriptions for Action Log (name + info when triggered)
 const COMBO_EFFECT_DESC = {
   joker_single: 'Joker: trigger suit wildcard effect, then play any combo',
-  even_steven: 'Even Steven (2-4-6-8-10): You/partner flush 2, you pick 2 from discard, teammate plays any combo (solo: +1 Royal Dice)',
-  roots: 'Roots (J-Q-K-A-Joker): Pick 2 enemies — they draw 4, others draw 2',
-  cascade_house: 'Cascade House (44499/44999): Switch hands with an enemy; they draw 4 after',
-  royal_five: 'Royal Five (5-of-a-kind): Banish enemy 2,3,J,Q,K,A,Joker to discard; 3oaK skill',
-  joker_house: 'Joker House (3J+2Joker): Enemies draw 2, dismiss 4, both Joker effects cascade',
-  royal_flush: 'Royal Flush: Flush 4 cards (can flush hand clean)',
-  royal_joker_house: 'Royal Joker House (2J+3Joker): Enemies draw 2, dismiss 4, 3 Joker effects, skip 2',
+  even_steven: 'Even Steven (2-4-6-8-10, natural only): You/partner flush 2, you pick 2 from discard, teammate plays any combo (solo: +1 Royal Dice)',
+  roots: 'Roots (J-Q-K-A-Joker, exact 5 cards): Pick 2 enemies — they draw 4, others draw 2',
+  cascade_house: 'Cascade House (44499/44999, natural only): Switch hands with an enemy; they draw 4 after',
+  royal_five: 'Royal Five (5-of-a-kind, natural only): Banish enemy 2,3,J,Q,K,A,Joker to discard; 3oaK skill',
+  joker_house: 'Joker House (3J+2Joker, exact 5 cards): Enemies draw 2, dismiss 4, both Joker effects cascade',
+  royal_flush: 'Royal Flush (natural only): Flush 4 cards (can flush hand clean)',
+  royal_joker_house: 'Royal Joker House (2J+3Joker, exact 5 cards): Enemies draw 2, dismiss 4, 3 Joker effects, skip 2',
   madame_joker: 'Madame Joker: You/teammate skip Law Draw this turn, all enemies take +1 Law Draw and pay 10 points + 100 coins to player/team, all trap cards flip face-up, then declare next opener suit',
-  dead_mans_hand: 'Dead Man\'s Hand: Auto-match win. Enemies +2 cards next match',
+  dead_mans_hand: 'Dead Man\'s Hand (exact 5 cards): Auto-match win. Enemies +2 cards next match',
   calamity_mary_jane: 'Calamity Mary Jane: Auto-match win. Enemies +1 card next match',
-  royal_roots: 'Royal Roots (in suit): Auto-match win. Winner starts with 3 flushed next match',
+  royal_roots: 'Royal Roots (in suit, exact 5 cards): Auto-match win. Winner starts with 3 flushed next match',
   joker_cascade: 'Joker Cascade (5 Jokers): Auto-match win (5 match wins)',
-  royal_six: 'Royal Six: Auto-match win (2 wins). Winner/teammate start with 6 cards',
-  royal_dead_man: 'Royal Dead Man: Auto-match win. You 6 cards, enemies +4 next match',
+  royal_six: 'Royal Six (natural only): Auto-match win (2 wins). Winner/teammate start with 6 cards',
+  royal_dead_man: 'Royal Dead Man (exact 5 cards): Auto-match win. You 6 cards, enemies +4 next match',
   bloody_mary_jane: 'Bloody Mary Jane: Auto-match win. You 6 cards, enemies +2 next match',
-  royal_seven: 'Royal Seven: Auto-match win (4 match wins)',
+  royal_seven: 'Royal Seven (natural only): Auto-match win (4 match wins)',
   royal_eight: 'Royal Eight: Auto-match win (10 match wins)',
-  royal_jacksons: 'Royal Jacksons (4J+4Joker): Auto-match win (20 match wins)',
-  overpass: 'The Overpass (2-10): Auto-match win. +2 Dice Rolls next match',
+  royal_jacksons: 'Royal Jacksons (4J+5Joker): Auto-match win (20 match wins)',
+  overpass: 'The Overpass (2-10, natural only): Auto-match win. +2 Dice Rolls next match',
 };
 
 function _comboActorWantsToSkip(pidx, effectLabel, aiSkipChance = 0.35, opts = {}) {
@@ -5940,7 +5975,7 @@ function renderHeartPicker(them, body) {
     if (!el) return;
     el.innerHTML = them.hand.map((_,i) => {
       const sel = st.picks.includes(i);
-      return `<div class="card-back" style="width:52px;height:74px;font-size:16px;border:${sel?'2px solid var(--gold)':'1px solid var(--gold-dark)'};box-shadow:${sel?'0 0 10px rgba(240,192,64,.5)':'none'};cursor:pointer" title="Unknown card">🂠</div>`;
+      return `<div class="card-back" style="width:52px;height:74px;border:${sel?'2px solid var(--gold)':'1px solid var(--gold-dark)'};box-shadow:${sel?'0 0 10px rgba(240,192,64,.5)':'none'};cursor:pointer" title="Face-down card"></div>`;
     }).join('');
     el.querySelectorAll('.card-back').forEach((cel,i) => {
       cel.addEventListener('click', () => {
@@ -11057,6 +11092,8 @@ function canExtendSelection(card, currentSel) {
     if (jokerCountInSel >= 1 && (type === 'straight' || type === 'straight_flush' || type === 'flush')) {
       return false;
     }
+    const trialJoker = [...currentSel, card];
+    if (_jokerSignatureOverextended(trialJoker)) return false;
     return true;
   }
 
@@ -12075,30 +12112,30 @@ const COMBO_TABLE = [
   ['Heart Joker','15','Wildcard! 2 actions: banish 1-2 cards from any person (they draw same count) OR destroy 1-2 trap cards; play any combo (declare war against any joker)'],
   ['Madame Joker (Overrides All-No Joker War)','25','Wildcard! You and teammate skip Law Draw this turn, all enemies take +1 Law Draw and pay 10 points + 100 coins. All trap cards flip face-up. Choose suit'],
   ['Double/Triple/Quad Joker','40/100/500','40 points for Double Joker, 100 for Triple Joker, 500 for 4 Jokers; all played Joker effects are activated, play any combo'],
-  ['Full House','40','House Party: You have 2 cards to give away. Whoever gets 1 of your cards must draw 2'],
+  ['Full House','60','House Party: You have 2 cards to give away. Whoever gets 1 of your cards must draw 2'],
   ['Triple Double','75','Two 3-of-a-kinds: You have 2 cards to give away (or 3 solo), your teammate has 2. Whoever they give 1 of their cards to must draw 2'],
   ['Straight','45(+5)','All others draw 2, partner safe, +5 for each card extension, all players draw 3 at 7+ Straight (6 card +5, 7 card +10, etc.)'],
   ['Flush','55(+5)','Discard (flush) 1 card, partner flushes 2 cards (solo you flush 1 card. Flush 2 cards at 7+ Flush), +5 for each card extension (6 card +5, 7 card +10, etc.)'],
   ['Straight Flush','80(+10)','All others draw 2; you and teammate flush 2 from partner, flush 3 and enemy draw 3 at 7+ straight (6 card +10, 7 card +20, etc.)'],
   ['Face Card Straight/Flush','-5','Combo effects automatically negated. 5 less points for straight and flush (straight flush -15 and Royal Flush -300 included)'],
-  ['All-Even (Even Steven) (2-4-6-8-10)','88','Player and partner flushes 2 cards, you pick two from discard, teammate plays any combo. Gain a Dice Roll if solo'],
-  ['Roots (J-Q-K-A-Joker any suits)','125','Pick two enemies, they must draw 4, all other enemies draw 2'],
-  ['Cascade House (44499 or 44999)','125','Switch hands with an enemy player. They must draw 4 immediately after switch'],
-  ['Royal Five (5-of-a-kind)','150','Banish enemy cards 2,3,J,Q,K,A and Joker to the back of the discard pile; 3-of-a-kind skill activates'],
-  ['Joker House (3J, 2Joker)','200','Enemy players draw 2, discard 4 from your hand and partner, both Joker effects cascade in order, play any combo'],
-  ['Royal Flush','400','Flush 4 cards. Can flush hand clean if possible'],
-  ['Royal Joker House (2J, 3Joker)','500','Enemy players draw 2, discard 4 from your hand and partner, all three Joker effects cascade in order, play any combo, skip 2 players'],
-  ['Calamity Mary Jane (♥♠QQ420 Either Suit)','555','Auto-Match win. Enemies are cursed with +1 starting card next match'],
-  ["Dead Man's Hand (♠♣AA88JKR Either Suit)",'666','Auto-Match win. Enemies are cursed with +2 starting cards next match'],
-  ['Royal Roots (J-Q-K-A-Joker in suit)','777','Auto-Match win. Start next match with 3 of your 10 cards immediately flushed by dealer'],
-  ['The Overpass (2,3,4,5,6,7,8,9,10)','1000','Auto-Match win. Start next match with 2 extra Dice Rolls'],
-  ['Bloody Mary Jane (♥♠QQ420 Same Suit)','2000','Auto-Match win. You start with 6 cards next match; enemies are cursed with +2 starting cards'],
-  ['Royal Dead Man (♣♠88AAJKR Same Suit)','3000','Auto-Match win. You start with 6 cards next match; enemies are cursed with +4 starting cards'],
-  ['Royal Six (6-of-a-kind)','3000','Auto-Match win. Counts as 2 match wins; you (and teammate) start with 6 cards next match'],
-  ['Royal Seven (7-of-a-kind)','4000','Auto-Match win. Counts as 4 match wins'],
-  ['Joker Cascade (5 Jokers)','5000','Auto-Match win. Counts as 5 match wins'],
-  ['Royal Eight (8-of-a-kind)','10000','Auto-Match win. Counts as 10 match wins'],
-  ['Royal Jacksons (The Jacksons) (4J, 5Joker)','20000','Auto-Match win. Counts as 20 match wins'],
+  ['All-Even (Even Steven) (2-4-6-8-10)','100','Natural only (no Joker extension). Player and partner flushes 2 cards, you pick two from discard, teammate plays any combo. Gain a Dice Roll if solo'],
+  ['Roots (J-Q-K-A-Joker any suits)','125','Exact 5-card signature (no extra Jokers). Pick two enemies, they must draw 4, all other enemies draw 2'],
+  ['Cascade House (44499 or 44999)','125','Natural only (no Joker extension). Switch hands with an enemy player. They must draw 4 immediately after switch'],
+  ['Royal Five (5-of-a-kind)','150','Natural only (no Joker extension). Banish enemy cards 2,3,J,Q,K,A and Joker to the back of the discard pile; 3-of-a-kind skill activates'],
+  ['Joker House (3J, 2Joker)','200','Exact 5-card signature (no extra Jokers). Enemy players draw 2, discard 4 from your hand and partner, both Joker effects cascade in order, play any combo'],
+  ['Royal Flush','400','Natural only (no Joker extension). Flush 4 cards. Can flush hand clean if possible'],
+  ['Royal Joker House (2J, 3Joker)','500','Exact 5-card signature (no extra Jokers). Enemy players draw 2, discard 4 from your hand and partner, all three Joker effects cascade in order, play any combo, skip 2 players'],
+  ['Calamity Mary Jane (♥♠QQ420 Either Suit)','555','Natural only (no Joker extension). Auto-Match win. Enemies are cursed with +1 starting card next match'],
+  ["Dead Man's Hand (♠♣AA88JKR Either Suit)",'666','Exact 5-card signature (no extra Jokers). Auto-Match win. Enemies are cursed with +2 starting cards next match'],
+  ['Royal Roots (J-Q-K-A-Joker in suit)','777','Exact 5-card signature (no extra Jokers). Auto-Match win. Start next match with 3 of your 10 cards immediately flushed by dealer'],
+  ['The Overpass (2,3,4,5,6,7,8,9,10)','500','Natural only (no Joker extension). Auto-Match win. Start next match with 2 extra Dice Rolls'],
+  ['Bloody Mary Jane (♥♠QQ420 Same Suit)','999','Natural only (no Joker extension). Auto-Match win. You start with 6 cards next match; enemies are cursed with +2 starting cards'],
+  ['Royal Dead Man (♣♠88AAJKR Same Suit)','999','Exact 5-card signature (no extra Jokers). Auto-Match win. You start with 6 cards next match; enemies are cursed with +4 starting cards'],
+  ['Royal Six (6-of-a-kind)','1000','Natural only (no Joker extension). Auto-Match win. Counts as 2 match wins; you (and teammate) start with 6 cards next match'],
+  ['Royal Seven (7-of-a-kind)','2000','Natural only (no Joker extension). Auto-Match win. Counts as 4 match wins'],
+  ['Joker Cascade (5 Jokers)','3000','Auto-Match win. Counts as 5 match wins'],
+  ['Royal Eight (8-of-a-kind)','4000','Auto-Match win. Counts as 10 match wins'],
+  ['Royal Jacksons (The Jacksons) (4J, 5Joker)','5000','Auto-Match win. Counts as 20 match wins'],
   ['ROOT OUT!','100/-200','If called and won: +100 and match over. If failed: -200 penalty and all combo effects are canceled'],
   ['Royal War','10','Win a WAR (challenge, tie-breaker, or Dice Duel)'],
 ];
@@ -12310,7 +12347,7 @@ function renderDraftScreen() {
           const _db = {'♠':'#a88a20','♦':'#888','♣':'#1a7a44','♥':'#a93226'}[t.picks[ci].suit]||'#555';
           return `<div class="draft-mini-card revealed" style="color:${_dc};border-color:${_db};box-shadow:0 0 6px ${_dc}44">${t.picks[ci].rank}<br>${t.picks[ci].suit}</div>`;
         }
-        return `<div class="draft-mini-card back">🂠</div>`;
+        return `<div class="draft-mini-card back" aria-label="Face-down card"></div>`;
       }).join('');
       const badge = allDone ? `<span style="font-size:9px;font-family:Cinzel,serif;color:rgba(240,192,64,.5);margin-left:6px">#${rank+1}</span>` : '';
       return `<div class="draft-player-row${t.done?' done':''}${isHuman&&!t.done?' active':''}">
@@ -12368,7 +12405,7 @@ function _dealAddCardToHand(pidx, cardCount) {
       wrapper.innerHTML = cardEl(card, '');
     } else {
       // Fallback: face-down card-back
-      wrapper.innerHTML = '<div class="card" style="background:linear-gradient(160deg,#2a2a2a,#1a1a1a);border:2px solid rgba(240,192,64,.4);border-radius:9px;width:64px;height:90px;flex-shrink:0;"></div>';
+      wrapper.innerHTML = '<div class="card-back" style="width:64px;height:90px;flex-shrink:0;"></div>';
     }
     ph.appendChild(wrapper);
   } else {
@@ -13423,7 +13460,9 @@ function showRules() {
       <b>Joker</b> — overrides anything. Activates its unique effect. War if countered with matching Joker count.<br>
       <b>Madame Joker</b> — cannot be warred and cannot be overridden by Kings/Queens/Jacks/other Jokers.<br><br>
       <b>🃏 Joker in Combo Extensions:</b><br>
-      • <b>1 Joker</b> — acts as a wild card. Can extend any combo: straights, flushes, sets, or face card runs. Fills gaps in straights, matches any suit in flushes.<br>
+      • <b>1 Joker</b> — wild extension for most standard combos (straights, flushes, sets, and face-card lines) when legal.<br>
+      • <b>Natural-only Royal/Special combos</b> (no Joker extension): <b>Royal Flush</b>, <b>All-Even / Even Steven</b>, <b>Cascade House</b>, <b>Royal Five</b>, <b>Royal Six</b>, <b>Royal Seven</b>, <b>The Overpass</b>, <b>Calamity Mary Jane</b>, and <b>Bloody Mary Jane</b>.<br>
+      • <b>Exact Joker-signature combos</b> (no extra Jokers beyond recipe): <b>Roots</b>, <b>Joker House</b>, <b>Royal Joker House</b>, <b>Royal Roots</b>, <b>Dead Man's Hand</b>, and <b>Royal Dead Man</b>.<br>
       • <b>2+ Jokers together</b> — locked to Joker-only combos (Double, Triple, Quad, Joker House, Royal Joker House, Joker Cascade). Straights and flushes <b>cannot</b> connect to a 2-Joker selection. Only cards specifically designed for Joker combos apply.
     `},
     { h:'⚔️ WAR', body:`
@@ -13523,7 +13562,7 @@ function _buildAddOnsHelp() {
 
   return sec('🚀','OVERPASS (THE SCAVENGER\'S EXIT)',`
     Reveal a clean <b>2-3-4-5-6-7-8-9-10</b> hand to claim an instant match win.<br>
-    Awards <b>+1000 points</b> and immediately closes the match.
+    Awards <b>+500 points</b> and immediately closes the match.
   `) +
   sec('📜','LAW PASS (THE SHORTCUT VICTORY)',`
     If your hand is exactly <b>2 + 3</b>, you instantly win the match.<br>
